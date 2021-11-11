@@ -21,3 +21,5 @@ Data type: impedance tensor, vertical magnetic transfer function, inter-station 
 Parallel computation: Hybrid MPI/OpenMP parallel calculation can be used.
 
 Model parameter: Subsurface electrical resistivity and distortion matrix of galvanic distortion.
+
+https://github.com/yoshiya-usui/femtic/issues/1#issue-1050603587
