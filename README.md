@@ -23,15 +23,15 @@ FEMTIC gives a three-dimensional electrical resistivity structure from the respo
 **Model parameter**: Subsurface electrical resistivity and distortion matrix of galvanic distortion.
 
 # Release note
-***v4.1*** Nov. 9, 2021 This new version supports difference filter. The error calculation of log10(apparent resistivity) is modified. Rotation angles of distortion matrix are limited to from -90 to 90 (deg.) when gains and rotations of galvanic distortion are estimated.
+***v4.1*** Nov. 9, 2021: This new version supports difference filter. The error calculation of log10(apparent resistivity) is modified. Rotation angles of distortion matrix are limited to from -90 to 90 (deg.) when gains and rotations of galvanic distortion are estimated.
 
-***v4.0*** Jun. 3, 2021 This new version supports non-conforming deformed hexahedral mesh.
+***v4.0*** Jun. 3, 2021: This new version supports non-conforming deformed hexahedral mesh.
 
-***v3.5*** Jan. 11, 2021 This new version supports observed data of apparent resistivity and phase and unsymmetric roughening matrix.
+***v3.5*** Jan. 11, 2021: This new version supports observed data of apparent resistivity and phase and unsymmetric roughening matrix.
 
-***v3.4.7*** Sep. 4, 2020 The integer indices into the multiple right-hand-side vectors and solution vectors were changed from 32-bit to 64-bit.
+***v3.4.7*** Sep. 4, 2020: The integer indices into the multiple right-hand-side vectors and solution vectors were changed from 32-bit to 64-bit.
 
-***v3.4.6*** Sep. 2, 2020 This version allows us to make resistivity of every individual subsurface element to be a different model parameter, in analogy with other 3-D inversion code.
+***v3.4.6*** Sep. 2, 2020: This version allows us to make resistivity of every individual subsurface element to be a different model parameter, in analogy with other 3-D inversion code.
 
 # Pre/post-processing tools for FEMTIC
 Some pre/post-processing tools for FEMTIC, including meshing tools, and their manuals can be downloaded from GitHub. Results of FEMTIC can be visualized by ParaView.
