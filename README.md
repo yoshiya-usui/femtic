@@ -10,3 +10,14 @@ Y. Usui, T. Kasaya, Y. Ogawa and H. Iwamoto, Marine magnetotelluric inversion wi
 
 The website of FEMTIC:
 https://sites.google.com/view/yoshiyausui/femtic
+
+# Functional overview
+FEMTIC gives a three-dimensional electrical resistivity structure from the response functions at observation points on the Earth's surface.
+
+Mesh type: tetrahedral mesh, hexahedral brick mesh, and non-conforming deformed hexahedral mesh
+
+Data type: impedance tensor, vertical magnetic transfer function, inter-station horizontal magnetic transfer function, phase tensor, apparent resistivity, and phase.
+
+Parallel computation: Hybrid MPI/OpenMP parallel calculation can be used.
+
+Model parameter: Subsurface electrical resistivity and distortion matrix of galvanic distortion.
