@@ -8,8 +8,8 @@ FEMTIC was made using object-oriented programming with C++.
 
 *Y. Usui, T. Kasaya, Y. Ogawa and H. Iwamoto, Marine magnetotelluric inversion with an unstructured tetrahedral mesh, Geophys. J. Int., 214(2): 952-974, https://doi.org/10.1093/gji/ggy171, 2018.*
 
-**The website of FEMTIC:
-https://sites.google.com/view/yoshiyausui/femtic**
+**The website of FEMTIC:**
+https://sites.google.com/view/yoshiyausui/femtic
 
 # Functional overview
 FEMTIC gives a three-dimensional electrical resistivity structure from the response functions at observation points on the Earth's surface.
