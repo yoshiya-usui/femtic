@@ -36,18 +36,18 @@ Model parameter: Subsurface electrical resistivity and distortion matrix of galv
 # Pre/post-processing tools for FEMTIC
 Some pre/post-processing tools for FEMTIC, including meshing tools, and their manuals can be downloaded from Github. Results of FEMTIC can be visualized by ParaView.
 
-[makeTetraMesh](https://github.com/yoshiya-usui/makeTetraMesh.git) : By using this tool, you can make a surface mesh for creating a tetrahedral mesh.
+[makeTetraMesh](https://github.com/yoshiya-usui/makeTetraMesh.git): By using this tool, you can make a surface mesh for creating a tetrahedral mesh.
 
-makeMtr : This tool output .mtr file of TetGen by reading node and .ele files of TetGen.
+[makeMtr](https://github.com/yoshiya-usui/makeMtr.git): This tool output .mtr file of TetGen by reading node and .ele files of TetGen.
 
-TetGen2Femtic : This program converts output files of TetGen to FEMTIC.
+[TetGen2Femtic](https://github.com/yoshiya-usui/TetGen2Femtic.git): This program converts output files of TetGen to FEMTIC.
 
-makeHexaMesh : Tool for making hexahedral mesh for FEMTIC
+[makeDHexaMesh](https://github.com/yoshiya-usui/makeDHexaMesh.git): Tool for making non-conforming deformed hexahedral mesh for FEMTIC
 
-makeDHexaMesh :  Tool for making non-conforming deformed hexahedral mesh for FEMTIC
+[makeHexaMesh](https://github.com/yoshiya-usui/makeHexaMesh.git): Tool for making hexahedral brick mesh for FEMTIC
 
-mergeResultOfFEMTIC : By this program, you can merge result files (.csv) of FEMTIC.
+[mergeResultOfFEMTIC](https://github.com/yoshiya-usui/mergeResultOfFEMTIC.git): By this program, you can merge result files (.csv) of FEMTIC.
 
-makeCutawayForGMT : By using this program, you can make a file needed to draw a cross-section of a resistivity structure by GMT.
+[makeCutawayForGMT](https://github.com/yoshiya-usui/makeCutawayForGMT.git): By using this program, you can make a file needed to draw a cross-section of a resistivity structure by GMT.
 
-changeResistivityForFemtic : By this program, you can change resistivity values of a specified area for sensitivity tests of FEMTIC inversion results
+[changeResistivityForFemtic](https://github.com/yoshiya-usui/changeResistivityForFemtic.git): By this program, you can change resistivity values of a specified area for sensitivity tests of FEMTIC inversion results
