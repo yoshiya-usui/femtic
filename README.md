@@ -33,3 +33,21 @@ Model parameter: Subsurface electrical resistivity and distortion matrix of galv
 
 ***v3.4.6*** Sep. 2, 2020 This version allows us to make resistivity of every individual subsurface element to be a different model parameter, in analogy with other 3-D inversion code.
 
+# Pre/post-processing tools for FEMTIC
+Some pre/post-processing tools for FEMTIC, including meshing tools, and their manuals can be downloaded from Github. Results of FEMTIC can be visualized by ParaView.
+
+[makeTetraMesh](https://github.com/yoshiya-usui/makeTetraMesh.git) : By using this tool, you can make a surface mesh for creating a tetrahedral mesh.
+
+makeMtr : This tool output .mtr file of TetGen by reading node and .ele files of TetGen.
+
+TetGen2Femtic : This program converts output files of TetGen to FEMTIC.
+
+makeHexaMesh : Tool for making hexahedral mesh for FEMTIC
+
+makeDHexaMesh :  Tool for making non-conforming deformed hexahedral mesh for FEMTIC
+
+mergeResultOfFEMTIC : By this program, you can merge result files (.csv) of FEMTIC.
+
+makeCutawayForGMT : By using this program, you can make a file needed to draw a cross-section of a resistivity structure by GMT.
+
+changeResistivityForFemtic : By this program, you can change resistivity values of a specified area for sensitivity tests of FEMTIC inversion results
