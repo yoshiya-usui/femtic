@@ -14,13 +14,13 @@ https://sites.google.com/view/yoshiyausui/femtic
 # Functional overview
 FEMTIC gives a three-dimensional electrical resistivity structure from the response functions at observation points on the Earth's surface.
 
-Mesh type: tetrahedral mesh, hexahedral brick mesh, and non-conforming deformed hexahedral mesh
+**Mesh type**: tetrahedral mesh, hexahedral brick mesh, and non-conforming deformed hexahedral mesh
 
-Data type: impedance tensor, vertical magnetic transfer function, inter-station horizontal magnetic transfer function, phase tensor, apparent resistivity, and phase.
+**Data type**: impedance tensor, vertical magnetic transfer function, inter-station horizontal magnetic transfer function, phase tensor, apparent resistivity, and phase.
 
-Parallel computation: Hybrid MPI/OpenMP parallel calculation can be used.
+**Parallel computation**: Hybrid MPI/OpenMP parallel calculation can be used.
 
-Model parameter: Subsurface electrical resistivity and distortion matrix of galvanic distortion.
+**Model parameter**: Subsurface electrical resistivity and distortion matrix of galvanic distortion.
 
 # Release note
 ***v4.1*** Nov. 9, 2021 This new version supports difference filter. The error calculation of log10(apparent resistivity) is modified. Rotation angles of distortion matrix are limited to from -90 to 90 (deg.) when gains and rotations of galvanic distortion are estimated.
