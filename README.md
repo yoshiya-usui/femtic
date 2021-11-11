@@ -34,7 +34,7 @@ Model parameter: Subsurface electrical resistivity and distortion matrix of galv
 ***v3.4.6*** Sep. 2, 2020 This version allows us to make resistivity of every individual subsurface element to be a different model parameter, in analogy with other 3-D inversion code.
 
 # Pre/post-processing tools for FEMTIC
-Some pre/post-processing tools for FEMTIC, including meshing tools, and their manuals can be downloaded from Github. Results of FEMTIC can be visualized by ParaView.
+Some pre/post-processing tools for FEMTIC, including meshing tools, and their manuals can be downloaded from GitHub. Results of FEMTIC can be visualized by ParaView.
 
 [makeTetraMesh](https://github.com/yoshiya-usui/makeTetraMesh.git): By using this tool, you can make a surface mesh for creating a tetrahedral mesh.
 
