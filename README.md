@@ -19,7 +19,7 @@ FEMTIC gives a three-dimensional electrical resistivity structure from the respo
 
 **Inversion algorithm**: Model-space Gauss-Netwon method / Data-space Gauss-Netwon method
 
-**Parallel computation**: Hybrid MPI/OpenMP parallel calculation can be used.
+**Parallel computation**: Multiple processes parallel computation with MPI / Multiple threads parallel computation with OpenMP / MPI & OpenMP hybrid parallel computation
 
 **Model parameter**: Subsurface electrical resistivity / Distortion matrix of galvanic distortion.
 
