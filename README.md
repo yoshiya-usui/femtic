@@ -1,5 +1,5 @@
 # FEMTIC
-FEMTIC is a 3-D magnetotelluric inversion code based on the following studies. FEMTIC was made using object-oriented programming with C++. FEMTIC enables us to incorporate topography and bathymetry into an inversion model.
+FEMTIC is a 3-D magnetotelluric inversion code based on the following studies. FEMTIC was made using object-oriented programming with C++. FEMTIC enables us to incorporate topography and bathymetry into an inversion model. FEMTIC is applicable to land magnetelluric survey data as well as ocean bottom magnetelluric survey data.
 
 *Y. Usui, 3-D inversion of magnetotelluric data using unstructured tetrahedral elements: applicability to data affected by topography, Geophys. J. Int., 202 (2): 828-849, https://doi.org/10.1093/gji/ggv186, 2015.*
 
