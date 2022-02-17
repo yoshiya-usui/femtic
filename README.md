@@ -23,6 +23,9 @@ FEMTIC gives a three-dimensional electrical resistivity structure from the respo
 
 **Model parameter**: Subsurface electrical resistivity / Distortion matrix of galvanic distortion
 
+**Regularization**: L2 regularization with Laplacian filter / L2 regularization with difference filter /  L1 regularization with difference filter
+
+
 # Release note
 ***v4.1*** Nov. 9, 2021: This new version supports difference filter. The error calculation of log10(apparent resistivity) is modified. Rotation angles of distortion matrix are limited to from -90 to 90 (deg.) when gains and rotations of galvanic distortion are estimated.
 
