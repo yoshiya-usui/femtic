@@ -726,15 +726,12 @@ void MeshDataTetraElement::findElementsIncludingDipoleOnSurface( const double lo
 			std::cout << "icount : " << icount << std::endl;
 #endif
 
-			if( icount == 0 ){
-
-				if( elemID == iElemStart && elemID == iElemEnd ){
-					intersectPoints[0] = nodeCoordDipoleStart;
-					intersectPoints[1] = nodeCoordDipoleEnd;
-				}else{
-					continue;
-				}
-
+			if( elemID == iElemStart && elemID == iElemEnd ){
+				intersectPoints[0] = nodeCoordDipoleStart;
+				intersectPoints[1] = nodeCoordDipoleEnd;
+			}
+			else if( icount == 0 ){
+				continue;
 			}else if( icount == 1 ){
 
 				if( elemID == iElemStart ){
@@ -864,6 +861,13 @@ void MeshDataTetraElement::findElementsIncludingDipoleOnSurface( const double lo
 		++itr0;
 		++itr1;
 	}
+
+	if( fabs(dipoleLength - dipoleLengthAccumulated) / fabs(dipoleLength) > 0.01 ){
+		OutputFiles::m_logFile << " Warning : Accumulated dipole length (" << dipoleLengthAccumulated
+			<< ") is significantly different from the dipole length of the horizontal plane (" << dipoleLength
+			<< ")" << std::endl;
+	}
+
 }
 
 // Decide whether specified elements share same edges
@@ -1382,191 +1386,6 @@ MeshDataTetraElement& MeshDataTetraElement::operator=(const MeshDataTetraElement
 }
 
 // Function determine if two segments intersect or not
-bool MeshDataTetraElement::intersectTwoSegments( const CommonParameters::locationXY& startPointOf1stSegment, const CommonParameters::locationXY& endPointOf1stSegment,
-	const CommonParameters::locationXY& startPointOf2ndSegment, const CommonParameters::locationXY& endPointOf2ndSegment ) const{
-
-	const double val1 = ( endPointOf1stSegment.Y - startPointOf1stSegment.Y ) * ( startPointOf2ndSegment.X - startPointOf1stSegment.X ) + ( endPointOf1stSegment.X - startPointOf1stSegment.X ) * ( startPointOf1stSegment.Y - startPointOf2ndSegment.Y );
-	const double val2 = ( endPointOf1stSegment.Y - startPointOf1stSegment.Y ) * (   endPointOf2ndSegment.X - startPointOf1stSegment.X ) + ( endPointOf1stSegment.X - startPointOf1stSegment.X ) * ( startPointOf1stSegment.Y -   endPointOf2ndSegment.Y );
-
-	//const double eps = 1.0e-9;
-
-//#ifdef _DEBUG_WRITE	
-//	std::cout << "startPointOf1stSegment : " << startPointOf1stSegment.X << " "  <<  startPointOf1stSegment.Y << std::endl; // For debug
-//	std::cout << "endPointOf1stSegment : " << endPointOf1stSegment.X << " "  <<  endPointOf1stSegment.Y << std::endl; // For debug
-//	std::cout << "startPointOf2ndSegment : " << startPointOf2ndSegment.X << " "  <<  startPointOf2ndSegment.Y << std::endl; // For debug
-//	std::cout << "endPointOf2ndSegment : " << endPointOf2ndSegment.X << " "  <<  endPointOf2ndSegment.Y << std::endl; // For debug
-//	std::cout << "val1 : " << ( endPointOf1stSegment.Y - startPointOf1stSegment.Y ) * ( startPointOf2ndSegment.X - startPointOf1stSegment.X ) << " " << ( endPointOf1stSegment.X - startPointOf1stSegment.X ) * ( startPointOf1stSegment.Y - startPointOf2ndSegment.Y ) << " " << val1 << std::endl; // For debug
-//	std::cout << "val2 : " << ( endPointOf1stSegment.Y - startPointOf1stSegment.Y ) * (   endPointOf2ndSegment.X - startPointOf1stSegment.X ) << " " << ( endPointOf1stSegment.X - startPointOf1stSegment.X ) * ( startPointOf1stSegment.Y -   endPointOf2ndSegment.Y ) << " " << val2 << std::endl; // For debug
-//#endif
-
-	if( val1*val2 <= 0.0 ){
-
-		const double val3 = ( endPointOf2ndSegment.Y - startPointOf2ndSegment.Y ) * ( startPointOf1stSegment.X - startPointOf2ndSegment.X ) + ( endPointOf2ndSegment.X - startPointOf2ndSegment.X ) * ( startPointOf2ndSegment.Y - startPointOf1stSegment.Y );
-		const double val4 = ( endPointOf2ndSegment.Y - startPointOf2ndSegment.Y ) * (   endPointOf1stSegment.X - startPointOf2ndSegment.X ) + ( endPointOf2ndSegment.X - startPointOf2ndSegment.X ) * ( startPointOf2ndSegment.Y -   endPointOf1stSegment.Y );
-
-//#ifdef _DEBUG_WRITE	
-//		std::cout << "val3 : " << ( endPointOf2ndSegment.Y - startPointOf2ndSegment.Y ) * ( startPointOf1stSegment.X - startPointOf2ndSegment.X ) << " " << ( endPointOf2ndSegment.X - startPointOf2ndSegment.X ) * ( startPointOf2ndSegment.Y - startPointOf1stSegment.Y ) << " " << val3 << std::endl; // For debug
-//		std::cout << "val4 : " << ( endPointOf2ndSegment.Y - startPointOf2ndSegment.Y ) * (   endPointOf1stSegment.X - startPointOf2ndSegment.X ) << " " << ( endPointOf2ndSegment.X - startPointOf2ndSegment.X ) * ( startPointOf2ndSegment.Y -   endPointOf1stSegment.Y ) << " " << val4 << std::endl; // For debug
-//#endif
-
-		if( fabs(val1*val2) < m_eps && fabs(val3*val4) < m_eps ){
-			return false;
-		}else if( val3*val4 <= 0.0 ){
-			return true;
-		}
-
-		 //if( val3*val4 <= 0.0 ){
-			//return true;
-		 //}
-
-	}
-
-	return false;
-
-}
-
-// Function determine if two lines overlap or not
-bool MeshDataTetraElement::overlapTwoLines( const CommonParameters::locationXY& coord1stLine1, const CommonParameters::locationXY& coord1stLine2,
-	const CommonParameters::locationXY& coord2ndLine1, const CommonParameters::locationXY& coord2ndLine2 ) const{
-
-//#ifdef _DEBUG_WRITE	
-//	std::cout << "coord1stLine1 : " << coord1stLine1.X << " " << coord1stLine1.Y << std::endl; // For debug
-//	std::cout << "coord1stLine2 : " << coord1stLine2.X << " " << coord1stLine2.Y << std::endl; // For debug
-//	std::cout << "coord2ndLine1 : " << coord2ndLine1.X << " " << coord2ndLine1.Y << std::endl; // For debug
-//	std::cout << "coord2ndLine2 : " << coord2ndLine2.X << " " << coord2ndLine2.Y << std::endl; // For debug
-//#endif
-
-	//const double eps = 1.0e-6;
-
-	if( fabs( coord1stLine2.X - coord1stLine1.X ) < m_eps ){// If the first line is parallel to Y direction
-		if( fabs( coord2ndLine2.X - coord2ndLine1.X ) < m_eps ){// If the second line is also parallel to Y direction
-			if( fabs( coord1stLine1.X - coord2ndLine1.X ) < m_eps && fabs( coord1stLine2.X - coord2ndLine2.X ) < m_eps ){
-				return true;
-			}else{
-				return false;
-			}
-		}else{// If the second line is not parallel to Y direction
-			return false;
-		}
-	}
-
-	if( fabs( coord1stLine2.Y - coord1stLine1.Y ) < m_eps ){// If the first line is parallel to X direction
-		if( fabs( coord2ndLine2.Y - coord2ndLine1.Y ) < m_eps ){// If the second line is also parallel to X direction
-			if( fabs( coord1stLine1.Y - coord2ndLine1.Y ) < m_eps && fabs( coord1stLine2.Y - coord2ndLine2.Y ) < m_eps ){
-				return true;
-			}else{
-				return false;
-			}
-		}else{// If the second line is not parallel to X direction
-			return false;
-		}
-	}
-
-	const double val1 = ( coord1stLine2.Y - coord1stLine1.Y )*( coord2ndLine2.X - coord2ndLine1.X ) - ( coord1stLine2.X - coord1stLine1.X )*( coord2ndLine2.Y - coord2ndLine1.Y );
-
-	const double val2 = ( coord1stLine2.Y - coord1stLine1.Y )*( coord2ndLine2.X - coord2ndLine1.X )*coord1stLine1.X
-					  - ( coord1stLine2.X - coord1stLine1.X )*( coord2ndLine2.Y - coord2ndLine1.Y )*coord2ndLine1.X  
-		  			  + ( coord1stLine2.X - coord1stLine1.X )*( coord2ndLine2.X - coord2ndLine1.X )*( coord2ndLine1.Y - coord1stLine1.Y ); 
-
-//#ifdef _DEBUG_WRITE	
-//	std::cout << "1 : " <<   ( coord1stLine2.Y - coord1stLine1.Y )*( coord2ndLine2.X - coord2ndLine1.X )*coord1stLine1.X << std::endl; // For debug
-//	std::cout << "2 : " << - ( coord1stLine2.X - coord1stLine1.X )*( coord2ndLine2.Y - coord2ndLine1.Y )*coord2ndLine1.X << std::endl; // For debug
-//	std::cout << "3 : " <<   ( coord1stLine2.X - coord1stLine1.X )*( coord2ndLine2.X - coord2ndLine1.X )*( coord2ndLine1.Y - coord1stLine1.Y ) << std::endl; // For debug
-//	std::cout << "val1 : " << val1 << std::endl; // For debug
-//	std::cout << "val2 : " << val2 << std::endl; // For debug
-//#endif
-
-	if( fabs(val1) < m_eps && fabs(val2) < m_eps ){
-		return true;
-	}
-
-	return false;
-
-}
-
-// Function determine if two segments overlap or not
-bool MeshDataTetraElement::overlapTwoSegments( const CommonParameters::locationXY& startPointOf1stSegment, const CommonParameters::locationXY& endPointOf1stSegment,
-	const CommonParameters::locationXY& startPointOf2ndSegment, const CommonParameters::locationXY& endPointOf2ndSegment ) const{
-
-	if( !overlapTwoLines( startPointOf1stSegment, endPointOf1stSegment, startPointOf2ndSegment, endPointOf2ndSegment ) ){
-		// Two lines don't overlap
-		return false;
-	}
-	
-	const double innerProduct1 = calcInnerProduct2D( startPointOf1stSegment, endPointOf1stSegment, startPointOf1stSegment, endPointOf1stSegment );
-	const double innerProduct2 = calcInnerProduct2D( startPointOf1stSegment, endPointOf1stSegment, startPointOf1stSegment, startPointOf2ndSegment );
-	const double innerProduct3 = calcInnerProduct2D( startPointOf1stSegment, endPointOf1stSegment, startPointOf1stSegment, endPointOf2ndSegment );
-
-//#ifdef _DEBUG_WRITE	
-//	std::cout << "innerProduct1 : " << innerProduct1 << std::endl; // For debug
-//	std::cout << "innerProduct2 : " << innerProduct2 << std::endl; // For debug
-//	std::cout << "innerProduct3 : " << innerProduct3 << std::endl; // For debug
-//#endif
-//
-	if( ( innerProduct2 < 0.0 && innerProduct3 < 0.0 ) || ( innerProduct2 > innerProduct1 && innerProduct3 > innerProduct1 ) ){
-		return false;
-	}
-
-	return true;
-
-}
-
-// Calculate inner product of two vectors
-double MeshDataTetraElement::calcInnerProduct2D( const CommonParameters::locationXY& startCoordOf1stVec, const CommonParameters::locationXY& endCoordOf1stVec,
-	const CommonParameters::locationXY& startCoordOf2ndVec, const CommonParameters::locationXY& endCoordOf2ndVec) const{
-
-	//return ( endCoordOf1stVec.X - startCoordOf1stVec.X )*( endCoordOf2ndVec.X - startCoordOf2ndVec.X )+( endCoordOf1stVec.Y - startCoordOf1stVec.Y )*( endCoordOf2ndVec.Y - startCoordOf2ndVec.Y );
-
-	CommonParameters::Vector3D vec1 = { endCoordOf1stVec.X - startCoordOf1stVec.X, endCoordOf1stVec.Y - startCoordOf1stVec.Y, 0.0 };
-	CommonParameters::Vector3D vec2 = { endCoordOf2ndVec.X - startCoordOf2ndVec.X, endCoordOf2ndVec.Y - startCoordOf2ndVec.Y, 0.0 };
-
-	return calcInnerProduct( vec1, vec2 );
-
-}
-
-// Calculate coordinates of intersection point of two lines
-void MeshDataTetraElement::calcCoordOfIntersectionPointOfTwoLines( const CommonParameters::locationXY& coord1stLine1, const CommonParameters::locationXY& coord1stLine2,
-	const CommonParameters::locationXY& coord2ndLine1, const CommonParameters::locationXY& coord2ndLine2, CommonParameters::locationXY& coordIntersectionPoint) const{
-
-	const double temp1 = ( coord1stLine2.Y - coord1stLine1.Y )*( coord2ndLine2.X - coord2ndLine1.X ) - ( coord1stLine2.X - coord1stLine1.X )*( coord2ndLine2.Y - coord2ndLine1.Y );
-
-//#ifdef _DEBUG_WRITE	
-//	std::cout << "coord1stLine1 : " << coord1stLine1.X << " "  <<  coord1stLine1.Y << std::endl; // For debug
-//	std::cout << "coord1stLine2 : " << coord1stLine2.X << " "  <<  coord1stLine2.Y << std::endl; // For debug
-//	std::cout << "coord2ndLine1 : " << coord2ndLine1.X << " "  <<  coord2ndLine1.Y << std::endl; // For debug
-//	std::cout << "coord2ndLine2 : " << coord2ndLine2.X << " "  <<  coord2ndLine2.Y << std::endl; // For debug
-//	std::cout << "temp1 : " << ( coord1stLine2.Y - coord1stLine1.Y )*( coord2ndLine2.X - coord2ndLine1.X ) << " "  <<  ( coord1stLine2.X - coord1stLine1.X )*( coord2ndLine2.Y - coord2ndLine1.Y ) << " " << temp1 << std::endl; // For debug
-//#endif
-
-	if( fabs( temp1 ) < 1.0e-12 ){
-		OutputFiles::m_logFile << " Error : Divide by zero in calculating X coordinate of intersection point of two lines !!" << std::endl;
-		exit(1);
-	}
-
-	coordIntersectionPoint.X = ( coord1stLine2.Y - coord1stLine1.Y )*( coord2ndLine2.X - coord2ndLine1.X )*coord1stLine1.X
-							 - ( coord1stLine2.X - coord1stLine1.X )*( coord2ndLine2.Y - coord2ndLine1.Y )*coord2ndLine1.X  
-							 + ( coord1stLine2.X - coord1stLine1.X )*( coord2ndLine2.X - coord2ndLine1.X )*( coord2ndLine1.Y - coord1stLine1.Y );
-	coordIntersectionPoint.X /= temp1;
-
-	const double temp2 = coord1stLine2.X - coord1stLine1.X;
-	const double temp3 = coord2ndLine2.X - coord2ndLine1.X;
-
-	if( fabs( temp2 ) < 1.0e-8 && fabs( temp3 ) < 1.0e-8 ){
-		OutputFiles::m_logFile << " Error : Divide by zero in calculating Y coordinate of intersection point of two lines !!" << std::endl;
-		exit(1);
-	}
-
-	if( fabs( temp2 ) > fabs( temp3 ) ){
-		coordIntersectionPoint.Y = ( coord1stLine2.Y - coord1stLine1.Y )/temp2*( coordIntersectionPoint.X - coord1stLine1.X ) + coord1stLine1.Y;
-	}else{
-		coordIntersectionPoint.Y = ( coord2ndLine2.Y - coord2ndLine1.Y )/temp3*( coordIntersectionPoint.X - coord2ndLine1.X ) + coord2ndLine1.Y;
-	}
-
-	return;
-
-}
-
-// Function determine if then inputed point locate at the left of the surface of the lower element
 bool MeshDataTetraElement::locateLeftOfSegmentOnLandSurface( const CommonParameters::locationXY& point, 
 	const CommonParameters::locationXY& startPointOfSegment, const CommonParameters::locationXY& endPointOfSegment ) const{
 		

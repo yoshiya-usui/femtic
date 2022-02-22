@@ -1436,6 +1436,8 @@ void ObservedData::outputCalculatedValuesOfAllStations() const{
 
 	}
 
+	fflush(OutputFiles::m_csvFile);
+
 }
 
 // Calulate right-hand sides matrix consisting of interpolator vectors

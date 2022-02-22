@@ -515,6 +515,279 @@ int MeshDataNonConformingHexaElement::findElementIncludingPointOnSurface( const 
 }
 
 // Find element including a point on the Y-Z plane and return element ID of 2D mesh
+void MeshDataNonConformingHexaElement::findElementsIncludingDipoleOnSurface( const double locXStart, const double locYStart, const double locXEnd, const double locYEnd,
+	std::vector<int>& elements, std::vector<double>& localCoordXStartPoint, std::vector<double>& localCoordYStartPoint,
+	std::vector<double>& localCoordXEndPoint, std::vector<double>& localCoordYEndPoint ) const{
+
+	const double thresholdVal = 1.0E-6;
+
+	const CommonParameters::locationXY nodeCoordDipoleStart = { locXStart, locYStart };
+	const CommonParameters::locationXY nodeCoordDipoleEnd = { locXEnd, locYEnd };
+
+	const double dipoleLength = hypot( ( locXEnd - locXStart ), ( locYEnd - locYStart ) );
+	if( dipoleLength < thresholdVal ){
+		OutputFiles::m_logFile << " Error : Length of dipole ( " << dipoleLength << " [m] ) is too small !! " << std::endl;
+		exit(1);
+	}
+
+	double dummy(0.0);
+	int faceID(0);
+
+	double localCoordStart[3] = { 0.0, 0.0, 0.0 };
+	const int iElemStart = findElementIncludingPointOnSurface( locXStart, locYStart, faceID,
+		localCoordStart[0], localCoordStart[1], localCoordStart[2], false, false, dummy, dummy );
+	assert(faceID == 4);
+
+	double localCoordEnd[3] = { 0.0, 0.0, 0.0 };
+	const int iElemEnd = findElementIncludingPointOnSurface( locXEnd, locYEnd, faceID,
+		localCoordEnd[0], localCoordEnd[1], localCoordEnd[2], false, false, dummy, dummy );
+	assert(faceID == 4);
+
+	std::vector<CommonParameters::locationXY> intersectPointsAreadyFound[2];
+	for( int iElem = 0; iElem < m_numElemOnLandSurface; ++iElem ){
+		const int elemID = m_elemOnLandSurface[iElem];
+		const int faceID = m_faceLandSurface[iElem];
+
+		const int nodeID0 = getNodesOfElements( elemID, m_faceID2NodeID[faceID][0] );
+		const int nodeID1 = getNodesOfElements( elemID, m_faceID2NodeID[faceID][1] );
+		const int nodeID2 = getNodesOfElements( elemID, m_faceID2NodeID[faceID][2] );
+		const int nodeID3 = getNodesOfElements( elemID, m_faceID2NodeID[faceID][3] );
+
+		const CommonParameters::locationXY nodeCoord0 = { getXCoordinatesOfNodes( nodeID0 ), getYCoordinatesOfNodes( nodeID0 ) };
+		const CommonParameters::locationXY nodeCoord1 = { getXCoordinatesOfNodes( nodeID1 ), getYCoordinatesOfNodes( nodeID1 ) };
+		const CommonParameters::locationXY nodeCoord2 = { getXCoordinatesOfNodes( nodeID2 ), getYCoordinatesOfNodes( nodeID2 ) };
+		const CommonParameters::locationXY nodeCoord3 = { getXCoordinatesOfNodes( nodeID3 ), getYCoordinatesOfNodes( nodeID3 ) };
+
+		CommonParameters::locationXY intersectPoints[4];
+		if( overlapTwoSegments( nodeCoord0, nodeCoord1, nodeCoordDipoleStart, nodeCoordDipoleEnd ) ){// node0 - node1
+			const double innerProduct1 = calcInnerProduct2D( nodeCoordDipoleStart, nodeCoordDipoleEnd, nodeCoordDipoleStart, nodeCoord0 ) / dipoleLength;
+			const double innerProduct2 = calcInnerProduct2D( nodeCoordDipoleStart, nodeCoordDipoleEnd, nodeCoordDipoleStart, nodeCoord1 ) / dipoleLength;
+			if( innerProduct1 < innerProduct2 ){
+				if( innerProduct1 < 0.0 ){
+					intersectPoints[0] = nodeCoordDipoleStart;
+				}else{
+					intersectPoints[0] = nodeCoord0;
+				}
+				if( innerProduct2 > dipoleLength ){
+					intersectPoints[1] = nodeCoordDipoleEnd;
+				}else{
+					intersectPoints[1] = nodeCoord1;
+				}
+			}else{
+				if( innerProduct2 < 0.0 ){
+					intersectPoints[0] = nodeCoordDipoleStart;
+				}else{
+					intersectPoints[0] = nodeCoord1;
+				}
+				if( innerProduct1 > dipoleLength ){
+					intersectPoints[1] = nodeCoordDipoleEnd;
+				}else{
+					intersectPoints[1] = nodeCoord0;
+				}
+			}
+		}else if( overlapTwoSegments( nodeCoord1, nodeCoord2, nodeCoordDipoleStart, nodeCoordDipoleEnd ) ){// node1 - node2
+			const double innerProduct1 = calcInnerProduct2D( nodeCoordDipoleStart, nodeCoordDipoleEnd, nodeCoordDipoleStart, nodeCoord1 ) / dipoleLength;
+			const double innerProduct2 = calcInnerProduct2D( nodeCoordDipoleStart, nodeCoordDipoleEnd, nodeCoordDipoleStart, nodeCoord2 ) / dipoleLength;
+			if( innerProduct1 < innerProduct2 ){
+				if( innerProduct1 < 0.0 ){
+					intersectPoints[0] = nodeCoordDipoleStart;
+				}else{
+					intersectPoints[0] = nodeCoord1;
+				}
+				if( innerProduct2 > dipoleLength ){
+					intersectPoints[1] = nodeCoordDipoleEnd;
+				}else{
+					intersectPoints[1] = nodeCoord2;
+				}
+			}else{
+				if( innerProduct2 < 0.0 ){
+					intersectPoints[0] = nodeCoordDipoleStart;
+				}else{
+					intersectPoints[0] = nodeCoord2;
+				}
+				if( innerProduct1 > dipoleLength ){
+					intersectPoints[1] = nodeCoordDipoleEnd;
+				}else{
+					intersectPoints[1] = nodeCoord1;
+				}
+			}
+		}else if( overlapTwoSegments( nodeCoord2, nodeCoord3, nodeCoordDipoleStart, nodeCoordDipoleEnd ) ){// node2 - node3
+			const double innerProduct1 = calcInnerProduct2D( nodeCoordDipoleStart, nodeCoordDipoleEnd, nodeCoordDipoleStart, nodeCoord2 ) / dipoleLength;
+			const double innerProduct2 = calcInnerProduct2D( nodeCoordDipoleStart, nodeCoordDipoleEnd, nodeCoordDipoleStart, nodeCoord3 ) / dipoleLength;
+			if( innerProduct1 < innerProduct2 ){
+				if( innerProduct1 < 0.0 ){
+					intersectPoints[0] = nodeCoordDipoleStart;
+				}else{
+					intersectPoints[0] = nodeCoord2;
+				}
+				if( innerProduct2 > dipoleLength ){
+					intersectPoints[1] = nodeCoordDipoleEnd;
+				}else{
+					intersectPoints[1] = nodeCoord3;
+				}
+			}else{
+				if( innerProduct2 < 0.0 ){
+					intersectPoints[0] = nodeCoordDipoleStart;
+				}else{
+					intersectPoints[0] = nodeCoord3;
+				}
+				if( innerProduct1 > dipoleLength ){
+					intersectPoints[1] = nodeCoordDipoleEnd;
+				}else{
+					intersectPoints[1] = nodeCoord2;
+				}
+			}
+		}else if( overlapTwoSegments( nodeCoord3, nodeCoord0, nodeCoordDipoleStart, nodeCoordDipoleEnd ) ){// node3 - node0
+			const double innerProduct1 = calcInnerProduct2D( nodeCoordDipoleStart, nodeCoordDipoleEnd, nodeCoordDipoleStart, nodeCoord3 ) / dipoleLength;
+			const double innerProduct2 = calcInnerProduct2D( nodeCoordDipoleStart, nodeCoordDipoleEnd, nodeCoordDipoleStart, nodeCoord0 ) / dipoleLength;
+			if( innerProduct1 < innerProduct2 ){
+				if( innerProduct1 < 0.0 ){
+					intersectPoints[0] = nodeCoordDipoleStart;
+				}else{
+					intersectPoints[0] = nodeCoord3;
+				}
+				if( innerProduct2 > dipoleLength ){
+					intersectPoints[1] = nodeCoordDipoleEnd;
+				}else{
+					intersectPoints[1] = nodeCoord0;
+				}
+			}else{
+				if( innerProduct2 < 0.0 ){
+					intersectPoints[0] = nodeCoordDipoleStart;
+				}else{
+					intersectPoints[0] = nodeCoord0;
+				}
+				if( innerProduct1 > dipoleLength ){
+					intersectPoints[1] = nodeCoordDipoleEnd;
+				}else{
+					intersectPoints[1] = nodeCoord3;
+				}
+			}	
+		}else{
+			int icount(0);
+			if( intersectTwoSegments( nodeCoord0, nodeCoord1, nodeCoordDipoleStart, nodeCoordDipoleEnd ) ){
+				calcCoordOfIntersectionPointOfTwoLines( nodeCoord0, nodeCoord1, nodeCoordDipoleStart, nodeCoordDipoleEnd, intersectPoints[icount] );
+				++icount;
+			}
+			if( intersectTwoSegments( nodeCoord1, nodeCoord2, nodeCoordDipoleStart, nodeCoordDipoleEnd ) ){
+				calcCoordOfIntersectionPointOfTwoLines( nodeCoord1, nodeCoord2, nodeCoordDipoleStart, nodeCoordDipoleEnd, intersectPoints[icount] );
+				bool duplicated(false);
+				for( int i = 0; i < icount; ++i ){
+					if( calcDistance(intersectPoints[icount], intersectPoints[i]) < 1.0e-9 ){
+						duplicated = true;
+					}
+				}
+				if(!duplicated){
+					++icount;
+				}
+			}
+			if( intersectTwoSegments( nodeCoord2, nodeCoord3, nodeCoordDipoleStart, nodeCoordDipoleEnd ) ){
+				calcCoordOfIntersectionPointOfTwoLines( nodeCoord2, nodeCoord3, nodeCoordDipoleStart, nodeCoordDipoleEnd, intersectPoints[icount] );
+				bool duplicated(false);
+				for( int i = 0; i < icount; ++i ){
+					if( calcDistance(intersectPoints[icount], intersectPoints[i]) < 1.0e-9 ){
+						duplicated = true;
+					}
+				}
+				if(!duplicated){
+					++icount;
+				}
+			}
+			if( intersectTwoSegments( nodeCoord3, nodeCoord0, nodeCoordDipoleStart, nodeCoordDipoleEnd ) ){
+				calcCoordOfIntersectionPointOfTwoLines( nodeCoord3, nodeCoord0, nodeCoordDipoleStart, nodeCoordDipoleEnd, intersectPoints[icount] );
+				bool duplicated(false);
+				for( int i = 0; i < icount; ++i ){
+					if( calcDistance(intersectPoints[icount], intersectPoints[i]) < 1.0e-9 ){
+						duplicated = true;
+					}
+				}
+				if(!duplicated){
+					++icount;
+				}
+			}
+			if( elemID == iElemStart && elemID == iElemEnd ){
+				intersectPoints[0] = nodeCoordDipoleStart;
+				intersectPoints[1] = nodeCoordDipoleEnd;
+			}else if( icount == 0 ){
+				continue;
+			}else if( icount == 1 ){
+				if( elemID == iElemStart ){
+					intersectPoints[1] = nodeCoordDipoleStart;
+				}else if( elemID == iElemEnd ){
+					intersectPoints[1] = nodeCoordDipoleEnd;
+				}else{
+					continue;
+				}
+			}else if( icount > 2 ){
+				OutputFiles::m_logFile << " Error : Number of intersection points is larger than two: " << icount << std::endl;
+				exit(1);
+			}
+
+		}
+		const double innerProduct = calcInnerProduct2D( nodeCoordDipoleStart, nodeCoordDipoleEnd, intersectPoints[0], intersectPoints[1] );
+		if( fabs(innerProduct) < thresholdVal ){
+			// Segment is too short
+			continue;
+		}
+		if( innerProduct < 0 ){
+			const CommonParameters::locationXY temp = intersectPoints[0];
+			intersectPoints[0] = intersectPoints[1];
+			intersectPoints[1] = temp;
+		}
+		bool alreadyFound = false;
+		const int numSegments = static_cast<int>( intersectPointsAreadyFound[0].size() );
+		for( int iSeg = 0; iSeg < numSegments; ++iSeg ){
+			const CommonParameters::locationXY coordStart = intersectPointsAreadyFound[0][iSeg];
+			const CommonParameters::locationXY coordEnd = intersectPointsAreadyFound[1][iSeg];
+			if( does1stSegmentContain2ndSegment(coordStart, coordEnd, intersectPoints[0], intersectPoints[1]) ){
+				alreadyFound = true;
+			}
+			if( does1stSegmentContain2ndSegment(intersectPoints[0], intersectPoints[1], coordStart, coordEnd) ){
+				alreadyFound = true;
+			}
+		}
+		if( alreadyFound ){
+			// Segment has already been found
+			continue;
+		}
+		CommonParameters::locationXY localCoord = {0.0, 0.0};
+		calcHorizontalLocalCoordinates( elemID, intersectPoints[0].X, intersectPoints[0].Y, localCoord.X, localCoord.Y );
+		localCoordXStartPoint.push_back(localCoord.X);
+		localCoordYStartPoint.push_back(localCoord.Y);
+		calcHorizontalLocalCoordinates( elemID, intersectPoints[1].X, intersectPoints[1].Y, localCoord.X, localCoord.Y );
+		localCoordXEndPoint.push_back(localCoord.X);
+		localCoordYEndPoint.push_back(localCoord.Y);
+		elements.push_back( elemID );
+		for( int i = 0; i < 2; ++i ){
+			intersectPointsAreadyFound[i].push_back( intersectPoints[i] );
+		}
+	}
+
+	if( elements.empty() ){
+		OutputFiles::m_logFile << " Error : Could not find element including dipole ( " << locXStart << ", " << locYStart << " ) => ( " << locXEnd << ", " << locYEnd << " )." << std::endl;
+		exit(1);
+	}
+
+	// For check
+	double dipoleLengthAccumulated(0.0);
+	std::vector<CommonParameters::locationXY>::iterator itr0End = intersectPointsAreadyFound[0].end(); 
+	std::vector<CommonParameters::locationXY>::iterator itr0  = intersectPointsAreadyFound[0].begin(); 
+	std::vector<CommonParameters::locationXY>::iterator itr1  = intersectPointsAreadyFound[1].begin(); 
+	while( itr0 != itr0End ){
+		dipoleLengthAccumulated += calcDistance( *itr0, *itr1 );
+		++itr0;
+		++itr1;
+	}
+
+	if( fabs(dipoleLength - dipoleLengthAccumulated) / fabs(dipoleLength) > 0.01 ){
+		OutputFiles::m_logFile << " Warning : Accumulated dipole length (" << dipoleLengthAccumulated
+			<< ") is significantly different from the dipole length of the horizontal plane (" << dipoleLength
+			<< ")" << std::endl;
+	}
+
+}
+
+// Find element including a point on the Y-Z plane and return element ID of 2D mesh
 int MeshDataNonConformingHexaElement::findElementIncludingPointOnYZPlaneAndReturnElemID2D( const int iPlane, const double locY, const double locZ, double& xi, double& eta ) const{
 
 	if( iPlane != MeshData::YZMinus && iPlane != MeshData::YZPlus ){
@@ -1047,6 +1320,26 @@ double MeshDataNonConformingHexaElement::calcEdgeLengthFromElementAndEdgeBoundar
 	exit(1);
 
 	return -1;
+
+}
+
+// Get face index of neighbor element
+double MeshDataNonConformingHexaElement::getEdgeLengthX( const int iElem ) const{
+
+	const int node0 = getNodesOfElements( iElem, 0 );
+	const int node2 = getNodesOfElements( iElem, 2 );
+
+	return caldDiffXOfTwoNodes( node0, node2 );
+
+}
+
+// Get length of the edges parallel to Y coordinate
+double MeshDataNonConformingHexaElement::getEdgeLengthY( const int iElem ) const{
+
+	const int node0 = getNodesOfElements( iElem, 0 );
+	const int node2 = getNodesOfElements( iElem, 2 );
+
+	return caldDiffYOfTwoNodes( node0, node2 );
 
 }
 

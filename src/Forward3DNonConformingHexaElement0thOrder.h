@@ -55,6 +55,9 @@ public:
 	virtual std::complex<double> calcValueRotatedElectricFieldZDirection( const int iElem, const double xLocal, const double yLocal, const double zLocal ) const;
 
 	// Calculate X component of electric field only from the edges on the Earth's surface
+	std::complex<double> calcValueRotatedElectricFieldNormal( const int iElem, const double xLocal, const double yLocal ) const;
+
+	// Calculate X component of electric field only from the edges on the Earth's surface
 	virtual std::complex<double> calcValueElectricFieldXDirectionFromEdgesOnEarthSurface( const int iElem, const int iFace, const double uCoord, const double vCoord ) const;
 
 	// Calculate Y component of electric field only from the edges on the Earth's surface
@@ -92,6 +95,9 @@ public:
 
 	// Calculate interpolator vector of Z component of rotated electric field
 	virtual void calcInterpolatorVectorOfRotatedElectricFieldZDirection( const int iElem, const double xLocal, const double yLocal, const double zLocal, const int irhs, const std::complex<double>& factor = std::complex<double>(1.0,0.0) );
+
+	// Calculate interpolator vector of X component of electric field only from the edges on the Earth's surface
+	void calcInterpolatorVectorOfRotatedElectricFieldNormal( const int iElem, const double xLocal, const double yLocal, const int irhs, const std::complex<double>& factor = std::complex<double>(1.0,0.0) );
 
 	// Calculate interpolator vector of X component of electric field only from the edges on the Earth's surface
 	virtual void calcInterpolatorVectorOfElectricFieldXDirectionFromEdgesOnEarthSurface( const int iElem, const int iFace, const double uCoord, const double vCoord, const int irhs, const std::complex<double>& factor = std::complex<double>(1.0,0.0) );
@@ -242,10 +248,18 @@ private:
 	void calcArrayConvertIDGlobal2NonZeroValues();
 
 	// Make map converting master dofs after degeneration and MPC factors from slave dof after degeneration 
+	double calc2DJacobianMatrixForEarthSurface( const int elemID, const double xi, const double eta, 
+		Forward3D::Matrix2x2& JacobMat ) const;
+
+	// Make map converting master dofs after degeneration and MPC factors from slave dof after degeneration 
 	void makeMapSlaveDofToMasterDofAndFactors();
 
 	// Calculate MPC constants
 	void calcMPCConstants();
+
+	// Add master dof and factor pair to m_slaveDofToMasterDofAndFactors
+	bool doesIntegralXCompFirst( const CommonParameters::locationXY& startPoint, const CommonParameters::locationXY& endPoint,
+		bool& rotationDirectionPlus, CommonParameters::locationXY& sharedPoint ) const;
 
 	// Add master dof and factor pair to m_slaveDofToMasterDofAndFactors
 	void addMasterDofAndFactorPair( const int slaveDof, const int masterDof, const double factor );
@@ -267,6 +281,9 @@ private:
 
 	// Get z component of shape function rotated for 0th order edge-based elements
 	double getShapeFuncRotatedZ( const double xi, const double eta, const double zeta, const int num, const Forward3D::Matrix3x3& invJacobMat ) const;
+
+	// Calculate jacobian matrix of the elements
+	double get2DShapeFuncRotatedForEarthSurface( const double xi, const double eta, const int num, const Forward3D::Matrix2x2& invJacobMat ) const;
 
 	// Calculate jacobian matrix of the elements
 	double calcJacobianMatrix( const int elemID,  const double xi, const double eta, const double zeta, Forward3D::Matrix3x3& JacobMat ) const;

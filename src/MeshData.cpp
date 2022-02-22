@@ -33,6 +33,7 @@
 #include "CommonParameters.h"
 #include "ResistivityBlock.h"
 #include "OutputFiles.h"
+#include "Util.h"
 
 // Constructer
 MeshData::MeshData():
@@ -347,18 +348,179 @@ double MeshData::calcDistance( const CommonParameters::locationXY& point0,  cons
 }
 
 //// Decide whether specified elements share same edges
-//bool MeshData::shareSameEdges( const int elemID1, const int elemID2 ) const{
-//
-//	if( elemID1 < 0 || elemID1 >= m_numElemTotal ){
-//		OutputFiles::m_logFile << " Error : elemID1 is out of range in shareSameNodes. elemID1 = " << elemID1 << std::endl;
-//		exit(1);
-//	}
-//
-//	if( elemID2 < 0 || elemID2 >= m_numElemTotal ){
-//		OutputFiles::m_logFile << " Error : elemID2 is out of range in shareSameNodes. elemID2 = " << elemID2 << std::endl;
-//		exit(1);
-//	}
-//
-//
-//
-//}
+bool MeshData::does1stSegmentContain2ndSegment( const CommonParameters::locationXY& startPointOf1stSegment, const CommonParameters::locationXY& endPointOf1stSegment,
+	const CommonParameters::locationXY& startPointOf2ndSegment, const CommonParameters::locationXY& endPointOf2ndSegment ) const{
+
+	const double dx1st = endPointOf1stSegment.X - startPointOf1stSegment.X;
+	const double dy1st = endPointOf1stSegment.Y - startPointOf1stSegment.Y;
+	const double outerProduct1 = dx1st * ( startPointOf2ndSegment.Y - startPointOf1stSegment.Y ) - dy1st * ( startPointOf2ndSegment.X - startPointOf1stSegment.X );
+	const double outerProduct2 = dx1st * ( endPointOf2ndSegment.Y - startPointOf1stSegment.Y ) - dy1st * ( endPointOf2ndSegment.X - startPointOf1stSegment.X );
+
+	const double eps = 1.0e-9;
+	if( fabs(outerProduct1) < eps && fabs(outerProduct2) < eps ){
+		// Two segmenta are located along a same line
+		const double innerProduct1 = ( startPointOf2ndSegment.X - startPointOf1stSegment.X ) * ( endPointOf1stSegment.X - startPointOf1stSegment.X )
+								+ ( startPointOf2ndSegment.Y - startPointOf1stSegment.Y ) * ( endPointOf1stSegment.Y - startPointOf1stSegment.Y );
+		const double innerProduct2 = ( endPointOf2ndSegment.X - startPointOf1stSegment.X ) * ( endPointOf1stSegment.X - startPointOf1stSegment.X )
+								+ ( endPointOf2ndSegment.Y - startPointOf1stSegment.Y ) * ( endPointOf1stSegment.Y - startPointOf1stSegment.Y );
+		const double denominator = pow(endPointOf1stSegment.X - startPointOf1stSegment.X, 2) + pow(endPointOf1stSegment.Y - startPointOf1stSegment.Y, 2);
+		if( innerProduct1 / denominator > - eps && innerProduct1 / denominator < 1.0 + eps &&
+			innerProduct2 / denominator > - eps && innerProduct2 / denominator < 1.0 + eps ){
+			return true;
+		}
+	}
+
+	return false;
+}
+
+// Function determine if two segments intersect or not
+bool MeshData::intersectTwoSegments( const CommonParameters::locationXY& startPointOf1stSegment, const CommonParameters::locationXY& endPointOf1stSegment,
+	const CommonParameters::locationXY& startPointOf2ndSegment, const CommonParameters::locationXY& endPointOf2ndSegment ) const{
+
+	const double val1 = ( endPointOf1stSegment.Y - startPointOf1stSegment.Y ) * ( startPointOf2ndSegment.X - startPointOf1stSegment.X ) + ( endPointOf1stSegment.X - startPointOf1stSegment.X ) * ( startPointOf1stSegment.Y - startPointOf2ndSegment.Y );
+	const double val2 = ( endPointOf1stSegment.Y - startPointOf1stSegment.Y ) * (   endPointOf2ndSegment.X - startPointOf1stSegment.X ) + ( endPointOf1stSegment.X - startPointOf1stSegment.X ) * ( startPointOf1stSegment.Y -   endPointOf2ndSegment.Y );
+
+	const double eps = 1.0e-9;
+
+	if( calcDistance(startPointOf1stSegment, startPointOf2ndSegment) < eps ||
+		calcDistance(endPointOf1stSegment, startPointOf2ndSegment) < eps ||
+		calcDistance(startPointOf1stSegment, endPointOf2ndSegment) < eps ||
+		calcDistance(endPointOf1stSegment, endPointOf2ndSegment) < eps ){
+		// Two segment share a node
+		return true;
+	}
+
+	if( val1*val2 < eps ){
+		const double val3 = ( endPointOf2ndSegment.Y - startPointOf2ndSegment.Y ) * ( startPointOf1stSegment.X - startPointOf2ndSegment.X ) + ( endPointOf2ndSegment.X - startPointOf2ndSegment.X ) * ( startPointOf2ndSegment.Y - startPointOf1stSegment.Y );
+		const double val4 = ( endPointOf2ndSegment.Y - startPointOf2ndSegment.Y ) * (   endPointOf1stSegment.X - startPointOf2ndSegment.X ) + ( endPointOf2ndSegment.X - startPointOf2ndSegment.X ) * ( startPointOf2ndSegment.Y -   endPointOf1stSegment.Y );
+		if( fabs(val1*val2) < eps && fabs(val3*val4) < eps ){
+			return false;
+		}else if( val3*val4 < eps ){
+			return true;
+		}
+		//if( val3*val4 < eps ){
+		//	return true;
+		//}
+	}
+
+	return false;
+
+}
+
+// Function determine if two lines overlap or not
+bool MeshData::overlapTwoLines( const CommonParameters::locationXY& coord1stLine1, const CommonParameters::locationXY& coord1stLine2,
+	const CommonParameters::locationXY& coord2ndLine1, const CommonParameters::locationXY& coord2ndLine2 ) const{
+
+	const double eps = 1.0e-12;
+	if( fabs( coord1stLine2.X - coord1stLine1.X ) < eps ){// If the first line is parallel to Y direction
+		if( fabs( coord2ndLine2.X - coord2ndLine1.X ) < eps ){// If the second line is also parallel to Y direction
+			if( fabs( coord1stLine1.X - coord2ndLine1.X ) < eps && fabs( coord1stLine2.X - coord2ndLine2.X ) < eps ){
+				return true;
+			}else{
+				return false;
+			}
+		}else{// If the second line is not parallel to Y direction
+			return false;
+		}
+	}
+
+	if( fabs( coord1stLine2.Y - coord1stLine1.Y ) < eps ){// If the first line is parallel to X direction
+		if( fabs( coord2ndLine2.Y - coord2ndLine1.Y ) < eps ){// If the second line is also parallel to X direction
+			if( fabs( coord1stLine1.Y - coord2ndLine1.Y ) < eps && fabs( coord1stLine2.Y - coord2ndLine2.Y ) < eps ){
+				return true;
+			}else{
+				return false;
+			}
+		}else{// If the second line is not parallel to X direction
+			return false;
+		}
+	}
+
+	const double val1 = ( coord1stLine2.Y - coord1stLine1.Y )*( coord2ndLine2.X - coord2ndLine1.X ) - ( coord1stLine2.X - coord1stLine1.X )*( coord2ndLine2.Y - coord2ndLine1.Y );
+
+	const double val2 = ( coord1stLine2.Y - coord1stLine1.Y )*( coord2ndLine2.X - coord2ndLine1.X )*coord1stLine1.X
+					  - ( coord1stLine2.X - coord1stLine1.X )*( coord2ndLine2.Y - coord2ndLine1.Y )*coord2ndLine1.X  
+		  			  + ( coord1stLine2.X - coord1stLine1.X )*( coord2ndLine2.X - coord2ndLine1.X )*( coord2ndLine1.Y - coord1stLine1.Y ); 
+
+	if( fabs(val1) < eps && fabs(val2) < eps ){
+		return true;
+	}
+
+	return false;
+
+}
+
+// Function determine if two segments overlap or not
+bool MeshData::overlapTwoSegments( const CommonParameters::locationXY& startPointOf1stSegment, const CommonParameters::locationXY& endPointOf1stSegment,
+	const CommonParameters::locationXY& startPointOf2ndSegment, const CommonParameters::locationXY& endPointOf2ndSegment ) const{
+
+	if( !overlapTwoLines( startPointOf1stSegment, endPointOf1stSegment, startPointOf2ndSegment, endPointOf2ndSegment ) ){
+		// Two lines don't overlap
+		return false;
+	}
+	
+	const double innerProduct1 = calcInnerProduct2D( startPointOf1stSegment, endPointOf1stSegment, startPointOf1stSegment, endPointOf1stSegment );
+	const double innerProduct2 = calcInnerProduct2D( startPointOf1stSegment, endPointOf1stSegment, startPointOf1stSegment, startPointOf2ndSegment );
+	const double innerProduct3 = calcInnerProduct2D( startPointOf1stSegment, endPointOf1stSegment, startPointOf1stSegment, endPointOf2ndSegment );
+
+	if( ( innerProduct2 < 0.0 && innerProduct3 < 0.0 ) || ( innerProduct2 > innerProduct1 && innerProduct3 > innerProduct1 ) ){
+		return false;
+	}
+
+	return true;
+
+}
+
+// Calculate inner product of two vectors
+double MeshData::calcInnerProduct2D( const CommonParameters::locationXY& startCoordOf1stVec, const CommonParameters::locationXY& endCoordOf1stVec,
+	const CommonParameters::locationXY& startCoordOf2ndVec, const CommonParameters::locationXY& endCoordOf2ndVec) const{
+
+	CommonParameters::Vector3D vec1 = { endCoordOf1stVec.X - startCoordOf1stVec.X, endCoordOf1stVec.Y - startCoordOf1stVec.Y, 0.0 };
+	CommonParameters::Vector3D vec2 = { endCoordOf2ndVec.X - startCoordOf2ndVec.X, endCoordOf2ndVec.Y - startCoordOf2ndVec.Y, 0.0 };
+
+	return calcInnerProduct( vec1, vec2 );
+
+}
+
+// Calculate coordinates of intersection point of two lines
+void MeshData::calcCoordOfIntersectionPointOfTwoLines( const CommonParameters::locationXY& coord1stLine1, const CommonParameters::locationXY& coord1stLine2,
+	const CommonParameters::locationXY& coord2ndLine1, const CommonParameters::locationXY& coord2ndLine2, CommonParameters::locationXY& coordIntersectionPoint) const{
+
+	const double eps = 1.0e-9;
+	if( calcDistance(coord1stLine1, coord2ndLine1) < eps || calcDistance(coord1stLine1, coord2ndLine2) < eps ){
+		coordIntersectionPoint = coord1stLine1;
+		return;
+	}
+	if( calcDistance(coord1stLine2, coord2ndLine1) < eps || calcDistance(coord1stLine2, coord2ndLine2) < eps ){
+		coordIntersectionPoint = coord1stLine2;
+		return;
+	}
+
+	const double temp1 = ( coord1stLine2.Y - coord1stLine1.Y )*( coord2ndLine2.X - coord2ndLine1.X ) - ( coord1stLine2.X - coord1stLine1.X )*( coord2ndLine2.Y - coord2ndLine1.Y );
+	if( fabs( temp1 ) < eps ){
+		OutputFiles::m_logFile << " Error : Divide by zero in calculating X coordinate of intersection point of two lines !!" << std::endl;
+		exit(1);
+	}
+
+	coordIntersectionPoint.X = ( coord1stLine2.Y - coord1stLine1.Y )*( coord2ndLine2.X - coord2ndLine1.X )*coord1stLine1.X
+							 - ( coord1stLine2.X - coord1stLine1.X )*( coord2ndLine2.Y - coord2ndLine1.Y )*coord2ndLine1.X  
+							 + ( coord1stLine2.X - coord1stLine1.X )*( coord2ndLine2.X - coord2ndLine1.X )*( coord2ndLine1.Y - coord1stLine1.Y );
+	coordIntersectionPoint.X /= temp1;
+
+	const double temp2 = coord1stLine2.X - coord1stLine1.X;
+	const double temp3 = coord2ndLine2.X - coord2ndLine1.X;
+
+	if( fabs( temp2 ) < 1.0e-8 && fabs( temp3 ) < 1.0e-8 ){
+		OutputFiles::m_logFile << " Error : Divide by zero in calculating Y coordinate of intersection point of two lines !!" << std::endl;
+		exit(1);
+	}
+
+	if( fabs( temp2 ) > fabs( temp3 ) ){
+		coordIntersectionPoint.Y = ( coord1stLine2.Y - coord1stLine1.Y )/temp2*( coordIntersectionPoint.X - coord1stLine1.X ) + coord1stLine1.Y;
+	}else{
+		coordIntersectionPoint.Y = ( coord2ndLine2.Y - coord2ndLine1.Y )/temp3*( coordIntersectionPoint.X - coord2ndLine1.X ) + coord2ndLine1.Y;
+	}
+
+	return;
+
+}

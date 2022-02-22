@@ -253,7 +253,41 @@ void ObservedDataStationNMT::findElementsIncludingDipole(){
 			std::cout << m_elementsIncludingDipole[i] << " " << m_facesIncludingDipole[i] << " " << m_areaCoordinateValuesStartPoint[i].coord0  << " " << m_areaCoordinateValuesStartPoint[i].coord1 << " " << m_areaCoordinateValuesStartPoint[i].coord2 << std::endl;
 		}
 #endif
+	}else if( ( AnalysisControl::getInstance() )->getTypeOfMesh() == MeshData::NONCONFORMING_HEXA ){// Non-conforming deformed hexahedral mesh
 
+		const MeshDataNonConformingHexaElement* const ptrMeshDataNonConformingHexaElement = ( AnalysisControl::getInstance() )->getPointerOfMeshDataNonConformingHexaElement();
+
+		std::vector<double> localCoordXStartPoint;
+		std::vector<double> localCoordYStartPoint;
+		std::vector<double> localCoordXEndPoint;
+		std::vector<double> localCoordYEndPoint;
+		std::vector<int> elementsIncludingDipole;
+
+		ptrMeshDataNonConformingHexaElement->findElementsIncludingDipoleOnSurface( m_location.startPoint.X, m_location.startPoint.Y, m_location.endPoint.X, m_location.endPoint.Y,
+			elementsIncludingDipole, localCoordXStartPoint, localCoordYStartPoint, localCoordXEndPoint, localCoordYEndPoint );
+
+		m_numElementsIncludingDipole = static_cast<int>( elementsIncludingDipole.size() );
+		if( m_numElementsIncludingDipole > 0 ){
+			m_elementsIncludingDipole = new int[m_numElementsIncludingDipole];
+			m_localCoordinateValuesStartPoint = new CommonParameters::locationXY[m_numElementsIncludingDipole];
+			m_localCoordinateValuesEndPoint   = new CommonParameters::locationXY[m_numElementsIncludingDipole];
+		}
+	
+		for( int i = 0; i < m_numElementsIncludingDipole; ++i ){
+			m_elementsIncludingDipole[i] = elementsIncludingDipole[i];
+			m_localCoordinateValuesStartPoint[i].X = localCoordXStartPoint[i];
+			m_localCoordinateValuesStartPoint[i].Y = localCoordYStartPoint[i];
+			m_localCoordinateValuesEndPoint[i].X = localCoordXEndPoint[i];
+			m_localCoordinateValuesEndPoint[i].Y = localCoordYEndPoint[i];
+		}
+
+#ifdef _DEBUG_WRITE
+		std::cout << "m_stationID " << m_stationID << std::endl;
+		std::cout << "m_elementsIncludingDipole m_localCoordinateValuesStartPoint[i].x m_localCoordinateValuesStartPoint[i].y m_localCoordinateValuesEndPoint[i].x m_localCoordinateValuesEndPoint[i].y" << std::endl;
+		for( int i = 0; i < m_numElementsIncludingDipole; ++i ){
+			std::cout << m_elementsIncludingDipole[i] << " " << m_localCoordinateValuesStartPoint[i].X  << " " << m_localCoordinateValuesStartPoint[i].Y << " " << m_localCoordinateValuesEndPoint[i].X << " " << m_localCoordinateValuesEndPoint[i].Y << std::endl;
+		}
+#endif
 	}else{// Hexa mesh
 
 		const MeshDataBrickElement* const ptrMeshDataBrickElement = ( AnalysisControl::getInstance() )->getPointerOfMeshDataBrickElement();
@@ -592,6 +626,25 @@ double ObservedDataStationNMT::getZCoordOfPoint( const int num ) const{
 			iElem = ptrMeshDataTetraElement->findElementIncludingPointOnSurface( m_location.endPoint.X, m_location.endPoint.Y, iFace, areaCoord, false, false, dummy, dummy );
 		}
 		return ptrMeshDataTetraElement->calcZCoordOfPointOnFace( iElem, iFace, areaCoord );
+
+	}
+	else if( ( AnalysisControl::getInstance() )->getTypeOfMesh() == MeshData::NONCONFORMING_HEXA ){
+
+		const MeshDataNonConformingHexaElement* const ptrMeshDataNonConformingHexaElement = ( AnalysisControl::getInstance() )->getPointerOfMeshDataNonConformingHexaElement();
+
+		int faceID(0);
+		double dummy(0.0);
+		double localCoordX(0.0);
+		double localCoordY(0.0);
+		double localCoordZ(0.0);
+		if( num == 0 ){
+			iElem = ptrMeshDataNonConformingHexaElement->findElementIncludingPointOnSurface( 
+				m_location.startPoint.X, m_location.startPoint.Y, faceID, localCoordX, localCoordY, localCoordZ, false, false, dummy, dummy );
+		}else{
+			iElem = ptrMeshDataNonConformingHexaElement->findElementIncludingPointOnSurface( 
+				m_location.endPoint.X, m_location.endPoint.Y, faceID, localCoordX, localCoordY, localCoordZ, false, false, dummy, dummy );
+		}
+		return ptrMeshDataNonConformingHexaElement->calcZCoordOfPointOnFace(iElem, 4, localCoordX, localCoordY);
 
 	}
 	else{

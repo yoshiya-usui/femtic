@@ -357,7 +357,42 @@ void ObservedDataStationNMT2::findElementsIncludingDipoles(){
 			std::cout << m_elementsIncludingDipole[1][i] << " " << m_facesIncludingDipole[1][i] << " " << m_areaCoordinateValuesEndPoint[1][i].coord0  << " " << m_areaCoordinateValuesEndPoint[1][i].coord1 << " " << m_areaCoordinateValuesStartPoint[1][i].coord2 << std::endl;
 		}
 #endif
-
+	}else if( ( AnalysisControl::getInstance() )->getTypeOfMesh() == MeshData::NONCONFORMING_HEXA ){// Non-conforming deformed hexahedral mesh
+		const MeshDataNonConformingHexaElement* const ptrMeshDataNonConformingHexaElement = ( AnalysisControl::getInstance() )->getPointerOfMeshDataNonConformingHexaElement();
+		for( int idipole = 0; idipole < 2; ++idipole ){
+			std::vector<double> localCoordXStartPoint;
+			std::vector<double> localCoordYStartPoint;
+			std::vector<double> localCoordXEndPoint;
+			std::vector<double> localCoordYEndPoint;
+			std::vector<int> elementsIncludingDipole;
+			ptrMeshDataNonConformingHexaElement->findElementsIncludingDipoleOnSurface(
+				m_location[idipole].startPoint.X, m_location[idipole].startPoint.Y, m_location[idipole].endPoint.X, m_location[idipole].endPoint.Y,
+				elementsIncludingDipole, localCoordXStartPoint, localCoordYStartPoint, localCoordXEndPoint, localCoordYEndPoint );
+			m_numElementsIncludingDipole[idipole] = static_cast<int>( elementsIncludingDipole.size() );
+			if( m_numElementsIncludingDipole[idipole] > 0 ){
+				m_elementsIncludingDipole[idipole]        = new int[ m_numElementsIncludingDipole[idipole] ];
+				m_localCoordinateValuesStartPoint[idipole] = new CommonParameters::locationXY[ m_numElementsIncludingDipole[idipole] ];
+				m_localCoordinateValuesEndPoint[idipole]   = new CommonParameters::locationXY[ m_numElementsIncludingDipole[idipole] ];
+			}
+			for( int ielem = 0; ielem < m_numElementsIncludingDipole[idipole]; ++ielem ){
+				m_elementsIncludingDipole[idipole][ielem] = elementsIncludingDipole[ielem];
+				m_localCoordinateValuesStartPoint[idipole][ielem].X = localCoordXStartPoint[ielem];
+				m_localCoordinateValuesStartPoint[idipole][ielem].Y = localCoordYStartPoint[ielem];
+				m_localCoordinateValuesEndPoint[idipole][ielem].X   = localCoordXEndPoint[ielem];
+				m_localCoordinateValuesEndPoint[idipole][ielem].Y   = localCoordYEndPoint[ielem];
+			}
+		}
+#ifdef _DEBUG_WRITE
+		std::cout << "m_stationID " << m_stationID << std::endl;
+		std::cout << "m_elementsIncludingDipole[0] m_localCoordinateValuesStartPoint[0].x m_localCoordinateValuesStartPoint[0].y m_localCoordinateValuesEndPoint[0].x m_localCoordinateValuesEndPoint[0].y" << std::endl;
+		for( int ielem = 0; ielem < m_numElementsIncludingDipole[0]; ++ielem ){
+			std::cout << m_elementsIncludingDipole[0][ielem] << " " << m_localCoordinateValuesStartPoint[0][ielem].X << " " << m_localCoordinateValuesStartPoint[0][ielem].Y << " " << m_localCoordinateValuesEndPoint[0][ielem].X << " " << m_localCoordinateValuesEndPoint[0][ielem].Y << std::endl;
+		}
+		std::cout << "m_elementsIncludingDipole[1] m_localCoordinateValuesStartPoint[1].x m_localCoordinateValuesStartPoint[1].y m_localCoordinateValuesEndPoint[1].x m_localCoordinateValuesEndPoint[1].y" << std::endl;
+		for( int ielem = 0; ielem < m_numElementsIncludingDipole[1]; ++ielem ){
+			std::cout << m_elementsIncludingDipole[1][ielem] << " " << m_localCoordinateValuesStartPoint[1][ielem].X << " " << m_localCoordinateValuesStartPoint[1][ielem].Y << " " << m_localCoordinateValuesEndPoint[1][ielem].X << " " << m_localCoordinateValuesEndPoint[1][ielem].Y << std::endl;
+		}
+#endif
 	}else{// Hexa mesh
 
 		const MeshDataBrickElement* const ptrMeshDataBrickElement = ( AnalysisControl::getInstance() )->getPointerOfMeshDataBrickElement();
@@ -909,6 +944,25 @@ double ObservedDataStationNMT2::getZCoordOfPoint( const int iDipole , const int 
 			iElem = ptrMeshDataTetraElement->findElementIncludingPointOnSurface( m_location[iDipole].endPoint.X, m_location[iDipole].endPoint.Y, iFace, areaCoord, false, false, dummy, dummy );
 		}
 		return ptrMeshDataTetraElement->calcZCoordOfPointOnFace( iElem, iFace, areaCoord );
+
+	}
+	else if( ( AnalysisControl::getInstance() )->getTypeOfMesh() == MeshData::NONCONFORMING_HEXA ){
+
+		const MeshDataNonConformingHexaElement* const ptrMeshDataNonConformingHexaElement = ( AnalysisControl::getInstance() )->getPointerOfMeshDataNonConformingHexaElement();
+
+		int faceID(0);
+		double dummy(0.0);
+		double localCoordX(0.0);
+		double localCoordY(0.0);
+		double localCoordZ(0.0);
+		if( num == 0 ){
+			iElem = ptrMeshDataNonConformingHexaElement->findElementIncludingPointOnSurface( 
+				m_location[iDipole].startPoint.X, m_location[iDipole].startPoint.Y, faceID, localCoordX, localCoordY, localCoordZ, false, false, dummy, dummy );
+		}else{
+			iElem = ptrMeshDataNonConformingHexaElement->findElementIncludingPointOnSurface( 
+				m_location[iDipole].endPoint.X, m_location[iDipole].endPoint.Y, faceID, localCoordX, localCoordY, localCoordZ, false, false, dummy, dummy );
+		}
+		return ptrMeshDataNonConformingHexaElement->calcZCoordOfPointOnFace(iElem, 4, localCoordX, localCoordY);
 
 	}
 	else{

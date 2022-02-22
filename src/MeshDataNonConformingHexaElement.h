@@ -49,6 +49,10 @@ public:
 		const bool useUpperElem, const bool modLoc, double& locXMod, double& locYMod ) const;
 
 	// Find element including a point on the Y-Z plane and return element ID of 2D mesh
+	void findElementsIncludingDipoleOnSurface( const double locXStart, const double locYStart, const double locXEnd, const double locYEnd,
+		std::vector<int>& elements, std::vector<double>& localCoordXStartPoint, std::vector<double>& localCoordYStartPoint,	std::vector<double>& localCoordXEndPoint, std::vector<double>& localCoordYEndPoint ) const;
+
+	// Find element including a point on the Y-Z plane and return element ID of 2D mesh
 	int findElementIncludingPointOnYZPlaneAndReturnElemID2D( const int iPlane, const double locY, const double locZ, double& xi, double& eta ) const;
 
 	// Find element including a point on the Z-X plane and return element ID of 2D mesh
@@ -130,6 +134,12 @@ public:
 	double calcEdgeLengthFromElementAndEdgeBoundaryPlanes( const int iPlane, const int iElem, const int iEdge ) const;
 
 	// Get face index of neighbor element
+	double getEdgeLengthX( const int iElem ) const;
+
+	// Get length of the edges parallel to Y coordinate
+	double getEdgeLengthY( const int iElem ) const;
+
+	// Get face index of neighbor element
 	int getFaceIndexOfNeighborElement( const int iFace ) const;
 
 	// Calculate area of face
@@ -202,7 +212,7 @@ private:
 
 	// Check whether the specified point is located in the specified element
 	bool isLocatedInTheElement( const double x, const double y, const double z, const int iElem ) const; 
-
+	
 	// Calculate local coordinates
 	void calcLocalCoordinates( const int iElem, const double x, const double y, const double z, double& xi, double& eta, double& zeta ) const;
 

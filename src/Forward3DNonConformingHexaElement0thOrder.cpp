@@ -422,6 +422,34 @@ std::complex<double> Forward3DNonConformingHexaElement0thOrder::calcValueRotated
 }
 
 // Calculate X component of electric field only from the edges on the Earth's surface
+std::complex<double> Forward3DNonConformingHexaElement0thOrder::calcValueRotatedElectricFieldNormal( const int iElem, const double xLocal, const double yLocal ) const{
+
+	assert( m_solution != NULL );
+	assert( m_IDsLocal2Global != NULL );
+
+	std::complex<double> val(0.0, 0.0);
+
+	Forward3D::Matrix2x2 jacobMat;
+	const double detJacob = calc2DJacobianMatrixForEarthSurface( iElem, xLocal, yLocal, jacobMat );
+	Forward3D::Matrix2x2 invJacobMat;
+	const double invDet = 1.0 / detJacob;
+	invJacobMat.mat11 =   jacobMat.mat22 * invDet; 
+	invJacobMat.mat12 = - jacobMat.mat12 * invDet; 
+	invJacobMat.mat21 = - jacobMat.mat21 * invDet; 
+	invJacobMat.mat22 =   jacobMat.mat11 * invDet; 
+
+	const int iFace = 4;
+	for( int i = 0; i < 4; ++i ){
+		const int iEdge = m_MeshDataNonConformingHexaElement.getEdgeIDLocalFromFaceIDLocal( iFace, i );
+		const double length = m_MeshDataNonConformingHexaElement.calcEdgeLengthFromElementAndEdge( iElem, iEdge );
+		val += m_solution[ m_IDsLocal2Global[iElem][iEdge] ] * std::complex<double>( get2DShapeFuncRotatedForEarthSurface(0.0, 0.0, i, invJacobMat) * length, 0.0 );
+	}
+
+	return val;
+
+}
+
+// Calculate X component of electric field only from the edges on the Earth's surface
 std::complex<double> Forward3DNonConformingHexaElement0thOrder::calcValueElectricFieldXDirectionFromEdgesOnEarthSurface( const int iElem, const int iFace, const double uCoord, const double vCoord ) const{
 	OutputFiles::m_logFile << "Error : " << __FUNCTION__ << " is not implemented" << std::endl;
 	exit(1);
@@ -647,6 +675,38 @@ void Forward3DNonConformingHexaElement0thOrder::calcInterpolatorVectorOfRotatedE
 }
 
 // Calculate interpolator vector of X component of electric field only from the edges on the Earth's surface
+void Forward3DNonConformingHexaElement0thOrder::calcInterpolatorVectorOfRotatedElectricFieldNormal( const int iElem, const double xLocal, const double yLocal,
+	 const int irhs, const std::complex<double>& factor ){
+
+	assert( m_solution != NULL );
+	assert( m_IDsLocal2Global != NULL );
+
+	Forward3D::Matrix2x2 jacobMat;
+	const double detJacob = calc2DJacobianMatrixForEarthSurface( iElem, xLocal, yLocal, jacobMat );
+	Forward3D::Matrix2x2 invJacobMat;
+	const double invDet = 1.0 / detJacob;
+	invJacobMat.mat11 =   jacobMat.mat22 * invDet; 
+	invJacobMat.mat12 = - jacobMat.mat12 * invDet; 
+	invJacobMat.mat21 = - jacobMat.mat21 * invDet; 
+	invJacobMat.mat22 =   jacobMat.mat11 * invDet; 
+
+	const int iPol = getPolarizationCurrent();
+	const int iFace = 4;
+	for( int i = 0; i < 4; ++i ){
+		const int iEdge = m_MeshDataNonConformingHexaElement.getEdgeIDLocalFromFaceIDLocal( iFace, i );
+		const int irow = m_IDsGlobal2AfterDegenerated[iPol][ m_IDsLocal2Global[iElem][iEdge] ];
+		if( irow < 0 ){
+			continue;
+		}
+		const double length = m_MeshDataNonConformingHexaElement.calcEdgeLengthFromElementAndEdge( iElem, iEdge );
+		//val += m_solution[ m_IDsLocal2Global[iElem][iEdge] ] * std::complex<double>( get2DShapeFuncRotatedForEarthSurface(0.0, 0.0, i, invJacobMat) * length, 0.0 );
+		const std::complex<double> val = std::complex<double>( get2DShapeFuncRotatedForEarthSurface(0.0, 0.0, i, invJacobMat) * length, 0.0 ) * factor;
+		addValuesToRhsVectorsByConsideringMPC( irow, irhs, val );
+	}
+
+}
+
+// Calculate interpolator vector of X component of electric field only from the edges on the Earth's surface
 void Forward3DNonConformingHexaElement0thOrder::calcInterpolatorVectorOfElectricFieldXDirectionFromEdgesOnEarthSurface( const int iElem, const int iFace, const double uCoord, const double vCoord, const int irhs, const std::complex<double>& factor ){
 	OutputFiles::m_logFile << "Error : " << __FUNCTION__ << " is not implemented" << std::endl;
 	exit(1);
@@ -789,9 +849,57 @@ void Forward3DNonConformingHexaElement0thOrder::calcInterpolatorVectorOfMagnetic
 }
 
 // Calculate interpolator vector of difference of voltage
-void Forward3DNonConformingHexaElement0thOrder::calcInterpolatorVectorOfVoltageDifference( const int nElem, const int* elememtsIncludingDipole, const CommonParameters::locationXY* localCoordinateValuesStartPoint, const CommonParameters::locationXY* localCoordinateValuesEndPoint, const int irhs ){
-	OutputFiles::m_logFile << "Error : " << __FUNCTION__ << " is not implemented" << std::endl;
-	exit(1);
+void Forward3DNonConformingHexaElement0thOrder::calcInterpolatorVectorOfVoltageDifference( const int nElem, const int* elememtsIncludingDipole, 
+	const CommonParameters::locationXY* localCoordinateValuesStartPoint, const CommonParameters::locationXY* localCoordinateValuesEndPoint, const int irhs ){
+
+	assert( m_IDsLocal2Global != NULL );
+	const int iPol = getPolarizationCurrent();
+	assert( m_IDsGlobal2AfterDegenerated[iPol] != NULL );
+
+	for( int ielem = 0; ielem < nElem; ++ielem ){
+		const int elemID = elememtsIncludingDipole[ielem];
+		const CommonParameters::locationXY startCoord = localCoordinateValuesStartPoint[ielem];
+		const CommonParameters::locationXY endCoord = localCoordinateValuesEndPoint[ielem];
+
+		bool rotationDirectionPlus = true;
+		CommonParameters::locationXY sharedPoint = {0.0, 0.0};
+		const bool integralXCompFirst = doesIntegralXCompFirst( startCoord, endCoord, rotationDirectionPlus, sharedPoint );
+
+		const double lengthX = m_MeshDataNonConformingHexaElement.getEdgeLengthX(elemID);
+		const double lengthY = m_MeshDataNonConformingHexaElement.getEdgeLengthY(elemID);
+		Forward3D::Matrix3x3 JacobMat;
+		const double detJacob = calcJacobianMatrix( elemID, 0.0, 0.0, -1.0, JacobMat );
+		Forward3D::Matrix3x3 invJacobMat;
+		calcInverseOfJacobianMatrix( JacobMat, detJacob, invJacobMat );
+		const double dzdx = JacobMat.mat13 / JacobMat.mat11;
+		const double factorX = sqrt( 1.0 + dzdx * dzdx );
+		const double dzdy = JacobMat.mat23 / JacobMat.mat22;
+		const double factorY = sqrt( 1.0 + dzdy * dzdy );
+
+		const double xCoordDifferenceOfSegment = (endCoord.X - startCoord.X) * lengthX * 0.5;
+		const double yCoordDifferenceOfSegment = (endCoord.Y - startCoord.Y) * lengthY * 0.5;
+		
+		if( integralXCompFirst ){
+			//voltageDifference -= std::complex<double>( xCoordDifferenceOfSegment * factorX, 0.0 ) * calcValueElectricFieldTangentialXFromAllEdges( elemID, 4, startCoord.X, startCoord.Y, -1.0 );// Since electric field is constant on edges
+			//voltageDifference -= std::complex<double>( yCoordDifferenceOfSegment * factorY, 0.0 ) * calcValueElectricFieldTangentialYFromAllEdges( elemID, 4, endCoord.X, endCoord.Y, -1.0 );// Since electric field is constant on edges
+			calcInterpolatorVectorOfElectricFieldTangentialXFromAllEdges( elemID, 4, startCoord.X, startCoord.Y, -1.0, irhs, std::complex<double>( - xCoordDifferenceOfSegment * factorX, 0.0 ) );
+			calcInterpolatorVectorOfElectricFieldTangentialYFromAllEdges( elemID, 4, endCoord.X,   endCoord.Y,   -1.0, irhs, std::complex<double>( - yCoordDifferenceOfSegment * factorY, 0.0 ) );
+		}else{
+			//voltageDifference -= std::complex<double>( yCoordDifferenceOfSegment * factorY, 0.0 ) * calcValueElectricFieldTangentialYFromAllEdges( elemID, 4, startCoord.X, startCoord.Y, -1.0 );// Since electric field is constant on edges
+			//voltageDifference -= std::complex<double>( xCoordDifferenceOfSegment * factorX, 0.0 ) * calcValueElectricFieldTangentialXFromAllEdges( elemID, 4, endCoord.X, endCoord.Y, -1.0 );// Since electric field is constant on edges
+			calcInterpolatorVectorOfElectricFieldTangentialYFromAllEdges( elemID, 4, startCoord.X, startCoord.Y, -1.0, irhs, std::complex<double>( - yCoordDifferenceOfSegment * factorY, 0.0 ) );
+			calcInterpolatorVectorOfElectricFieldTangentialXFromAllEdges( elemID, 4, endCoord.X,   endCoord.Y,   -1.0, irhs, std::complex<double>( - xCoordDifferenceOfSegment * factorX, 0.0 ) );
+		}
+
+		const double areaFraction = 0.25 * fabs( (endCoord.X - startCoord.X) * (endCoord.Y - startCoord.Y) );
+		const double area = m_MeshDataNonConformingHexaElement.calcAreaOfFace(elemID, 4);
+		double areaWithSign = 0.5 * area * areaFraction;
+		if( !rotationDirectionPlus ){
+			areaWithSign *= -1.0;
+		}
+		//voltageDifference += calcValueRotatedElectricFieldNormal(elemID, 0.0, 0.0) * areaWithSign;// Since magnetic field is constant in the area
+		calcInterpolatorVectorOfRotatedElectricFieldNormal( elemID, 0.0, 0.0, irhs, areaWithSign );
+	}
 }
 
 // Calculate interpolator vector of difference of voltage
@@ -1091,8 +1199,65 @@ const MeshDataNonConformingHexaElement* Forward3DNonConformingHexaElement0thOrde
 // Calculate difference of voltage for brick element
 std::complex<double> Forward3DNonConformingHexaElement0thOrder::calcVoltageDifference( const int nElem, const int* elememtsIncludingDipole,
 	const CommonParameters::locationXY* localCoordinateValuesStartPoint, const CommonParameters::locationXY* localCoordinateValuesEndPoint ) const{
-	OutputFiles::m_logFile << "Error : " << __FUNCTION__ << " is not implemented" << std::endl;
-	exit(1);
+
+	std::complex<double> voltageDifference = std::complex<double>(0.0, 0.0);
+	for( int ielem = 0; ielem < nElem; ++ielem ){
+		const int elemID = elememtsIncludingDipole[ielem];
+		const CommonParameters::locationXY startCoord = localCoordinateValuesStartPoint[ielem];
+		const CommonParameters::locationXY endCoord = localCoordinateValuesEndPoint[ielem];
+
+		bool rotationDirectionPlus = true;
+		CommonParameters::locationXY sharedPoint = {0.0, 0.0};
+		const bool integralXCompFirst = doesIntegralXCompFirst( startCoord, endCoord, rotationDirectionPlus, sharedPoint );
+
+		const double lengthX = m_MeshDataNonConformingHexaElement.getEdgeLengthX(elemID);
+		const double lengthY = m_MeshDataNonConformingHexaElement.getEdgeLengthY(elemID);
+		Forward3D::Matrix3x3 JacobMat;
+		const double detJacob = calcJacobianMatrix( elemID, 0.0, 0.0, -1.0, JacobMat );
+		Forward3D::Matrix3x3 invJacobMat;
+		calcInverseOfJacobianMatrix( JacobMat, detJacob, invJacobMat );
+		const double dzdx = JacobMat.mat13 / JacobMat.mat11;
+		const double factorX = sqrt( 1.0 + dzdx * dzdx );
+		const double dzdy = JacobMat.mat23 / JacobMat.mat22;
+		const double factorY = sqrt( 1.0 + dzdy * dzdy );
+
+		const double xCoordDifferenceOfSegment = (endCoord.X - startCoord.X) * lengthX * 0.5;
+		const double yCoordDifferenceOfSegment = (endCoord.Y - startCoord.Y) * lengthY * 0.5;
+
+		if( integralXCompFirst ){
+			voltageDifference -= std::complex<double>( xCoordDifferenceOfSegment * factorX, 0.0 ) * calcValueElectricFieldTangentialXFromAllEdges( elemID, 4, startCoord.X, startCoord.Y, -1.0 );// Since electric field is constant on edges
+			voltageDifference -= std::complex<double>( yCoordDifferenceOfSegment * factorY, 0.0 ) * calcValueElectricFieldTangentialYFromAllEdges( elemID, 4, endCoord.X, endCoord.Y, -1.0 );// Since electric field is constant on edges
+		}else{
+			voltageDifference -= std::complex<double>( yCoordDifferenceOfSegment * factorY, 0.0 ) * calcValueElectricFieldTangentialYFromAllEdges( elemID, 4, startCoord.X, startCoord.Y, -1.0 );// Since electric field is constant on edges
+			voltageDifference -= std::complex<double>( xCoordDifferenceOfSegment * factorX, 0.0 ) * calcValueElectricFieldTangentialXFromAllEdges( elemID, 4, endCoord.X, endCoord.Y, -1.0 );// Since electric field is constant on edges
+		}
+
+#ifdef _DEBUG_WRITE
+		std::cout << "voltageDifference : " << voltageDifference << std::endl;
+#endif
+
+		const double areaFraction = 0.25 * fabs( (endCoord.X - startCoord.X) * (endCoord.Y - startCoord.Y) );
+		const double area = m_MeshDataNonConformingHexaElement.calcAreaOfFace(elemID, 4);
+		double areaWithSign = 0.5 * area * areaFraction;
+		if( !rotationDirectionPlus ){
+			areaWithSign *= -1.0;
+		}
+
+#ifdef _DEBUG_WRITE
+		const std::complex<double> tmp1 = calcValueRotatedElectricFieldNormal(elemID, 0.0, 0.0);
+		const std::complex<double> tmp2 = calcValueRotatedElectricFieldZDirection(elemID, 0.0, 0.0, -1.0);
+#endif
+
+		voltageDifference += calcValueRotatedElectricFieldNormal(elemID, 0.0, 0.0) * areaWithSign;// Since magnetic field is constant in the area
+
+#ifdef _DEBUG_WRITE
+		std::cout << "areaWithSign calcValueRotatedElectricFieldZDirection : " << areaWithSign << " " << tmp1 << std::endl;
+		std::cout << "voltageDifference total : " << voltageDifference << std::endl;
+#endif
+	}
+
+	return voltageDifference;
+
 }
 
 // Calculate difference of voltage for tetra element
@@ -1355,6 +1520,36 @@ void Forward3DNonConformingHexaElement0thOrder::calcArrayConvertIDGlobal2NonZero
 
 }
 
+// Calculate 2D jacobian matrix for the Earth's surface
+double Forward3DNonConformingHexaElement0thOrder::calc2DJacobianMatrixForEarthSurface( const int elemID, const double xi, const double eta, 
+	Forward3D::Matrix2x2& jacobMat ) const{
+
+	// Array of reference coord xi values for each node
+	const double xiAtNode[4] = { -1.0, 1.0, 1.0, -1.0 };
+	// Array of reference coord eta values for each node
+	const double etaAtNode[4] = { -1.0, -1.0, 1.0, 1.0 };
+
+	jacobMat.mat11 = 0.0;
+	jacobMat.mat12 = 0.0;
+	jacobMat.mat21 = 0.0;
+	jacobMat.mat22 = 0.0;
+	for( int i = 0; i < 4; ++i ){
+		const double xiNode   = xiAtNode[i];
+		const double etaNode  = etaAtNode[i];
+		const double tmp1 = 0.25 * xiNode   * (1.0 + etaNode  * eta);
+		const double tmp2 = 0.25 * etaNode  * (1.0 + xiNode * xi);
+		const int node = m_MeshDataNonConformingHexaElement.getNodesOfElements( elemID, i );
+		const double xCoord = m_MeshDataNonConformingHexaElement.getXCoordinatesOfNodes(node);
+		const double yCoord = m_MeshDataNonConformingHexaElement.getYCoordinatesOfNodes(node);
+		jacobMat.mat11 += tmp1 * xCoord;
+		jacobMat.mat12 += tmp1 * yCoord;
+		jacobMat.mat21 += tmp2 * xCoord;
+		jacobMat.mat22 += tmp2 * yCoord;
+	}
+
+	return jacobMat.mat11 * jacobMat.mat22 - jacobMat.mat12 * jacobMat.mat21;
+
+}
 
 // Make map converting master dofs after degeneration and MPC factors from slave dof after degeneration 
 void Forward3DNonConformingHexaElement0thOrder::makeMapSlaveDofToMasterDofAndFactors(){
@@ -1668,6 +1863,62 @@ void Forward3DNonConformingHexaElement0thOrder::calcMPCConstants(){
 }
 
 // Add master dof and factor pair to m_slaveDofToMasterDofAndFactors
+bool Forward3DNonConformingHexaElement0thOrder::doesIntegralXCompFirst( const CommonParameters::locationXY& startPoint, const CommonParameters::locationXY& endPoint,
+	bool& rotationDirectionPlus, CommonParameters::locationXY& sharedPoint ) const{
+
+	const double eps = 1.0e-12;
+
+	bool intersectTwoEdges = true;
+	if( ( fabs( startPoint.X - 1.0 ) < eps && fabs( endPoint.Y - 1.0 ) < eps ) ||
+		( fabs( startPoint.Y - 1.0 ) < eps && fabs( endPoint.X - 1.0 ) < eps ) ){
+		sharedPoint.X = 1.0;
+		sharedPoint.Y = 1.0;
+	}else if( ( fabs( startPoint.X - 1.0 ) < eps && fabs( endPoint.Y + 1.0 ) < eps ) ||
+			( fabs( startPoint.Y + 1.0 ) < eps && fabs( endPoint.X - 1.0 ) < eps ) ){
+		sharedPoint.X = 1.0;
+		sharedPoint.Y = -1.0;
+	}else if( ( fabs( startPoint.X + 1.0 ) < eps && fabs( endPoint.Y + 1.0 ) < eps ) ||
+			( fabs( startPoint.Y + 1.0 ) < eps && fabs( endPoint.X + 1.0 ) < eps ) ){
+		sharedPoint.X = -1.0;
+		sharedPoint.Y = -1.0;
+	}else if( ( fabs( startPoint.X + 1.0 ) < eps && fabs( endPoint.Y - 1.0 ) < eps ) ||
+			( fabs( startPoint.Y - 1.0 ) < eps && fabs( endPoint.X + 1.0 ) < eps ) ){
+		sharedPoint.X = -1.0;
+		sharedPoint.Y = 1.0;
+	}else{// Not intersect two edges => integral X component first
+		sharedPoint.X = startPoint.X;
+		sharedPoint.Y = endPoint.Y;
+		intersectTwoEdges = false;
+	}
+
+	const double outerProduct = ( sharedPoint.X - startPoint.X )*( endPoint.Y - startPoint.Y ) - ( sharedPoint.Y - startPoint.Y )*( endPoint.X - startPoint.X );
+	if( outerProduct > 0 ){
+		rotationDirectionPlus = true;
+	}else{
+		rotationDirectionPlus = false;
+	}
+
+	if( intersectTwoEdges ){
+		if( sharedPoint.X * sharedPoint.Y < 0.0 ){
+			if( rotationDirectionPlus ){
+				return true;
+			}else{
+				return false;
+			}
+		}else{
+			if( rotationDirectionPlus ){
+				return false;
+			}else{
+				return true;
+			}
+		}
+	}else{// Not intersect two edges => integral X component first
+		return false;
+	}
+
+}
+
+// Add master dof and factor pair to m_slaveDofToMasterDofAndFactors
 void Forward3DNonConformingHexaElement0thOrder::addMasterDofAndFactorPair( const int slaveDof, const int masterDof, const double factor  ){
 
 	//std::map< int, std::vector< std::pair<int,double> > >::iterator itr = m_slaveDofToMasterDofAndFactors.find(slaveDof);
@@ -1908,6 +2159,31 @@ double Forward3DNonConformingHexaElement0thOrder::getShapeFuncRotatedZ( const do
 	}
 	
 	return tmp1 + tmp2;
+}
+
+// Calculate jacobian matrix of the elements
+double Forward3DNonConformingHexaElement0thOrder::get2DShapeFuncRotatedForEarthSurface( const double xi, const double eta, const int num, const Forward3D::Matrix2x2& invJacobMat ) const{
+
+	// Array of reference coord xi values for each edge
+	const double xiAtEdge[4] = { -9999.999, -9999.999, -1.0, 1.0 };
+	// Array of reference coord eta values for each edge
+	const double etaAtEdge[4] = { -1.0, 1.0, -9999.999, -9999.999 };
+
+	switch( num ){
+		case 0:// go through
+		case 1:
+			return 0.25 * etaAtEdge[num] * (invJacobMat.mat21*invJacobMat.mat12 - invJacobMat.mat11*invJacobMat.mat22 );
+			break;
+		case 2:// go through
+		case 3:
+			return 0.25 * xiAtEdge[num] * (invJacobMat.mat22*invJacobMat.mat11 - invJacobMat.mat12*invJacobMat.mat21 );
+			break;
+		default:
+			OutputFiles::m_logFile << "Error : Wrong number in " << __FUNCTION__ <<" : num = " << num << std::endl;
+			exit(1);
+			break;
+	}
+
 }
 
 // Calculate jacobian matrix of the elements

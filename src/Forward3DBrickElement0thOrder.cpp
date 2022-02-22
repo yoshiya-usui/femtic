@@ -647,7 +647,7 @@ std::complex<double> Forward3DBrickElement0thOrder::calcVoltageDifference( const
 //----- debug >>>>>
 #ifdef _DEBUG_WRITE
 		std::cout << "areaWithSign calcValueRotatedElectricFieldZDirection : " << areaWithSign << " " << calcValueRotatedElectricFieldZDirection( elememtsIncludingDipole[ielem], localCoordinateValuesStartPoint[ielem].X, localCoordinateValuesStartPoint[ielem].Y, -1.0 ) << std::endl;
-		std::cout << "voltageDifference : " << voltageDifference << std::endl;
+		std::cout << "voltageDifference  total : " << voltageDifference << std::endl;
 #endif
 //----- debug <<<<<
 
