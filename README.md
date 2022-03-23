@@ -42,13 +42,13 @@ FEMTIC gives a three-dimensional electrical resistivity structure from the respo
 # Pre/post-processing tools for FEMTIC
 Some pre/post-processing tools for FEMTIC, including meshing tools, and their manuals can be downloaded from GitHub. Results of FEMTIC can be visualized by [ParaView](https://www.paraview.org/).
 
+[makeDHexaMesh](https://github.com/yoshiya-usui/makeDHexaMesh.git): Tool for making non-conforming deformed hexahedral mesh for FEMTIC
+
 [makeTetraMesh](https://github.com/yoshiya-usui/makeTetraMesh.git): By using this tool, you can make a surface mesh for creating a tetrahedral mesh.
 
 [makeMtr](https://github.com/yoshiya-usui/makeMtr.git): This tool output .mtr file of TetGen by reading node and .ele files of TetGen.
 
 [TetGen2Femtic](https://github.com/yoshiya-usui/TetGen2Femtic.git): This program converts output files of TetGen to FEMTIC.
-
-[makeDHexaMesh](https://github.com/yoshiya-usui/makeDHexaMesh.git): Tool for making non-conforming deformed hexahedral mesh for FEMTIC
 
 [makeHexaMesh](https://github.com/yoshiya-usui/makeHexaMesh.git): Tool for making hexahedral brick mesh for FEMTIC
 
