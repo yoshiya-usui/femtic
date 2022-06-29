@@ -17,7 +17,7 @@ FEMTIC gives a three-dimensional electrical resistivity structure from the respo
 
 **Mesh type**: Tetrahedral mesh / Hexahedral brick mesh / Non-conforming deformed hexahedral mesh
 
-**Data type**: Impedance tensor / Vertical magnetic transfer function / Inter-station horizontal magnetic transfer function / Phase tensor / Apparent resistivity / Phase.
+**Data type**: Impedance tensor / Vertical magnetic transfer function / Inter-station horizontal magnetic transfer function / Phase tensor / Apparent resistivity & Phase.
 
 **Inversion algorithm**: Model-space Gauss-Newton method / Data-space Gauss-Newton method
 
