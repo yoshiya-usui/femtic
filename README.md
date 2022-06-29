@@ -19,7 +19,7 @@ FEMTIC gives a three-dimensional electrical resistivity structure from the respo
 
 **Data type**: Impedance tensor / Vertical magnetic transfer function / Inter-station horizontal magnetic transfer function / Phase tensor / Apparent resistivity / Phase.
 
-**Inversion algorithm**: Model-space Gauss-Netwon method / Data-space Gauss-Netwon method
+**Inversion algorithm**: Model-space Gauss-Newton method / Data-space Gauss-Newton method
 
 **Parallel computation**: Multiple processes parallel computation with MPI / Multiple threads parallel computation with OpenMP / MPI & OpenMP hybrid parallel computation
 
