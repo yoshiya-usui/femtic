@@ -73,7 +73,7 @@ void InversionGaussNewtonDataSpace::inversionCalculation(){
 // Perform inversion by the new method
 void InversionGaussNewtonDataSpace::inversionCalculationByNewMethod() const{
 
-	const bool useBLAS = false;
+	const bool useBLAS = true;
 
 	// Get process ID and total process number
 	const AnalysisControl* const ptrAnalysisControl = AnalysisControl::getInstance();
@@ -254,11 +254,11 @@ void InversionGaussNewtonDataSpace::inversionCalculationByNewMethod() const{
 
 		const int numRHSDividedWithoutOdds = numDataThisFreq / numDivRhs;
 		const int numAdds = numDataThisFreq % numDivRhs;
-		int iRhsStart = 0;
+		long long iRhsStart = 0;
 		for( int iDiv = 0; iDiv < numDivRhs; ++iDiv ){
 			const int numRHSDivided = iDiv < numAdds ? numRHSDividedWithoutOdds + 1 : numRHSDividedWithoutOdds;
 			OutputFiles::m_logFile << "# Solve phase is performed simultaneously for " << numRHSDivided  << " right-hand sides" << ptrAnalysisControl->outputElapsedTime() << std::endl;
-			const long long index = static_cast<long long>(numModel) * static_cast<long long>(iRhsStart);
+			const long long index = static_cast<long long>(numModel) * iRhsStart;
 			transposedConstrainingMatrix.solvePhaseMatrixSolver( numRHSDivided, &sensitivityMatrix[index], &sensitivityMatrixTemp[index] );// Solve
 			iRhsStart += numRHSDivided;
 		}
@@ -564,11 +564,11 @@ void InversionGaussNewtonDataSpace::inversionCalculationByNewMethod() const{
 					CBLAS_TRANSPOSE transA = CblasNoTrans;
 					CBLAS_TRANSPOSE transB = CblasTrans;
 					cblas_dgemm(order, transA, transB, m, n, k, alpha, sensitivityMatrixLeft, lda, sensitivityMatrixRight, ldb, beta, result, ldc);
-					for( int irow = 0; irow < numDataThisFreqLeft; ++irow ){
-						const int row = irow + offsetRows;
-						for( int icol = 0; icol < numDataThisFreqRight; ++icol ){
-							const int col = icol + offsetCols;
-							matrix[ row * numDataTotal + col ] = result[ irow * numDataThisFreqRight + icol ];
+					for( long long irow = 0; irow < numDataThisFreqLeft; ++irow ){
+						const long long row = irow + static_cast<long long>(offsetRows);
+						for( long long icol = 0; icol < numDataThisFreqRight; ++icol ){
+							const long long col = icol + static_cast<long long>(offsetCols);
+							matrix[ row * static_cast<long long>(numDataTotal) + col ] = result[ irow * static_cast<long long>(numDataThisFreqRight) + icol ];
 						}
 					}
 					delete [] result;
@@ -897,7 +897,7 @@ void InversionGaussNewtonDataSpace::inversionCalculationByNewMethod() const{
 // Perform inversion by the new method using inverse of [R]T[R] matrix
 void InversionGaussNewtonDataSpace::inversionCalculationByNewMethodUsingInvRTRMatrix() const{
 
-	const bool useBLAS = false;
+	const bool useBLAS = true;
 
 	// Get process ID and total process number
 	const AnalysisControl* const ptrAnalysisControl = AnalysisControl::getInstance();
@@ -1088,11 +1088,11 @@ void InversionGaussNewtonDataSpace::inversionCalculationByNewMethodUsingInvRTRMa
 
 		const int numRHSDividedWithoutOdds = numDataThisFreq / numDivRhs;
 		const int numAdds = numDataThisFreq % numDivRhs;
-		int iRhsStart = 0;
+		long long iRhsStart = 0;
 		for( int iDiv = 0; iDiv < numDivRhs; ++iDiv ){
 			const int numRHSDivided = iDiv < numAdds ? numRHSDividedWithoutOdds + 1 : numRHSDividedWithoutOdds;
 			OutputFiles::m_logFile << "# Solve phase is performed simultaneously for " << numRHSDivided  << " right-hand sides" << ptrAnalysisControl->outputElapsedTime() << std::endl;
-			const long long index = static_cast<long long>(numModel) * static_cast<long long>(iRhsStart);
+			const long long index = static_cast<long long>(numModel) * iRhsStart;
 			RTRMatrix.solvePhaseMatrixSolver( numRHSDivided, &sensitivityMatrix[index], &sensitivityMatrixTemp[index] );// Solve
 			iRhsStart += numRHSDivided;
 		}
@@ -1374,11 +1374,11 @@ void InversionGaussNewtonDataSpace::inversionCalculationByNewMethodUsingInvRTRMa
 					CBLAS_TRANSPOSE transA = CblasNoTrans;
 					CBLAS_TRANSPOSE transB = CblasTrans;
 					cblas_dgemm(order, transA, transB, m, n, k, alpha, sensitivityMatrixLeft, lda, sensitivityMatrixRight, ldb, beta, result, ldc);
-					for( int irow = 0; irow < numDataThisFreqLeft; ++irow ){
-						const int row = irow + offsetRows;
-						for( int icol = 0; icol < numDataThisFreqRight; ++icol ){
-							const int col = icol + offsetCols;
-							matrix[ row * numDataTotal + col ] = result[ irow * numDataThisFreqRight + icol ];
+					for( long long irow = 0; irow < numDataThisFreqLeft; ++irow ){
+						const long long row = irow + static_cast<long long>(offsetRows);
+						for( long long icol = 0; icol < numDataThisFreqRight; ++icol ){
+							const long long col = icol + static_cast<long long>(offsetCols);
+							matrix[ row * static_cast<long long>(numDataTotal) + col ] = result[ irow * static_cast<long long>(numDataThisFreqRight) + icol ];
 						}
 					}
 					delete [] result;

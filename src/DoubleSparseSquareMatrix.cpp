@@ -117,9 +117,9 @@ void DoubleSparseSquareMatrix::factorizationPhaseMatrixSolver(){
 }
 
 //Solve phase of matrix solver with a specified number of right-hand side
-void DoubleSparseSquareMatrix::solvePhaseMatrixSolver( double* solution, const int iRhsStart ,const int nRhs ){
+void DoubleSparseSquareMatrix::solvePhaseMatrixSolver( double* solution, const long long iRhsStart ,const int nRhs ){
 	assert( m_hasConvertedToCRSFormat );
-	const long long index = static_cast<long long>(m_numRows) * static_cast<long long>(iRhsStart);
+	const long long index = static_cast<long long>(m_numRows) * iRhsStart;
 	m_pardisoSolver.solve( m_rowIndex, m_columns, m_values, nRhs, &m_rightHandSideVector[index], solution );
 }
 

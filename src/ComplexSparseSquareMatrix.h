@@ -79,7 +79,7 @@ public:
 	void factorizationPhaseMatrixSolver();
 
 	//Solve phase of matrix solver with a specified number of right-hand side
-	void solvePhaseMatrixSolver( std::complex<double>* solution, const int iRhsStart ,const int nRhs );
+	void solvePhaseMatrixSolver( std::complex<double>* solution, const long long iRhsStart ,const int nRhs );
 
 	//Solve phase of matrix solver
 	void solvePhaseMatrixSolver( std::complex<double>* solution );

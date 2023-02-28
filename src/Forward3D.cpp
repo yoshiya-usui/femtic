@@ -189,13 +189,13 @@ void Forward3D::solvePhaseForRhsConsistingInterpolatorVectors( const int numInte
 	const int numOfEquationFinallySolved = getNumOfEquationFinallySolved();
 	const int numRHSDividedWithoutOdds = numInterpolatorVectors / numDivRhs;
 	const int numAdds = numInterpolatorVectors % numDivRhs;
-	int iRhsStart = 0;
+	long long iRhsStart = 0;
 	for( int iDiv = 0; iDiv < numDivRhs; ++iDiv ){
 		const int numRHSDividedWithout = iDiv < numAdds ? numRHSDividedWithoutOdds + 1 : numRHSDividedWithoutOdds;
 		OutputFiles::m_logFile << "# Solve phase is performed simultaneously for " << numRHSDividedWithout  << " right-hand sides" << ptrAnalysisControl->outputElapsedTime() << std::endl;
-		const int long long index = static_cast<long long>(numOfEquationFinallySolved) * static_cast<long long>(iRhsStart);
+		const int long long index = static_cast<long long>(numOfEquationFinallySolved) * iRhsStart;
 		m_matrix3DAnalysis.solvePhaseMatrixSolver( &solutionForInterpolatorVectors[index], iRhsStart, numRHSDividedWithout );
-		iRhsStart += numRHSDividedWithout;
+		iRhsStart += static_cast<long long>(numRHSDividedWithout);
 	}
 
 	//----- debug >>>>>

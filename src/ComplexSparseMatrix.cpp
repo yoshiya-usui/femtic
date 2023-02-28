@@ -61,11 +61,11 @@ ComplexSparseMatrix::ComplexSparseMatrix( const int nrows, const int ncols, cons
 	assert( ncols > 0 );
 	assert( nrhs > 0 );
 
-	const int num = m_numRows*m_numRightHandSideVectors;
+	const long long num = static_cast<long long>(m_numRows)*static_cast<long long>(m_numRightHandSideVectors);
 	m_rightHandSideVector = new std::complex<double>[num];
-	for( int i = 0; i < num; ++i ){
+	for( long long i = 0; i < num; ++i ){
 		m_rightHandSideVector[i] = std::complex<double>(0.0,0.0); // Initialize
-	}	
+	}
 }
 
 // Destructer
@@ -125,9 +125,9 @@ void ComplexSparseMatrix::setNumRowsAndColumns( const int nrows, const int ncols
 		m_rightHandSideVector = NULL;
 	}
 
-	const int num = m_numRows*m_numRightHandSideVectors;
+	const long long num = static_cast<long long>(m_numRows)*static_cast<long long>(m_numRightHandSideVectors);
 	m_rightHandSideVector = new std::complex<double>[num];
-	for( int i = 0; i < num; ++i ){
+	for( long long i = 0; i < num; ++i ){
 		m_rightHandSideVector[i] = std::complex<double>(0.0,0.0); // Initialize
 	}
 
@@ -374,14 +374,16 @@ void ComplexSparseMatrix::addRightHandSideVector( const int row, const std::comp
 	assert( irhs <= m_numRightHandSideVectors - 1 );
 	assert( irhs >= 0  );
 
-	m_rightHandSideVector[ row + m_numRows * irhs ] += val;
+	const long long index = static_cast<long long>(row) + static_cast<long long>(m_numRows)*static_cast<long long>(irhs);
+	m_rightHandSideVector[index] += val;
+
 }
 
 //Zero clear non-zero values of the right hand side vector
 void ComplexSparseMatrix::zeroClearRightHandSideVector(){
 
-	const int num = m_numRows*m_numRightHandSideVectors;
-	for( int i = 0; i < num; ++i ){
+	const long long num = static_cast<long long>(m_numRows)*static_cast<long long>(m_numRightHandSideVectors);
+	for( long long i = 0; i < num; ++i ){
 		m_rightHandSideVector[i] = std::complex<double>(0.0,0.0); // Zero clear
 	}
 
@@ -444,9 +446,9 @@ void ComplexSparseMatrix::initializeMatrixAndRhsVectors( const int nrows, const 
 	//m_matrixTripletFormat = new std::set<int>[nrows];
 	m_matrixTripletFormat = new std::map< int, std::complex<double> >[nrows];
 
-	const int num = m_numRows*m_numRightHandSideVectors;
+	const long long num = static_cast<long long>(m_numRows)*static_cast<long long>(m_numRightHandSideVectors);
 	m_rightHandSideVector = new std::complex<double>[num];
-	for( int i = 0; i < num; ++i ){
+	for( long long i = 0; i < num; ++i ){
 		m_rightHandSideVector[i] = std::complex<double>(0.0,0.0); // Initialize
 	}	
 
@@ -530,9 +532,9 @@ void ComplexSparseMatrix::reallocateMemoryForRightHandSideVectors( const int nrh
 
 	m_numRightHandSideVectors = nrhs;
 
-	const int num = m_numRows*m_numRightHandSideVectors;
+	const long long num = static_cast<long long>(m_numRows)*static_cast<long long>(m_numRightHandSideVectors);
 	m_rightHandSideVector = new std::complex<double>[num];
-	for( int i = 0; i < num; ++i ){
+	for( long long i = 0; i < num; ++i ){
 		m_rightHandSideVector[i] = std::complex<double>(0.0,0.0); // Initialize
 	}
 
@@ -574,17 +576,18 @@ void ComplexSparseMatrix::copyRhsVector( std::complex<double>* vecOut ) const{
 	//	}
 	//}
 
-	memcpy( vecOut, m_rightHandSideVector, sizeof(std::complex<double>)*(m_numRightHandSideVectors*m_numRows) );
+	const long long num = static_cast<long long>(m_numRightHandSideVectors)*static_cast<long long>(m_numRows);
+	memcpy( vecOut, m_rightHandSideVector, static_cast<long long>(sizeof(std::complex<double>))*num );
 
 }
 
 //Copy specified components of right-hand side vector to another vector
 void ComplexSparseMatrix::copyRhsVector( const int numCompsCopied, const int* const compsCopied, std::complex<double>* vecOut ) const{
 
-	for( int j = 0; j < m_numRightHandSideVectors; ++j ){
-		const int offset = m_numRows * j;
-		for( int i = 0; i < numCompsCopied; ++i ){
-			vecOut[ i + offset ] = m_rightHandSideVector[ compsCopied[i] + offset ];
+	for( long long j = 0; j < m_numRightHandSideVectors; ++j ){
+		const long long offset = static_cast<long long>(m_numRows) * j;
+		for( long long i = 0; i < numCompsCopied; ++i ){
+			vecOut[ i + offset ] = m_rightHandSideVector[ static_cast<long long>(compsCopied[i]) + offset ];
 		}
 	}
 

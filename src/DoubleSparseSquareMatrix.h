@@ -60,7 +60,7 @@ public:
 	void factorizationPhaseMatrixSolver();
 
 	//Solve phase of matrix solver with a specified number of right-hand side
-	void solvePhaseMatrixSolver( double* solution, const int iRhsStart ,const int nRhs );
+	void solvePhaseMatrixSolver( double* solution, const long long iRhsStart ,const int nRhs );
 
 	//Solve phase of matrix solver
 	void solvePhaseMatrixSolver( double* solution );
