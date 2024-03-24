@@ -506,7 +506,8 @@ void InversionGaussNewtonDataSpace::inversionCalculationByNewMethod() const{
 	if( myProcessID == 0 ){//---- Processs ID = 0 Only ----->>>>>
 		OutputFiles::m_logFile << "# Calculate coefficient matrix. " << ptrAnalysisControl->outputElapsedTime() << std::endl;
 
-		double* matrix = new double[ static_cast<long long>(numDataTotal) * static_cast<long long>(numDataTotal) ];
+		const long long int numDataTotal_64 = static_cast<long long int>(numDataTotal);
+		double* matrix = new double[numDataTotal_64 * numDataTotal_64];
 #ifdef _DEBUG_WRITE
 		for( long long i = 0; i < static_cast<long long>(numDataTotal) * static_cast<long long>(numDataTotal); ++i ){
 			matrix[i] = -9999.999;
@@ -568,7 +569,7 @@ void InversionGaussNewtonDataSpace::inversionCalculationByNewMethod() const{
 						const long long row = irow + static_cast<long long>(offsetRows);
 						for( long long icol = 0; icol < numDataThisFreqRight; ++icol ){
 							const long long col = icol + static_cast<long long>(offsetCols);
-							matrix[ row * static_cast<long long>(numDataTotal) + col ] = result[ irow * static_cast<long long>(numDataThisFreqRight) + icol ];
+							matrix[ row * numDataTotal_64 + col ] = result[ irow * static_cast<long long>(numDataThisFreqRight) + icol ];
 						}
 					}
 					delete [] result;
@@ -583,7 +584,6 @@ void InversionGaussNewtonDataSpace::inversionCalculationByNewMethod() const{
 					const long long numDataThisFreqLeft_64 = static_cast<long long>(numDataThisFreqLeft);
 					const long long numDataThisFreqRight_64 = static_cast<long long>(numDataThisFreqRight);
 					const long long numModel_64 = static_cast<long long>(numModel);
-					const long long numDataTotal_64 = static_cast<long long>(numDataTotal);
 					const long long offsetRows_64 = static_cast<long long>(offsetRows);
 					const long long offsetCols_64 = static_cast<long long>(offsetCols);
 #ifdef _USE_OMP
@@ -614,22 +614,22 @@ void InversionGaussNewtonDataSpace::inversionCalculationByNewMethod() const{
 		//----------------------------------------------
 		// Add unit matrix
 		//----------------------------------------------
-		for( int row = 0; row < numDataTotal; ++row ){
-			const int col = row;
-			matrix[ row * numDataTotal + col ] += 1.0;
+		for( long long int row = 0; row < numDataTotal_64; ++row ){
+			const long long int col = row;
+			matrix[ row * numDataTotal_64 + col ] += 1.0;
 		}
 
-		const long long numElemsOfCoefficientMatrixTotal = static_cast<long long>(numDataTotal) * ( static_cast<long long>(numDataTotal) + 1 ) / 2;
+		const long long int numElemsOfCoefficientMatrixTotal = numDataTotal_64 * ( numDataTotal_64 + 1 ) / 2;
 		OutputFiles::m_logFile << "# Total number of elements in coefficient matrix : " << numElemsOfCoefficientMatrixTotal << std::endl;
 		matrixToBeInverted = new double [numElemsOfCoefficientMatrixTotal];
 
 		//----------------------------------------------
 		// Copy only upper triangle components
 		//----------------------------------------------
-		int index(0);
-		for( int row = 0; row < numDataTotal; ++row ){
-			for( int col = row; col < numDataTotal; ++col ){
-				matrixToBeInverted[index] = matrix[ row * numDataTotal + col ];
+		long long int index(0);
+		for(long long int row = 0; row < numDataTotal_64; ++row ){
+			for(long long int col = row; col < numDataTotal_64; ++col ){
+				matrixToBeInverted[index] = matrix[ row * numDataTotal_64 + col ];
 				++index;
 			}
 		}
@@ -646,7 +646,6 @@ void InversionGaussNewtonDataSpace::inversionCalculationByNewMethod() const{
 		OutputFiles::m_logFile << "# Start numerical factorization for normal equation. " << ptrAnalysisControl->outputElapsedTime() << std::endl;
 
 		const long long int numModel_64 = static_cast<long long int>(numModel);
-		const long long int numDataTotal_64 = static_cast<long long int>(numDataTotal);
 		const bool positiveDefinite = ptrAnalysisControl->getPositiveDefiniteNormalEqMatrix();
 		long long int* ipiv = NULL;
 		if( !positiveDefinite ){
@@ -1316,7 +1315,8 @@ void InversionGaussNewtonDataSpace::inversionCalculationByNewMethodUsingInvRTRMa
 	if( myProcessID == 0 ){//---- Processs ID = 0 Only ----->>>>>
 		OutputFiles::m_logFile << "# Calculate coefficient matrix. " << ptrAnalysisControl->outputElapsedTime() << std::endl;
 
-		double* matrix = new double[ static_cast<long long>(numDataTotal) * static_cast<long long>(numDataTotal) ];
+		const long long int numDataTotal_64 = static_cast<long long int>(numDataTotal);
+		double* matrix = new double[numDataTotal_64 * numDataTotal_64];
 #ifdef _DEBUG_WRITE
 		for( long long i = 0; i < static_cast<long long>(numDataTotal) * static_cast<long long>(numDataTotal); ++i ){
 			matrix[i] = -9999.999;
@@ -1378,7 +1378,7 @@ void InversionGaussNewtonDataSpace::inversionCalculationByNewMethodUsingInvRTRMa
 						const long long row = irow + static_cast<long long>(offsetRows);
 						for( long long icol = 0; icol < numDataThisFreqRight; ++icol ){
 							const long long col = icol + static_cast<long long>(offsetCols);
-							matrix[ row * static_cast<long long>(numDataTotal) + col ] = result[ irow * static_cast<long long>(numDataThisFreqRight) + icol ];
+							matrix[ row * numDataTotal_64 + col ] = result[ irow * static_cast<long long>(numDataThisFreqRight) + icol ];
 						}
 					}
 					delete [] result;
@@ -1393,7 +1393,6 @@ void InversionGaussNewtonDataSpace::inversionCalculationByNewMethodUsingInvRTRMa
 					const long long numDataThisFreqLeft_64 = static_cast<long long>(numDataThisFreqLeft);
 					const long long numDataThisFreqRight_64 = static_cast<long long>(numDataThisFreqRight);
 					const long long numModel_64 = static_cast<long long>(numModel);
-					const long long numDataTotal_64 = static_cast<long long>(numDataTotal);
 					const long long offsetRows_64 = static_cast<long long>(offsetRows);
 					const long long offsetCols_64 = static_cast<long long>(offsetCols);
 #ifdef _USE_OMP
@@ -1424,22 +1423,22 @@ void InversionGaussNewtonDataSpace::inversionCalculationByNewMethodUsingInvRTRMa
 		//----------------------------------------------
 		// Add unit matrix
 		//----------------------------------------------
-		for( int row = 0; row < numDataTotal; ++row ){
-			const int col = row;
-			matrix[ row * numDataTotal + col ] += 1.0;
+		for( long long int row = 0; row < numDataTotal_64; ++row ){
+			const long long int col = row;
+			matrix[ row * numDataTotal_64 + col ] += 1.0;
 		}
 
-		const long long numElemsOfCoefficientMatrixTotal = static_cast<long long>(numDataTotal) * ( static_cast<long long>(numDataTotal) + 1 ) / 2;
+		const long long numElemsOfCoefficientMatrixTotal = numDataTotal_64 * ( numDataTotal_64 + 1 ) / 2;
 		OutputFiles::m_logFile << "# Total number of elements in coefficient matrix : " << numElemsOfCoefficientMatrixTotal << std::endl;
 		matrixToBeInverted = new double [numElemsOfCoefficientMatrixTotal];
 
 		//----------------------------------------------
 		// Copy only upper triangle components
 		//----------------------------------------------
-		int index(0);
-		for( int row = 0; row < numDataTotal; ++row ){
-			for( int col = row; col < numDataTotal; ++col ){
-				matrixToBeInverted[index] = matrix[ row * numDataTotal + col ];
+		long long int index(0);
+		for( long long int row = 0; row < numDataTotal_64; ++row ){
+			for(long long int col = row; col < numDataTotal_64; ++col ){
+				matrixToBeInverted[index] = matrix[ row * numDataTotal_64 + col ];
 				++index;
 			}
 		}
@@ -1456,7 +1455,6 @@ void InversionGaussNewtonDataSpace::inversionCalculationByNewMethodUsingInvRTRMa
 		OutputFiles::m_logFile << "# Start numerical factorization for normal equation. " << ptrAnalysisControl->outputElapsedTime() << std::endl;
 
 		const long long int numModel_64 = static_cast<long long int>(numModel);
-		const long long int numDataTotal_64 = static_cast<long long int>(numDataTotal);
 		const bool positiveDefinite = ptrAnalysisControl->getPositiveDefiniteNormalEqMatrix();
 		long long int* ipiv = NULL;
 		if( !positiveDefinite ){
