@@ -29,6 +29,8 @@ FEMTIC gives a three-dimensional electrical resistivity structure from the respo
 
 
 # Release note
+***v4.2*** Mar. 25, 2024: I modified some parts to allow the use of large-scale models and large datasets.
+
 ***v4.1*** Nov. 9, 2021: This new version supports difference filter. The error calculation of log10(apparent resistivity) is modified. Rotation angles of distortion matrix are limited to from -90 to 90 (deg.) when gains and rotations of galvanic distortion are estimated.
 
 ***v4.0*** Jun. 3, 2021: This new version supports non-conforming deformed hexahedral mesh.
