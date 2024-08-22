@@ -12,7 +12,7 @@ FEMTIC is a 3-D magnetotelluric inversion code based on the following studies. F
 **The website of FEMTIC:**
 https://sites.google.com/view/yoshiyausui/femtic
 
-# Functional overview
+## Functional overview
 FEMTIC gives a three-dimensional electrical resistivity structure from the response functions at observation points on the Earth's surface.
 
 **Mesh type**: Tetrahedral mesh / Hexahedral brick mesh / Non-conforming deformed hexahedral mesh
@@ -28,7 +28,7 @@ FEMTIC gives a three-dimensional electrical resistivity structure from the respo
 **Regularization**: L2 regularization with Laplacian filter / L2 regularization with difference filter /  L1 regularization with difference filter
 
 
-# Release note
+## Release note
 ***v4.2*** Mar. 25, 2024: I modified some parts to allow the use of large-scale models and large datasets.
 
 ***v4.1*** Nov. 9, 2021: This new version supports difference filter. The error calculation of log10(apparent resistivity) is modified. Rotation angles of distortion matrix are limited to from -90 to 90 (deg.) when gains and rotations of galvanic distortion are estimated.
@@ -41,7 +41,7 @@ FEMTIC gives a three-dimensional electrical resistivity structure from the respo
 
 ***v3.4.6*** Sep. 2, 2020: This version allows us to make resistivity of every individual subsurface element to be a different model parameter, in analogy with other 3-D inversion code.
 
-# Pre/post-processing tools for FEMTIC
+## Pre/post-processing tools for FEMTIC
 Some pre/post-processing tools for FEMTIC, including meshing tools, and their manuals can be downloaded from GitHub. Results of FEMTIC can be visualized by [ParaView](https://www.paraview.org/).
 
 [makeDHexaMesh](https://github.com/yoshiya-usui/makeDHexaMesh.git): Tool for making non-conforming deformed hexahedral mesh for FEMTIC
