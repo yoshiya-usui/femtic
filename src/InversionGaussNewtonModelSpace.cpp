@@ -167,6 +167,13 @@ void InversionGaussNewtonModelSpace::inversionCalculation(){
 			const int freqID = iFreq;
 
 			std::ostringstream fileName;
+			if (!ptrAnalysisControl->getDirectoryOfOutOfCoreFilesForSensitivityMatrix().empty()) {
+#ifdef _LINUX
+				fileName << ptrAnalysisControl->getDirectoryOfOutOfCoreFilesForSensitivityMatrix() + "\/";
+#else
+				fileName << ptrAnalysisControl->getDirectoryOfOutOfCoreFilesForSensitivityMatrix() + "\\";
+#endif
+			}
 			fileName << "sensMatFreq" << freqID;
 			FILE* fp = fopen( fileName.str().c_str(), "rb" );
 			if( fp == NULL ){

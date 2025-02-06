@@ -32,6 +32,13 @@
 #include <string.h>
 #include <assert.h>
 
+#ifdef _DEBUG_WRITE_FOR_BOTTOM_RESISTIVITY
+#ifdef _LINUX
+#include <sys/time.h>
+#include <sys/resource.h>
+#endif
+#endif
+
 #include "mkl_cblas.h"
 #include "mkl_lapacke.h"
 #include "mpi.h"
@@ -71,7 +78,7 @@ void InversionGaussNewtonDataSpace::inversionCalculation(){
 }
 
 // Perform inversion by the new method
-void InversionGaussNewtonDataSpace::inversionCalculationByNewMethod() const{
+void InversionGaussNewtonDataSpace::inversionCalculationByNewMethod() const {
 
 	const bool useBLAS = true;
 
@@ -84,7 +91,7 @@ void InversionGaussNewtonDataSpace::inversionCalculationByNewMethod() const{
 	std::ostringstream oss;
 	oss << "debug_" << myProcessID << ".txt";
 	std::ofstream fout;
-	fout.open( oss.str().c_str() );
+	fout.open(oss.str().c_str());
 #endif
 
 	ObservedData* const ptrObservedData = ObservedData::getInstance();
@@ -100,11 +107,22 @@ void InversionGaussNewtonDataSpace::inversionCalculationByNewMethod() const{
 	// Calculate constraining matrix
 	//---------------------------------
 	OutputFiles::m_logFile << "# Calculate constraining matrix. " << ptrAnalysisControl->outputElapsedTime() << std::endl;
+#ifdef _DEBUG_WRITE_FOR_BOTTOM_RESISTIVITY
+#ifdef _LINUX
+	{
+		struct rusage r;
+		if (getrusage(RUSAGE_SELF, &r) != 0) {
+			/*Failure*/
+		}
+		OutputFiles::m_logFile << "maxrss= " << r.ru_maxrss << std::endl;
+}
+#endif
+#endif
 	RougheningSquareMatrix constrainingMatrix;
-	calcConstrainingMatrix( constrainingMatrix );
+	calcConstrainingMatrix(constrainingMatrix);
 	RougheningSquareMatrix transposedConstrainingMatrix;
 	constrainingMatrix.makeTansposedMatrix( transposedConstrainingMatrix );
-//#ifdef _DEBUG_WRITE
+//#ifdef _DEBUG_WRITE_FOR_BOTTOM_RESISTIVITY
 //	constrainingMatrix.calcSingularValues();
 //#endif
 
@@ -127,14 +145,49 @@ void InversionGaussNewtonDataSpace::inversionCalculationByNewMethod() const{
 		constrainingMatrix.calcMatrixVectorProductUsingTransposedMatrix( vectorRxm, dVector );
 	}
 
+#ifdef _PCG
+#ifdef _PCG
+	const bool usePCG = true;
+#endif
+	if (!usePCG) {
+		//----------------------------------
+		// Initialization
+		//----------------------------------
+		std::ostringstream oocHeaderName;
+		oocHeaderName << "ooc_temp_inv_3D_PE" << myProcessID;
+		constrainingMatrix.initializeMatrixSolver(oocHeaderName.str(), ptrAnalysisControl->getModeOfPARDISO());
+		oocHeaderName << "_trans";
+		transposedConstrainingMatrix.initializeMatrixSolver(oocHeaderName.str(), ptrAnalysisControl->getModeOfPARDISO());
+
+		//----------------------------------
+		// Analysis
+		//----------------------------------
+		OutputFiles::m_logFile << "# Analyse constraining matrix." << ptrAnalysisControl->outputElapsedTime() << std::endl;
+		constrainingMatrix.analysisPhaseMatrixSolver();
+		OutputFiles::m_logFile << "# Analyse transposed constraining matrix." << ptrAnalysisControl->outputElapsedTime() << std::endl;
+		transposedConstrainingMatrix.analysisPhaseMatrixSolver();
+
+		//----------------------------------
+		// Factorization
+		//----------------------------------
+		OutputFiles::m_logFile << "# Factorize constraining matrix." << ptrAnalysisControl->outputElapsedTime() << std::endl;
+		constrainingMatrix.factorizationPhaseMatrixSolver();
+		OutputFiles::m_logFile << "# Factorize transposed constraining matrix." << ptrAnalysisControl->outputElapsedTime() << std::endl;
+		transposedConstrainingMatrix.factorizationPhaseMatrixSolver();
+	}
+	else
+	{
+		OutputFiles::m_logFile << "# PCG solver is used for inverting the roughening matrix." << ptrAnalysisControl->outputElapsedTime() << std::endl;
+	}
+#else
 	//----------------------------------
 	// Initialization
 	//----------------------------------
 	std::ostringstream oocHeaderName;
 	oocHeaderName << "ooc_temp_inv_3D_PE" << myProcessID;
-	constrainingMatrix.initializeMatrixSolver( oocHeaderName.str(), ptrAnalysisControl->getModeOfPARDISO() );
+	constrainingMatrix.initializeMatrixSolver(oocHeaderName.str(), ptrAnalysisControl->getModeOfPARDISO());
 	oocHeaderName << "_trans";
-	transposedConstrainingMatrix.initializeMatrixSolver( oocHeaderName.str(), ptrAnalysisControl->getModeOfPARDISO() );
+	transposedConstrainingMatrix.initializeMatrixSolver(oocHeaderName.str(), ptrAnalysisControl->getModeOfPARDISO());
 
 	//----------------------------------
 	// Analysis
@@ -151,6 +204,18 @@ void InversionGaussNewtonDataSpace::inversionCalculationByNewMethod() const{
 	constrainingMatrix.factorizationPhaseMatrixSolver();
 	OutputFiles::m_logFile << "# Factorize transposed constraining matrix." << ptrAnalysisControl->outputElapsedTime() << std::endl;
 	transposedConstrainingMatrix.factorizationPhaseMatrixSolver();
+#endif
+#ifdef _DEBUG_WRITE_FOR_BOTTOM_RESISTIVITY
+#ifdef _LINUX
+	{
+		struct rusage r;
+		if (getrusage(RUSAGE_SELF, &r) != 0) {
+			/*Failure*/
+		}
+		OutputFiles::m_logFile << "maxrss= " << r.ru_maxrss << std::endl;
+	}
+#endif
+#endif
 
 	//------------------------------------------------------------------------------------------------------
 	// Calculate residual vector and sensitivity matrix multiplied by inverse of the constraing matrix
@@ -182,6 +247,13 @@ void InversionGaussNewtonDataSpace::inversionCalculationByNewMethod() const{
 		const int freqID = ptrObservedData->getIDsOfFrequenciesCalculatedByThisPE(iFreq);
 
 		std::ostringstream fileName;
+		if (!ptrAnalysisControl->getDirectoryOfOutOfCoreFilesForSensitivityMatrix().empty()) {
+#ifdef _LINUX
+			fileName << ptrAnalysisControl->getDirectoryOfOutOfCoreFilesForSensitivityMatrix() + "\/";
+#else
+			fileName << ptrAnalysisControl->getDirectoryOfOutOfCoreFilesForSensitivityMatrix() + "\\";
+#endif
+		}
 		fileName << "sensMatFreq" << freqID;
 
 		OutputFiles::m_logFile << "# Read sensitivity matrix from "<< fileName.str() << "." << ptrAnalysisControl->outputElapsedTime() << std::endl;
@@ -259,9 +331,24 @@ void InversionGaussNewtonDataSpace::inversionCalculationByNewMethod() const{
 			const int numRHSDivided = iDiv < numAdds ? numRHSDividedWithoutOdds + 1 : numRHSDividedWithoutOdds;
 			OutputFiles::m_logFile << "# Solve phase is performed simultaneously for " << numRHSDivided  << " right-hand sides" << ptrAnalysisControl->outputElapsedTime() << std::endl;
 			const long long index = static_cast<long long>(numModel) * iRhsStart;
+#ifdef _PCG
+			if (usePCG) {
+				transposedConstrainingMatrix.solvePhaseMatrixSolverByPCGPointJacobi(numRHSDivided, &sensitivityMatrix[index], &sensitivityMatrixTemp[index]);// Solve
+			}
+			else {
+				transposedConstrainingMatrix.solvePhaseMatrixSolver(numRHSDivided, &sensitivityMatrix[index], &sensitivityMatrixTemp[index]);// Solve
+			}
+#else
 			transposedConstrainingMatrix.solvePhaseMatrixSolver( numRHSDivided, &sensitivityMatrix[index], &sensitivityMatrixTemp[index] );// Solve
+#endif
 			iRhsStart += numRHSDivided;
 		}
+#ifdef _DEBUG_WRITE
+		for (long long int index = 0; index < numComps; ++index)
+		{
+			fout << "sensitivityMatrixTemp " << index << " " << sensitivityMatrixTemp[index] << std::endl;
+		}
+#endif
 
 		//------------------------------------------------------------------------------------
 		// Write sensitivity matrix multiplied by inverse of constraining matrix
@@ -330,7 +417,23 @@ void InversionGaussNewtonDataSpace::inversionCalculationByNewMethod() const{
 		//------------------------------------------
 		double* vectorInvRTxJTxResidial = new double[numModel];
 		OutputFiles::m_logFile << "# Solve phase." << ptrAnalysisControl->outputElapsedTime() << std::endl;
+#ifdef _PCG
+		if (usePCG) {
+			transposedConstrainingMatrix.solvePhaseMatrixSolverByPCGPointJacobi(1, vectorJTxResidialGlobal, vectorInvRTxJTxResidial);
+		}
+		else
+		{
+			transposedConstrainingMatrix.solvePhaseMatrixSolver(1, vectorJTxResidialGlobal, vectorInvRTxJTxResidial);
+		}
+#ifdef _DEBUG_WRITE
+		for (int index = 0; index < numModel; ++index)
+		{
+			fout << "vectorInvRTxJTxResidial " << index << " " << vectorInvRTxJTxResidial[index] << std::endl;
+		}
+#endif
+#else
 		transposedConstrainingMatrix.solvePhaseMatrixSolver( 1, vectorJTxResidialGlobal, vectorInvRTxJTxResidial );
+#endif
 		delete [] vectorJTxResidialGlobal;
 #ifdef _DEBUG_WRITE
 		for( int iMdl = 0; iMdl < numModel; ++iMdl ){
@@ -357,7 +460,23 @@ void InversionGaussNewtonDataSpace::inversionCalculationByNewMethod() const{
 		// vectorRxm : Rm + inv[R]T*[J]T*rd
 		// vectorInvRTRd : inv[R]*( Rm + inv[R]T*[J]T*rd )
 		//-------------------------------------------------
+#ifdef _PCG
+		if (usePCG) {
+			constrainingMatrix.solvePhaseMatrixSolverByPCGPointJacobi(1, vectorRxm, vectorInvRTRd);
+		}
+		else
+		{
+			constrainingMatrix.solvePhaseMatrixSolver(1, vectorRxm, vectorInvRTRd);
+		}
+#ifdef _DEBUG_WRITE
+		for (int index = 0; index < numModel; ++index)
+		{
+			fout << "vectorInvRTRd " << index << " " << vectorInvRTRd[index] << std::endl;
+		}
+#endif
+#else
 		constrainingMatrix.solvePhaseMatrixSolver( 1, vectorRxm, vectorInvRTRd );
+#endif
 		delete [] vectorRxm;
 
 #ifdef _DEBUG_WRITE
@@ -383,6 +502,13 @@ void InversionGaussNewtonDataSpace::inversionCalculationByNewMethod() const{
 		const int freqID = ptrObservedData->getIDsOfFrequenciesCalculatedByThisPE(iFreq);
 
 		std::ostringstream fileName;
+		if (!ptrAnalysisControl->getDirectoryOfOutOfCoreFilesForSensitivityMatrix().empty()) {
+#ifdef _LINUX
+			fileName << ptrAnalysisControl->getDirectoryOfOutOfCoreFilesForSensitivityMatrix() + "\/";
+#else
+			fileName << ptrAnalysisControl->getDirectoryOfOutOfCoreFilesForSensitivityMatrix() + "\\";
+#endif
+		}
 		fileName << "sensMatFreq" << freqID;
 
 		OutputFiles::m_logFile << "# Read sensitivity matrix from "<< fileName.str() << "." << ptrAnalysisControl->outputElapsedTime() << std::endl;
@@ -521,6 +647,13 @@ void InversionGaussNewtonDataSpace::inversionCalculationByNewMethod() const{
 		int offsetRows(0);
 		for( int ifreqLeft = 0 ;ifreqLeft < nFreq; ++ifreqLeft ){
 			std::ostringstream fileNameLeft;
+			if (!ptrAnalysisControl->getDirectoryOfOutOfCoreFilesForSensitivityMatrix().empty()) {
+#ifdef _LINUX
+				fileNameLeft << ptrAnalysisControl->getDirectoryOfOutOfCoreFilesForSensitivityMatrix() + "\/";
+#else
+				fileNameLeft << ptrAnalysisControl->getDirectoryOfOutOfCoreFilesForSensitivityMatrix() + "\\";
+#endif
+			}
 			fileNameLeft << "sensMatFreq" << ifreqLeft << "Mod";
 			OutputFiles::m_logFile << "# Read sensitivity matrix from "<< fileNameLeft.str() << "." << ptrAnalysisControl->outputElapsedTime() << std::endl;
 
@@ -536,6 +669,13 @@ void InversionGaussNewtonDataSpace::inversionCalculationByNewMethod() const{
 			int offsetCols = offsetRows;
 			for( int ifreqRight = ifreqLeft ;ifreqRight < nFreq; ++ifreqRight ){
 				std::ostringstream fileNameRight;
+				if (!ptrAnalysisControl->getDirectoryOfOutOfCoreFilesForSensitivityMatrix().empty()) {
+#ifdef _LINUX
+					fileNameRight << ptrAnalysisControl->getDirectoryOfOutOfCoreFilesForSensitivityMatrix() + "\/";
+#else
+					fileNameRight << ptrAnalysisControl->getDirectoryOfOutOfCoreFilesForSensitivityMatrix() + "\\";
+#endif
+				}
 				fileNameRight << "sensMatFreq" << ifreqRight << "Mod";
 				OutputFiles::m_logFile << "# Read sensitivity matrix from "<< fileNameRight.str() << "." << ptrAnalysisControl->outputElapsedTime() << std::endl;
 
@@ -742,6 +882,13 @@ void InversionGaussNewtonDataSpace::inversionCalculationByNewMethod() const{
 		assert( offset == ptrObservedData->getNumObservedDataThisPEAccumulated( iFreq ) );
 		const int freqID = ptrObservedData->getIDsOfFrequenciesCalculatedByThisPE(iFreq);
 		std::ostringstream fileName;
+		if (!ptrAnalysisControl->getDirectoryOfOutOfCoreFilesForSensitivityMatrix().empty()) {
+#ifdef _LINUX
+			fileName << ptrAnalysisControl->getDirectoryOfOutOfCoreFilesForSensitivityMatrix() + "\/";
+#else
+			fileName << ptrAnalysisControl->getDirectoryOfOutOfCoreFilesForSensitivityMatrix() + "\\";
+#endif
+		}
 		fileName << "sensMatFreq" << freqID;
 		OutputFiles::m_logFile << "# Read sensitivity matrix from "<< fileName.str() << "." << ptrAnalysisControl->outputElapsedTime() << std::endl;
 		int numDataThisFreq(0);
@@ -838,10 +985,30 @@ void InversionGaussNewtonDataSpace::inversionCalculationByNewMethod() const{
 		// resultVector : inv[ [R]T*[R] ] * [ RTRm + [J]T*rd ] - inv[ [R]T*[R] ] * [J]T * inv[ [I] + [J] * inv[ [R]T*[R] ] *[J]T ] * [J] * inv[ [R]T*[R] ] * [ RTRm + [J]T*rd ]
 		//-------------------------------------------------------------------------------------------------------------------
 		double* tempVector = new double[numModel];
+#ifdef _PCG
+		if (usePCG) {
+			transposedConstrainingMatrix.solvePhaseMatrixSolverByPCGPointJacobi(1, dVector, tempVector);
+			constrainingMatrix.solvePhaseMatrixSolverByPCGPointJacobi(1, tempVector, dVector);
+		}
+		else
+		{
+			transposedConstrainingMatrix.solvePhaseMatrixSolver(1, dVector, tempVector);
+			constrainingMatrix.solvePhaseMatrixSolver(1, tempVector, dVector);
+		}
+#ifdef _DEBUG_WRITE
+		for (int index = 0; index < numModel; ++index)
+		{
+			fout << "tempVector " << index << " " << tempVector[index] << std::endl;
+		}
+#endif
+		transposedConstrainingMatrix.releaseMemory();
+		constrainingMatrix.releaseMemory();
+#else
 		transposedConstrainingMatrix.solvePhaseMatrixSolver( 1, dVector, tempVector );
 		transposedConstrainingMatrix.releaseMemory();
 		constrainingMatrix.solvePhaseMatrixSolver( 1, tempVector, dVector );
 		constrainingMatrix.releaseMemory();
+#endif
 		delete [] tempVector;
 		//-------------------------------------------------------------------------------------------------------------------
 	}
@@ -878,6 +1045,13 @@ void InversionGaussNewtonDataSpace::inversionCalculationByNewMethod() const{
 	for( int ifreq = 0 ;ifreq < nFreqThisPE; ++ifreq ){
 		const int freqID = ptrObservedData->getIDsOfFrequenciesCalculatedByThisPE(ifreq);
 		std::ostringstream fileName;
+		if (!ptrAnalysisControl->getDirectoryOfOutOfCoreFilesForSensitivityMatrix().empty()) {
+#ifdef _LINUX
+			fileName << ptrAnalysisControl->getDirectoryOfOutOfCoreFilesForSensitivityMatrix() + "\/";
+#else
+			fileName << ptrAnalysisControl->getDirectoryOfOutOfCoreFilesForSensitivityMatrix() + "\\";
+#endif
+		}
 		fileName << "sensMatFreq" << freqID;
 		fileName << "Mod";
 		if( remove( fileName.str().c_str() ) != 0 ){
@@ -1015,6 +1189,13 @@ void InversionGaussNewtonDataSpace::inversionCalculationByNewMethodUsingInvRTRMa
 		const int freqID = ptrObservedData->getIDsOfFrequenciesCalculatedByThisPE(iFreq);
 
 		std::ostringstream fileName;
+		if (!ptrAnalysisControl->getDirectoryOfOutOfCoreFilesForSensitivityMatrix().empty()) {
+#ifdef _LINUX
+			fileName << ptrAnalysisControl->getDirectoryOfOutOfCoreFilesForSensitivityMatrix() + "\/";
+#else
+			fileName << ptrAnalysisControl->getDirectoryOfOutOfCoreFilesForSensitivityMatrix() + "\\";
+#endif
+		}
 		fileName << "sensMatFreq" << freqID;
 
 		OutputFiles::m_logFile << "# Read sensitivity matrix from "<< fileName.str() << "." << ptrAnalysisControl->outputElapsedTime() << std::endl;
@@ -1071,7 +1252,7 @@ void InversionGaussNewtonDataSpace::inversionCalculationByNewMethodUsingInvRTRMa
 		//-------------------------------------------------------------------------------------
 		// Calculate sensitivity matrix multiplied by inverse of constraining matrix
 		//-------------------------------------------------------------------------------------
-		// sensitivityMatrix : JT => inv[R]*[J]T
+		// sensitivityMatrix : JT => inv([R]T[R])*[J]T
 		//-------------------------------------------------------------------------------------
 		OutputFiles::m_logFile << "# Multiply transposed sensitivity matrix by inverse of constraining matrix. " << ptrAnalysisControl->outputElapsedTime() << std::endl;
 		const long long numComps = static_cast<long long>(numDataThisFreq) * static_cast<long long>(numModel);
@@ -1192,6 +1373,13 @@ void InversionGaussNewtonDataSpace::inversionCalculationByNewMethodUsingInvRTRMa
 		const int freqID = ptrObservedData->getIDsOfFrequenciesCalculatedByThisPE(iFreq);
 
 		std::ostringstream fileName;
+		if (!ptrAnalysisControl->getDirectoryOfOutOfCoreFilesForSensitivityMatrix().empty()) {
+#ifdef _LINUX
+			fileName << ptrAnalysisControl->getDirectoryOfOutOfCoreFilesForSensitivityMatrix() + "\/";
+#else
+			fileName << ptrAnalysisControl->getDirectoryOfOutOfCoreFilesForSensitivityMatrix() + "\\";
+#endif
+		}
 		fileName << "sensMatFreq" << freqID;
 
 		OutputFiles::m_logFile << "# Read sensitivity matrix from "<< fileName.str() << "." << ptrAnalysisControl->outputElapsedTime() << std::endl;
@@ -1330,6 +1518,13 @@ void InversionGaussNewtonDataSpace::inversionCalculationByNewMethodUsingInvRTRMa
 		int offsetRows(0);
 		for( int ifreqLeft = 0 ;ifreqLeft < nFreq; ++ifreqLeft ){
 			std::ostringstream fileNameLeft;
+			if (!ptrAnalysisControl->getDirectoryOfOutOfCoreFilesForSensitivityMatrix().empty()) {
+#ifdef _LINUX
+				fileNameLeft << ptrAnalysisControl->getDirectoryOfOutOfCoreFilesForSensitivityMatrix() + "\/";
+#else
+				fileNameLeft << ptrAnalysisControl->getDirectoryOfOutOfCoreFilesForSensitivityMatrix() + "\\";
+#endif
+			}
 			fileNameLeft << "sensMatFreq" << ifreqLeft;
 			OutputFiles::m_logFile << "# Read sensitivity matrix from "<< fileNameLeft.str() << "." << ptrAnalysisControl->outputElapsedTime() << std::endl;
 
@@ -1345,6 +1540,13 @@ void InversionGaussNewtonDataSpace::inversionCalculationByNewMethodUsingInvRTRMa
 			int offsetCols = offsetRows;
 			for( int ifreqRight = ifreqLeft ;ifreqRight < nFreq; ++ifreqRight ){
 				std::ostringstream fileNameRight;
+				if (!ptrAnalysisControl->getDirectoryOfOutOfCoreFilesForSensitivityMatrix().empty()) {
+#ifdef _LINUX
+					fileNameRight << ptrAnalysisControl->getDirectoryOfOutOfCoreFilesForSensitivityMatrix() + "\/";
+#else
+					fileNameRight << ptrAnalysisControl->getDirectoryOfOutOfCoreFilesForSensitivityMatrix() + "\\";
+#endif
+				}
 				fileNameRight << "sensMatFreq" << ifreqRight << "Mod";
 				OutputFiles::m_logFile << "# Read sensitivity matrix from "<< fileNameRight.str() << "." << ptrAnalysisControl->outputElapsedTime() << std::endl;
 
@@ -1551,6 +1753,13 @@ void InversionGaussNewtonDataSpace::inversionCalculationByNewMethodUsingInvRTRMa
 		assert( offset == ptrObservedData->getNumObservedDataThisPEAccumulated( iFreq ) );
 		const int freqID = ptrObservedData->getIDsOfFrequenciesCalculatedByThisPE(iFreq);
 		std::ostringstream fileName;
+		if (!ptrAnalysisControl->getDirectoryOfOutOfCoreFilesForSensitivityMatrix().empty()) {
+#ifdef _LINUX
+			fileName << ptrAnalysisControl->getDirectoryOfOutOfCoreFilesForSensitivityMatrix() + "\/";
+#else
+			fileName << ptrAnalysisControl->getDirectoryOfOutOfCoreFilesForSensitivityMatrix() + "\\";
+#endif
+		}
 		fileName << "sensMatFreq" << freqID;
 		OutputFiles::m_logFile << "# Read sensitivity matrix from "<< fileName.str() << "." << ptrAnalysisControl->outputElapsedTime() << std::endl;
 		int numDataThisFreq(0);
@@ -1686,6 +1895,13 @@ void InversionGaussNewtonDataSpace::inversionCalculationByNewMethodUsingInvRTRMa
 	for( int ifreq = 0 ;ifreq < nFreqThisPE; ++ifreq ){
 		const int freqID = ptrObservedData->getIDsOfFrequenciesCalculatedByThisPE(ifreq);
 		std::ostringstream fileName;
+		if (!ptrAnalysisControl->getDirectoryOfOutOfCoreFilesForSensitivityMatrix().empty()) {
+#ifdef _LINUX
+			fileName << ptrAnalysisControl->getDirectoryOfOutOfCoreFilesForSensitivityMatrix() + "\/";
+#else
+			fileName << ptrAnalysisControl->getDirectoryOfOutOfCoreFilesForSensitivityMatrix() + "\\";
+#endif
+		}
 		fileName << "sensMatFreq" << freqID;
 		fileName << "Mod";
 		if( remove( fileName.str().c_str() ) != 0 ){

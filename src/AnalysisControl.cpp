@@ -1004,6 +1004,8 @@ void AnalysisControl::inputControlData(){
 			m_maxIterationIRWLSForLpOptimization = ibuf;
 			inFile >> dbuf;
 			m_thresholdIRWLSForLpOptimization = dbuf;
+		}else if (line.substr(0,19).compare("SENSE_MAT_DIRECTORY") == 0) {
+			inFile >> m_directoryOfOutOfCoreFilesForSensitivityMatrix;
 		}else if( line.substr(0,3).compare("END") == 0 ){
 			break;
 		}else{
@@ -1099,10 +1101,10 @@ void AnalysisControl::inputControlData(){
 #ifdef _DEBUG_WRITE
 		std::cout << "strEnv " << strEnv.str() << std::endl;// For debug
 #endif
-		if( putenv( strEnv.str().c_str() ) != 0 ){
-			OutputFiles::m_logFile << "Error : Environment variable MKL_PARDISO_OOC_MAX_CORE_SIZE was not set correctly ! " << std::endl;
-			exit(1);			
-		}
+		//if( putenv( strEnv.str().c_str() ) != 0 ){
+		//	OutputFiles::m_logFile << "Error : Environment variable MKL_PARDISO_OOC_MAX_CORE_SIZE was not set correctly ! " << std::endl;
+		//	exit(1);			
+		//}
 #endif
 
 		OutputFiles::m_logFile << "# Maximum value of the memory used by out-of-core mode of forward solver : " << m_maxMemoryPARDISO << " [MB]" << std::endl;
@@ -1444,6 +1446,10 @@ void AnalysisControl::inputControlData(){
 		OutputFiles::m_logFile << "# Maximum number of retrials : " << m_numCutbackMax << "." << std::endl;
 	}
 
+	if (!getDirectoryOfOutOfCoreFilesForSensitivityMatrix().empty()) {
+		OutputFiles::m_logFile << "# Directory of out-of-core files for the sensitivitry matrix: " << getDirectoryOfOutOfCoreFilesForSensitivityMatrix() << std::endl;
+	}
+
 	OutputFiles::m_logFile << "#==============================================================================" << std::endl;
 }
 
@@ -1748,6 +1754,11 @@ int AnalysisControl::getMaxIterationIRWLSForLpOptimization() const{
 // Get threshold value for deciding convergence about IRWLS for Lp optimization
 double AnalysisControl::getThresholdIRWLSForLpOptimization() const{
 	return m_thresholdIRWLSForLpOptimization;
+}
+
+// Get directory of out-of-core files for the sensitivitry matrix
+std::string AnalysisControl::getDirectoryOfOutOfCoreFilesForSensitivityMatrix() const {
+	return m_directoryOfOutOfCoreFilesForSensitivityMatrix;
 }
 
 #ifdef _ANISOTOROPY

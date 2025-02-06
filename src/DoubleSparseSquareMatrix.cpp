@@ -27,6 +27,14 @@
 #include "DoubleSparseSquareMatrix.h"
 #include "OutputFiles.h"
 #include <assert.h>
+#include <math.h>
+
+#ifdef _DEBUG_WRITE_FOR_BOTTOM_RESISTIVITY
+#ifdef _LINUX
+#include <sys/time.h>
+#include <sys/resource.h>
+#endif
+#endif
 
 //Default Constructer
 DoubleSparseSquareMatrix::DoubleSparseSquareMatrix():
@@ -133,6 +141,147 @@ void DoubleSparseSquareMatrix::solvePhaseMatrixSolver( double* solution ){
 void DoubleSparseSquareMatrix::solvePhaseMatrixSolver( const int nrhs, double* rhs, double* solution ){
 	assert( m_hasConvertedToCRSFormat );
 	m_pardisoSolver.solve( m_rowIndex, m_columns, m_values, nrhs, rhs, solution );
+}
+
+//Solve phase of matrix solver by the conjugate gradient method with the point Jacobi preconditioner
+//@note Matrix should be symmetric
+void DoubleSparseSquareMatrix::solvePhaseMatrixSolverByPCGPointJacobi(const int nrhs, double* rhs, double* solution) const{
+	assert(m_hasConvertedToCRSFormat);
+
+	const int maxIterationNumber = m_numRows;
+	const double eps = 1.0e-20;
+	double* invDiagonals = new double[m_numRows];
+	double* workP = new double[m_numRows];
+	double* workR = new double[m_numRows];// Residuals
+	double* workQ = new double[m_numRows];
+	double* workX = new double[m_numRows];// Solution vector
+	double* workZ = new double[m_numRows];
+
+	for (int irow = 0; irow < m_numRows; ++irow)
+	{
+		for (int j = m_rowIndex[irow]; j < m_rowIndex[irow + 1]; ++j)
+		{
+			if (irow == m_columns[j])
+			{
+				invDiagonals[irow] = 1.0 / m_values[j];
+			}
+		}
+	}
+	for (int irhs = 0; irhs < nrhs; ++irhs)
+	{
+		// Initial solution is a zero vector
+		for (int irow = 0; irow < m_numRows; ++irow)
+		{
+			workX[irow] = 0.0;
+		}
+		// [r0] = [b] - [A][x0]
+		double normOfRhsVector(0.0);
+		for (int irow = 0; irow < m_numRows; ++irow)
+		{
+			const long long int index = static_cast<long long int>(irow) + static_cast<long long int>(irhs) * static_cast<long long int>(m_numRows);
+			normOfRhsVector += rhs[index] * rhs[index];
+			workR[irow] = rhs[index];
+		}
+		int iter = 0;
+		double rhoPre(0.0);
+		for (; iter < maxIterationNumber; ++iter)
+		{
+			// [z] = [M]^-1[r]
+			for (int irow = 0; irow < m_numRows; ++irow)
+			{
+				workZ[irow] = invDiagonals[irow] * workR[irow];
+			}
+			// rho = [r]T[z]
+			double rho(0.0);
+			for (int irow = 0; irow < m_numRows; ++irow)
+			{
+				rho += workR[irow] * workZ[irow];
+			}
+			if (iter == 0)
+			{
+				// [p0] - [z0]
+				for (int irow = 0; irow < m_numRows; ++irow)
+				{
+					workP[irow] = workZ[irow];
+				}
+			}
+			else
+			{
+				// [p] = [z] + beta*[p]
+				const double beta = rho / rhoPre;
+				for (int irow = 0; irow < m_numRows; ++irow)
+				{
+					workP[irow] = workZ[irow] + beta * workP[irow];
+				}
+			}
+			// [q] = [A][p]
+			for (int irow = 0; irow < m_numRows; ++irow)
+			{
+				workQ[irow] = 0.0;
+				for (int j = m_rowIndex[irow]; j < m_rowIndex[irow + 1]; ++j)
+				{
+					workQ[irow] += m_values[j] * workP[m_columns[j]];
+				}
+			}
+			// alpha = rho / [p]T[q]
+			double pq(0.0);
+			for (int irow = 0; irow < m_numRows; ++irow)
+			{
+				pq += workP[irow] * workQ[irow];
+			}
+			const double alpha = rho / pq;
+			// [x] = [x] + alpha * [p]
+			// [r] = [r] - alpha * [q]
+			for (int irow = 0; irow < m_numRows; ++irow)
+			{
+				workX[irow] += alpha * workP[irow];
+				workR[irow] -= alpha * workQ[irow];
+			}
+			// Check convergence
+			double normOfResidualVector(0.0);
+			for (int irow = 0; irow < m_numRows; ++irow)
+			{
+				normOfResidualVector += workR[irow] * workR[irow];
+			}
+			if( sqrt(normOfResidualVector/ normOfRhsVector) < eps )
+			{
+				break;
+			}
+			rhoPre = rho;
+		}
+		if (iter >= maxIterationNumber) {
+			OutputFiles::m_logFile << "Error : PCG solver is not converged !!" << std::endl;
+			exit(1);
+		}
+		else {
+			OutputFiles::m_logFile << "# PCG solver is converged after " << iter << " iterations." << std::endl;
+		}
+		for (int irow = 0; irow < m_numRows; ++irow)
+		{
+			const long long int index = static_cast<long long int>(irow) + static_cast<long long int>(irhs) * static_cast<long long int>(m_numRows);
+			solution[index] = workX[irow];
+		}
+	}
+
+#ifdef _DEBUG_WRITE_FOR_BOTTOM_RESISTIVITY
+#ifdef _LINUX
+	{
+		struct rusage r;
+		if (getrusage(RUSAGE_SELF, &r) != 0) {
+			/*Failure*/
+		}
+		OutputFiles::m_logFile << "maxrss= " << r.ru_maxrss << std::endl;
+	}
+#endif
+#endif
+
+	delete[] invDiagonals;
+	delete[] workP;
+	delete[] workR;
+	delete[] workQ;
+	delete[] workX;
+	delete[] workZ;
+
 }
 
 //Release memory of matrix solver

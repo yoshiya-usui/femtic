@@ -68,6 +68,10 @@ public:
 	//Solve phase of matrix solver
 	void solvePhaseMatrixSolver( const int nrhs, double* rhs, double* solution );
 
+	//Solve phase of matrix solver by the conjugate gradient method with the point Jacobi preconditioner
+	//@note Matrix should be symmetric
+	void solvePhaseMatrixSolverByPCGPointJacobi(const int nrhs, double* rhs, double* solution) const;
+
 	//Release memory of matrix solver
 	void releaseMemoryMatrixSolver();
 

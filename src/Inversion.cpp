@@ -185,6 +185,13 @@ void Inversion::calculateSensitivityMatrix( const int freqIDAmongThisPE, const d
 	// Write sensitivity matrix to out-of-core file ---
 	//-------------------------------------------------
 	std::ostringstream fileName;
+	if ( !ptrAnalysisControl->getDirectoryOfOutOfCoreFilesForSensitivityMatrix().empty() ){
+#ifdef _LINUX
+		fileName << ptrAnalysisControl->getDirectoryOfOutOfCoreFilesForSensitivityMatrix() + "\/";
+#else
+		fileName << ptrAnalysisControl->getDirectoryOfOutOfCoreFilesForSensitivityMatrix() + "\\";
+#endif
+	}
 	fileName << "sensMatFreq" << freqIDGlobal;
 	//std::ofstream outputFile(fileName.str().c_str(), std::ios::out|std::ios::binary|std::ios::trunc);
 	//if( outputFile.fail() ){
@@ -713,10 +720,18 @@ void Inversion::multiplyModelTransformingJacobian( const int numData, const int 
 void Inversion::deleteOutOfCoreFileAll(){
 
 	const ObservedData* const ptrObservedData = ObservedData::getInstance();
+	const AnalysisControl* const ptrAnalysisControl = AnalysisControl::getInstance();
 	const int nFreq = ptrObservedData->getNumOfFrequenciesCalculatedByThisPE();
 	for( int iFreq = 0; iFreq < nFreq; ++iFreq ){
 		const int freqID = ptrObservedData->getIDsOfFrequenciesCalculatedByThisPE(iFreq);
 		std::ostringstream fileName;
+		if (!ptrAnalysisControl->getDirectoryOfOutOfCoreFilesForSensitivityMatrix().empty()) {
+#ifdef _LINUX
+			fileName << ptrAnalysisControl->getDirectoryOfOutOfCoreFilesForSensitivityMatrix() + "\/";
+#else
+			fileName << ptrAnalysisControl->getDirectoryOfOutOfCoreFilesForSensitivityMatrix() + "\\";
+#endif
+		}
 		fileName << "sensMatFreq" << freqID;
 		FILE* fp = fopen( fileName.str().c_str(), "rb" );
 		if( fp != NULL ){// File exists

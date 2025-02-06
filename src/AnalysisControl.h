@@ -273,6 +273,9 @@ class AnalysisControl{
 		// Get threshold value for deciding convergence about IRWLS for Lp optimization
 		double getThresholdIRWLSForLpOptimization() const;
 
+		// Get directory of out-of-core files for the sensitivitry matrix
+		std::string getDirectoryOfOutOfCoreFilesForSensitivityMatrix() const;
+
 #ifdef _ANISOTOROPY
 		// Get type of anisotropy
 		int getTypeOfAnisotropy() const;
@@ -558,6 +561,9 @@ private:
 
 		// Threshold value for deciding convergence about IRWLS for Lp optimization
 		double m_thresholdIRWLSForLpOptimization;
+
+		// Directory of out-of-core files for the sensitivitry matrix
+		std::string m_directoryOfOutOfCoreFilesForSensitivityMatrix;
 
 #ifdef _ANISOTOROPY
 		// Type of anisotropy

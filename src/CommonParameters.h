@@ -162,7 +162,7 @@ static char programName[]="femtic";
 // [MajorVersion#].[MinorVersion#].[Revision#]
 // x.x.xa -> alpha version
 // x.x.xb -> beta version
-static char versionID[]="4.2.5";
+static char versionID[] = "4.3.0";
 
 }
 
