@@ -29,7 +29,7 @@ FEMTIC gives a three-dimensional electrical resistivity structure from the respo
 
 
 ## Release note
-***v4.3*** Feb. 6, 2025: The directory for the out-of-core files of the sensitivity matrix can becomes changeable.
+***v4.3*** Feb. 6, 2025: The directory for the out-of-core files of the sensitivity matrix becomes changeable.
 
 ***v4.2*** Mar. 25, 2024: I modified some parts to allow the use of large-scale models and large datasets.
 
