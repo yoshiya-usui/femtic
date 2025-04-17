@@ -7,7 +7,7 @@ FEMTIC is a 3-D magnetotelluric inversion code based on the following studies. F
 
 *Y. Usui, T. Kasaya, Y. Ogawa and H. Iwamoto, Marine magnetotelluric inversion with an unstructured tetrahedral mesh, Geophys. J. Int., 214(2): 952-974, https://doi.org/10.1093/gji/ggy171, 2018.*
 
-*Y. Usui, Applicability evaluation of non-conforming deformed hexahedral mesh for marine magnetotellurics, Japan Geoscience Union Meeting 2021, 2021*
+*Y. Usui, M. Uyeshima, H. Hase, H. Ichihara, K. Aizawa, T. Koyama, et al. Three-dimensional electrical resistivity structure beneath a strain concentration area in the back-arc side of the northeastern Japan arc. Journal of Geophysical Research: Solid Earth, 129, e2023JB028522. http://doi.org/10.1029/2023JB028522, 2024.*
 
 **The website of FEMTIC:**
 https://sites.google.com/view/yoshiyausui/femtic
