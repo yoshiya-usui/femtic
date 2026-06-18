@@ -48,7 +48,7 @@ public:
 	int findElementIncludingPointOnSurface( const double locX, const double locY, int& faceID, double& xi, double& eta, double& zeta,
 		const bool useUpperElem, const bool modLoc, double& locXMod, double& locYMod ) const;
 
-	// Find element including a point on the Y-Z plane and return element ID of 2D mesh
+	// Find elements including dipole on the surface of the earth
 	void findElementsIncludingDipoleOnSurface( const double locXStart, const double locYStart, const double locXEnd, const double locYEnd,
 		std::vector<int>& elements, std::vector<double>& localCoordXStartPoint, std::vector<double>& localCoordYStartPoint,	std::vector<double>& localCoordXEndPoint, std::vector<double>& localCoordYEndPoint ) const;
 
@@ -133,7 +133,7 @@ public:
 	// Calculate length of edges of elements on boundary planes
 	double calcEdgeLengthFromElementAndEdgeBoundaryPlanes( const int iPlane, const int iElem, const int iEdge ) const;
 
-	// Get face index of neighbor element
+	// Get length of the edges parallel to X coordinate
 	double getEdgeLengthX( const int iElem ) const;
 
 	// Get length of the edges parallel to Y coordinate
@@ -147,6 +147,18 @@ public:
 
 	// Calculate area of face at bottom of mesh
 	double calcAreaOfFaceAtBottomOfMesh( const int iElem ) const;
+
+	// Make data mesh from side boundary elements for the pseudo 2D forward calculation
+	void makeMeshDataFromSideBoundaryElements(const int planeID, const MeshDataNonConformingHexaElement* const pMeshData);
+
+	// Get total number of elements belonging to the Earth's surface
+	int getNumElemOnOnLandSurface() const;
+
+	// Get ID of the element belonging to the Earth's surface
+	int getElemOnLandSurface(const int iElem) const;
+
+	// Get face ID of the element belonging to the Earth's surface
+	int getFaceLandSurface(const int iElem) const;
 
 private:
 

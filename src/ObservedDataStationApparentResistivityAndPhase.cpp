@@ -29,6 +29,7 @@
 #include <iomanip>
 
 #include "ObservedDataStationApparentResistivityAndPhase.h"
+#include "AnalysisControl.h"
 #include "ObservedDataStationMT.h"
 #include "OutputFiles.h"
 #include "CommonParameters.h"
@@ -424,29 +425,29 @@ void ObservedDataStationApparentResistivityAndPhase::inputObservedData( std::ifs
 				calcImpedanceTensorComponentFromApparentResistivityAndPhase( m_freq[i], m_apparentResistivityXXObserved[i], m_apparentResistivityXXSD[i], m_PhaseXXObserved[i], m_PhaseXXSD[i], m_ZxxObserved[i], m_ZxxSD[i] );
 			}else{
 				m_ZxxObserved[i] = std::complex<double>(0.0, 0.0);
-				m_ZxxSD[i].realPart = 1.0e10;
-				m_ZxxSD[i].imagPart = 1.0e10;
+				m_ZxxSD[i].realPart = 1.0;
+				m_ZxxSD[i].imagPart = 1.0;
 			}
 			if( m_apparentResistivityXYSD[i] > 0.0 && m_PhaseXYSD[i] > 0.0 ){
 				calcImpedanceTensorComponentFromApparentResistivityAndPhase( m_freq[i], m_apparentResistivityXYObserved[i], m_apparentResistivityXYSD[i], m_PhaseXYObserved[i], m_PhaseXYSD[i], m_ZxyObserved[i], m_ZxySD[i] );
 			}else{
 				m_ZxyObserved[i] = std::complex<double>(0.0, 0.0);
-				m_ZxySD[i].realPart = 1.0e10;
-				m_ZxySD[i].imagPart = 1.0e10;
+				m_ZxySD[i].realPart = 1.0;
+				m_ZxySD[i].imagPart = 1.0;
 			}
 			if( m_apparentResistivityYXSD[i] > 0.0 && m_PhaseYXSD[i] > 0.0 ){
 				calcImpedanceTensorComponentFromApparentResistivityAndPhase( m_freq[i], m_apparentResistivityYXObserved[i], m_apparentResistivityYXSD[i], m_PhaseYXObserved[i], m_PhaseYXSD[i], m_ZyxObserved[i], m_ZyxSD[i] );
 			}else{
 				m_ZyxObserved[i] = std::complex<double>(0.0, 0.0);
-				m_ZyxSD[i].realPart = 1.0e10;
-				m_ZyxSD[i].imagPart = 1.0e10;
+				m_ZyxSD[i].realPart = 1.0;
+				m_ZyxSD[i].imagPart = 1.0;
 			}
 			if( m_apparentResistivityYYSD[i] > 0.0 && m_PhaseYYSD[i] > 0.0 ){
 				calcImpedanceTensorComponentFromApparentResistivityAndPhase( m_freq[i], m_apparentResistivityYYObserved[i], m_apparentResistivityYYSD[i], m_PhaseYYObserved[i], m_PhaseYYSD[i], m_ZyyObserved[i], m_ZyySD[i] );
 			}else{
 				m_ZyyObserved[i] = std::complex<double>(0.0, 0.0);
-				m_ZyySD[i].realPart = 1.0e10;
-				m_ZyySD[i].imagPart = 1.0e10;
+				m_ZyySD[i].realPart = 1.0;
+				m_ZyySD[i].imagPart = 1.0;
 			}
 		}
 	}
@@ -462,6 +463,7 @@ void ObservedDataStationApparentResistivityAndPhase::calculateApparentResistivit
 	}
 	const int freqIDGlobalInSta = m_freqIDsAmongThisStationCalculatedByThisPE[ freqIDThisPEInSta ];
 
+	const int icountOrg = icount;
 	ObservedDataStationMT::calculateImpedanceTensor( freq, ptrStationOfMagneticField, icount );
 
 	const double omega = 2.0 * CommonParameters::PI * freq;
@@ -489,21 +491,26 @@ void ObservedDataStationApparentResistivityAndPhase::calculateApparentResistivit
 	m_PhaseYXResidual[freqIDThisPEInSta] = 0.0;
 	m_PhaseYYResidual[freqIDThisPEInSta] = 0.0;
 
+	icount = icountOrg;// Restore icount
 	if( m_apparentResistivityXXSD[freqIDGlobalInSta] > 0.0 ){
 		m_apparentResistivityXXResidual[freqIDThisPEInSta] =
 			log10( m_apparentResistivityXXObserved[freqIDGlobalInSta] / m_apparentResistivityXXCalculated[freqIDThisPEInSta] ) / calcLog10ErrorOfApparentResistivity( freqIDGlobalInSta, ObservedDataStationMT::XX );
+		m_dataIDOfApparentResistivityXX[freqIDThisPEInSta] = icount++;
 	}
 	if( m_apparentResistivityXYSD[freqIDGlobalInSta] > 0.0 ){
 		m_apparentResistivityXYResidual[freqIDThisPEInSta] =
 			log10( m_apparentResistivityXYObserved[freqIDGlobalInSta] / m_apparentResistivityXYCalculated[freqIDThisPEInSta] ) / calcLog10ErrorOfApparentResistivity( freqIDGlobalInSta, ObservedDataStationMT::XY );
+		m_dataIDOfApparentResistivityXY[freqIDThisPEInSta] = icount++;
 	}
 	if( m_apparentResistivityYXSD[freqIDGlobalInSta] > 0.0 ){
 		m_apparentResistivityYXResidual[freqIDThisPEInSta] =
 			log10( m_apparentResistivityYXObserved[freqIDGlobalInSta] / m_apparentResistivityYXCalculated[freqIDThisPEInSta] ) / calcLog10ErrorOfApparentResistivity( freqIDGlobalInSta, ObservedDataStationMT::YX );
+		m_dataIDOfApparentResistivityYX[freqIDThisPEInSta] = icount++;
 	}
 	if( m_apparentResistivityYYSD[freqIDGlobalInSta] > 0.0 ){
 		m_apparentResistivityYYResidual[freqIDThisPEInSta] =
 			log10( m_apparentResistivityYYObserved[freqIDGlobalInSta] / m_apparentResistivityYYCalculated[freqIDThisPEInSta] ) / calcLog10ErrorOfApparentResistivity( freqIDGlobalInSta, ObservedDataStationMT::YY );
+		m_dataIDOfApparentResistivityYY[freqIDThisPEInSta] = icount++;
 	}
 
 	if( m_PhaseXXSD[freqIDGlobalInSta] > 0.0 ){	
@@ -516,6 +523,7 @@ void ObservedDataStationApparentResistivityAndPhase::calculateApparentResistivit
 			}
 		}
 		m_PhaseXXResidual[freqIDThisPEInSta] = ( phaseObs - m_PhaseXXCalculated[freqIDThisPEInSta] ) / m_PhaseXXSD[freqIDGlobalInSta];
+		m_dataIDOfPhaseXX[freqIDThisPEInSta] = icount++;
 	}
 	if( m_PhaseXYSD[freqIDGlobalInSta] > 0.0 ){
 		double phaseObs = m_PhaseXYObserved[freqIDGlobalInSta];
@@ -527,6 +535,7 @@ void ObservedDataStationApparentResistivityAndPhase::calculateApparentResistivit
 			}
 		}
 		m_PhaseXYResidual[freqIDThisPEInSta] = ( phaseObs - m_PhaseXYCalculated[freqIDThisPEInSta] ) / m_PhaseXYSD[freqIDGlobalInSta];
+		m_dataIDOfPhaseXY[freqIDThisPEInSta] = icount++;
 	}
 	if( m_PhaseYXSD[freqIDGlobalInSta] > 0.0 ){
 		double phaseObs = m_PhaseYXObserved[freqIDGlobalInSta];
@@ -538,6 +547,7 @@ void ObservedDataStationApparentResistivityAndPhase::calculateApparentResistivit
 			}
 		}
 		m_PhaseYXResidual[freqIDThisPEInSta] = ( phaseObs - m_PhaseYXCalculated[freqIDThisPEInSta] ) / m_PhaseYXSD[freqIDGlobalInSta];
+		m_dataIDOfPhaseYX[freqIDThisPEInSta] = icount++;
 	}
 	if( m_PhaseYYSD[freqIDGlobalInSta] > 0.0 ){
 		double phaseObs = m_PhaseYYObserved[freqIDGlobalInSta];
@@ -549,17 +559,8 @@ void ObservedDataStationApparentResistivityAndPhase::calculateApparentResistivit
 			}
 		}
 		m_PhaseYYResidual[freqIDThisPEInSta] = ( phaseObs - m_PhaseYYCalculated[freqIDThisPEInSta] ) / m_PhaseYYSD[freqIDGlobalInSta];
+		m_dataIDOfPhaseYY[freqIDThisPEInSta] = icount++;
 	}
-
-	// Share data ID with the ones for impedance tensors
-	m_dataIDOfApparentResistivityXX[freqIDThisPEInSta] = m_dataIDOfZxx[freqIDThisPEInSta].realPart;
-	m_dataIDOfApparentResistivityXY[freqIDThisPEInSta] = m_dataIDOfZxy[freqIDThisPEInSta].realPart;
-	m_dataIDOfApparentResistivityYX[freqIDThisPEInSta] = m_dataIDOfZyx[freqIDThisPEInSta].realPart;
-	m_dataIDOfApparentResistivityYY[freqIDThisPEInSta] = m_dataIDOfZyy[freqIDThisPEInSta].realPart;
-	m_dataIDOfPhaseXX[freqIDThisPEInSta] = m_dataIDOfZxx[freqIDThisPEInSta].imagPart;
-	m_dataIDOfPhaseXY[freqIDThisPEInSta] = m_dataIDOfZxy[freqIDThisPEInSta].imagPart;
-	m_dataIDOfPhaseYX[freqIDThisPEInSta] = m_dataIDOfZyx[freqIDThisPEInSta].imagPart;
-	m_dataIDOfPhaseYY[freqIDThisPEInSta] = m_dataIDOfZyy[freqIDThisPEInSta].imagPart;
 
 }
 
@@ -837,8 +838,6 @@ void ObservedDataStationApparentResistivityAndPhase::calculateSensitivityMatrix(
 	}
 	const int freqIDGlobalInSta = m_freqIDsAmongThisStationCalculatedByThisPE[ freqIDThisPEInSta ];
 
-	ObservedDataStationMT::calculateSensitivityMatrix( freq, nModel, ptrStationOfMagneticField, derivativesOfEMFieldExPol, derivativesOfEMFieldEyPol, sensitivityMatrix, true );
-
 	const std::complex<double> Zxx = m_ZxxCalculated[freqIDThisPEInSta];
 	const std::complex<double> Zxy = m_ZxyCalculated[freqIDThisPEInSta];
 	const std::complex<double> Zyx = m_ZyxCalculated[freqIDThisPEInSta];
@@ -848,27 +847,22 @@ void ObservedDataStationApparentResistivityAndPhase::calculateSensitivityMatrix(
 	const bool useImpedanceTensorInsteadOfPhase = ( AnalysisControl::getInstance()->getApparentResistivityAndPhaseTreatmentOption() == AnalysisControl::USE_Z_IF_SIGN_OF_RE_Z_DIFFER );
 
 	const double ln10 = log(10.0);
-	const long long nBlkNotFixed = static_cast<long long>( ( ResistivityBlock::getInstance() )->getNumResistivityBlockNotFixed() );
+	const long long nBlkNotFixed = static_cast<long long>((AnalysisControl::getInstance()->getPointerOfResistivityBlock())->getNumberOfUnfixedResistivityParameters());
 	for( long long imdl = 0; imdl < nBlkNotFixed; ++imdl ){
+		std::complex<double> dZxx(0.0, 0.0);
+		std::complex<double> dZxy(0.0, 0.0);
+		std::complex<double> dZyx(0.0, 0.0);
+		std::complex<double> dZyy(0.0, 0.0);
+		calculateSensitivityMatrixAuxResistivity(freq, imdl, ptrStationOfMagneticField, derivativesOfEMFieldExPol, derivativesOfEMFieldEyPol, dZxx, dZxy, dZyx, dZyy);
 
-		const double dZxxRe = sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfZxx[freqIDThisPEInSta].realPart) + imdl ];
-		const double dZxyRe = sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfZxy[freqIDThisPEInSta].realPart) + imdl ];
-		const double dZyxRe = sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfZyx[freqIDThisPEInSta].realPart) + imdl ];
-		const double dZyyRe = sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfZyy[freqIDThisPEInSta].realPart) + imdl ];
-		const double dZxxIm = sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfZxx[freqIDThisPEInSta].imagPart) + imdl ];
-		const double dZxyIm = sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfZxy[freqIDThisPEInSta].imagPart) + imdl ];
-		const double dZyxIm = sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfZyx[freqIDThisPEInSta].imagPart) + imdl ];
-		const double dZyyIm = sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfZyy[freqIDThisPEInSta].imagPart) + imdl ];
-
-		// Zero clear
-		sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfApparentResistivityXX[freqIDThisPEInSta]) + imdl ] = 0.0;
-		sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfApparentResistivityXY[freqIDThisPEInSta]) + imdl ] = 0.0; 
-		sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfApparentResistivityYX[freqIDThisPEInSta]) + imdl ] = 0.0; 
-		sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfApparentResistivityYY[freqIDThisPEInSta]) + imdl ] = 0.0;
-		sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfPhaseXX[freqIDThisPEInSta]) + imdl ] = 0.0;
-		sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfPhaseXY[freqIDThisPEInSta]) + imdl ] = 0.0;
-		sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfPhaseYX[freqIDThisPEInSta]) + imdl ] = 0.0; 
-		sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfPhaseYY[freqIDThisPEInSta]) + imdl ] = 0.0; 
+		const double dZxxRe = dZxx.real();
+		const double dZxyRe = dZxy.real();
+		const double dZyxRe = dZyx.real();
+		const double dZyyRe = dZyy.real();
+		const double dZxxIm = dZxx.imag();
+		const double dZxyIm = dZxy.imag();
+		const double dZyxIm = dZyx.imag();
+		const double dZyyIm = dZyy.imag();
 
 		// Sensitivity is kept to be zero if corresponding error is negative
 		if( m_apparentResistivityXXSD[freqIDGlobalInSta] > 0.0 ){
@@ -938,6 +932,12 @@ void ObservedDataStationApparentResistivityAndPhase::calculateSensitivityMatrix(
 	}
 
 	if( !doesFixDistortionMatrix() ){ // Distortion matrix is not fixed
+		const std::complex<double> czero(0.0, 0.0);
+		std::complex<double> dZxx[4] = { czero, czero, czero, czero };
+		std::complex<double> dZxy[4] = { czero, czero, czero, czero };
+		std::complex<double> dZyx[4] = { czero, czero, czero, czero };
+		std::complex<double> dZyy[4] = { czero, czero, czero, czero };
+		calculateSensitivityMatrixAuxDistortionParameters(freq, ptrStationOfMagneticField, dZxx, dZxy, dZyx, dZyy);
 
 		if( ( AnalysisControl::getInstance() )->getTypeOfDistortion() == AnalysisControl::ESTIMATE_DISTORTION_MATRIX_DIFFERENCE ){
 			
@@ -956,14 +956,14 @@ void ObservedDataStationApparentResistivityAndPhase::calculateSensitivityMatrix(
 				if( ID < 0 ){
 					continue;
 				}
-				dZxxRe[i] = sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfZxx[freqIDThisPEInSta].realPart) + nBlkNotFixed + ID ];
-				dZxxIm[i] = sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfZxx[freqIDThisPEInSta].imagPart) + nBlkNotFixed + ID ];
-				dZxyRe[i] = sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfZxy[freqIDThisPEInSta].realPart) + nBlkNotFixed + ID ];
-				dZxyIm[i] = sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfZxy[freqIDThisPEInSta].imagPart) + nBlkNotFixed + ID ];
-				dZyxRe[i] = sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfZyx[freqIDThisPEInSta].realPart) + nBlkNotFixed + ID ];
-				dZyxIm[i] = sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfZyx[freqIDThisPEInSta].imagPart) + nBlkNotFixed + ID ];
-				dZyyRe[i] = sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfZyy[freqIDThisPEInSta].realPart) + nBlkNotFixed + ID ];
-				dZyyIm[i] = sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfZyy[freqIDThisPEInSta].imagPart) + nBlkNotFixed + ID ];
+				dZxxRe[i] = dZxx[i].real();
+				dZxxIm[i] = dZxx[i].imag();
+				dZxyRe[i] = dZxy[i].real();
+				dZxyIm[i] = dZxy[i].imag();
+				dZyxRe[i] = dZyx[i].real();
+				dZyxIm[i] = dZyx[i].imag();
+				dZyyRe[i] = dZyy[i].real();
+				dZyyIm[i] = dZyy[i].imag();
 			}
 
 			for( int i = 0; i < 4; ++i ){
@@ -971,15 +971,6 @@ void ObservedDataStationApparentResistivityAndPhase::calculateSensitivityMatrix(
 				if( ID < 0 ){
 					continue;
 				}
-				// Zero clear 
-				sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfApparentResistivityXX[freqIDThisPEInSta]) + nBlkNotFixed + ID ] = 0.0;
-				sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfApparentResistivityXY[freqIDThisPEInSta]) + nBlkNotFixed + ID ] = 0.0; 
-				sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfApparentResistivityYX[freqIDThisPEInSta]) + nBlkNotFixed + ID ] = 0.0; 
-				sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfApparentResistivityYY[freqIDThisPEInSta]) + nBlkNotFixed + ID ] = 0.0; 
-				sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfPhaseXX[freqIDThisPEInSta]) + nBlkNotFixed + ID ] = 0.0; 
-				sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfPhaseXY[freqIDThisPEInSta]) + nBlkNotFixed + ID ] = 0.0; 
-				sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfPhaseYX[freqIDThisPEInSta]) + nBlkNotFixed + ID ] = 0.0;
-				sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfPhaseYY[freqIDThisPEInSta]) + nBlkNotFixed + ID ] = 0.0;
 				// Sensitivity is kept to be zero if corresponding error is negative
 				if( m_apparentResistivityXXSD[freqIDGlobalInSta] > 0.0 ){
 					if( useImpedanceTensorInsteadOfPhase && isUsedImpedanceTensorFromFreqIDs( freqIDThisPEInSta, ObservedDataStationMT::XX ) ){
@@ -1065,14 +1056,14 @@ void ObservedDataStationApparentResistivityAndPhase::calculateSensitivityMatrix(
 				if( ID < 0 ){
 					continue;
 				}
-				dZxxRe[i] = sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfZxx[freqIDThisPEInSta].realPart) + nBlkNotFixed + ID ];
-				dZxxIm[i] = sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfZxx[freqIDThisPEInSta].imagPart) + nBlkNotFixed + ID ];
-				dZxyRe[i] = sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfZxy[freqIDThisPEInSta].realPart) + nBlkNotFixed + ID ];
-				dZxyIm[i] = sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfZxy[freqIDThisPEInSta].imagPart) + nBlkNotFixed + ID ];
-				dZyxRe[i] = sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfZyx[freqIDThisPEInSta].realPart) + nBlkNotFixed + ID ];
-				dZyxIm[i] = sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfZyx[freqIDThisPEInSta].imagPart) + nBlkNotFixed + ID ];
-				dZyyRe[i] = sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfZyy[freqIDThisPEInSta].realPart) + nBlkNotFixed + ID ];
-				dZyyIm[i] = sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfZyy[freqIDThisPEInSta].imagPart) + nBlkNotFixed + ID ];
+				dZxxRe[i] = dZxx[i].real();
+				dZxxIm[i] = dZxx[i].imag();
+				dZxyRe[i] = dZxy[i].real();
+				dZxyIm[i] = dZxy[i].imag();
+				dZyxRe[i] = dZyx[i].real();
+				dZyxIm[i] = dZyx[i].imag();
+				dZyyRe[i] = dZyy[i].real();
+				dZyyIm[i] = dZyy[i].imag();
 			}
 
 			for( int i = 0; i < 4; ++i ){
@@ -1080,15 +1071,6 @@ void ObservedDataStationApparentResistivityAndPhase::calculateSensitivityMatrix(
 				if( ID < 0 ){
 					continue;
 				}
-				// Zero clear 
-				sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfApparentResistivityXX[freqIDThisPEInSta]) + nBlkNotFixed + ID ] = 0.0;
-				sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfApparentResistivityXY[freqIDThisPEInSta]) + nBlkNotFixed + ID ] = 0.0; 
-				sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfApparentResistivityYX[freqIDThisPEInSta]) + nBlkNotFixed + ID ] = 0.0; 
-				sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfApparentResistivityYY[freqIDThisPEInSta]) + nBlkNotFixed + ID ] = 0.0; 
-				sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfPhaseXX[freqIDThisPEInSta]) + nBlkNotFixed + ID ] = 0.0; 
-				sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfPhaseXY[freqIDThisPEInSta]) + nBlkNotFixed + ID ] = 0.0; 
-				sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfPhaseYX[freqIDThisPEInSta]) + nBlkNotFixed + ID ] = 0.0;
-				sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfPhaseYY[freqIDThisPEInSta]) + nBlkNotFixed + ID ] = 0.0;
 				// Sensitivity is kept to be zero if corresponding error is negative
 				if( m_apparentResistivityXXSD[freqIDGlobalInSta] > 0.0 ){
 					if( useImpedanceTensorInsteadOfPhase && isUsedImpedanceTensorFromFreqIDs( freqIDThisPEInSta, ObservedDataStationMT::XX ) ){
@@ -1173,14 +1155,14 @@ void ObservedDataStationApparentResistivityAndPhase::calculateSensitivityMatrix(
 				if( ID < 0 ){
 					continue;
 				}
-				dZxxRe[i] = sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfZxx[freqIDThisPEInSta].realPart) + nBlkNotFixed + ID ];
-				dZxxIm[i] = sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfZxx[freqIDThisPEInSta].imagPart) + nBlkNotFixed + ID ];
-				dZxyRe[i] = sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfZxy[freqIDThisPEInSta].realPart) + nBlkNotFixed + ID ];
-				dZxyIm[i] = sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfZxy[freqIDThisPEInSta].imagPart) + nBlkNotFixed + ID ];
-				dZyxRe[i] = sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfZyx[freqIDThisPEInSta].realPart) + nBlkNotFixed + ID ];
-				dZyxIm[i] = sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfZyx[freqIDThisPEInSta].imagPart) + nBlkNotFixed + ID ];
-				dZyyRe[i] = sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfZyy[freqIDThisPEInSta].realPart) + nBlkNotFixed + ID ];
-				dZyyIm[i] = sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfZyy[freqIDThisPEInSta].imagPart) + nBlkNotFixed + ID ];
+				dZxxRe[i] = dZxx[i].real();
+				dZxxIm[i] = dZxx[i].imag();
+				dZxyRe[i] = dZxy[i].real();
+				dZxyIm[i] = dZxy[i].imag();
+				dZyxRe[i] = dZyx[i].real();
+				dZyxIm[i] = dZyx[i].imag();
+				dZyyRe[i] = dZyy[i].real();
+				dZyyIm[i] = dZyy[i].imag();
 			}
 
 			for( int i = 0; i < 2; ++i ){
@@ -1188,15 +1170,6 @@ void ObservedDataStationApparentResistivityAndPhase::calculateSensitivityMatrix(
 				if( ID < 0 ){
 					continue;
 				}
-				// Zero clear 
-				sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfApparentResistivityXX[freqIDThisPEInSta]) + nBlkNotFixed + ID ] = 0.0;
-				sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfApparentResistivityXY[freqIDThisPEInSta]) + nBlkNotFixed + ID ] = 0.0; 
-				sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfApparentResistivityYX[freqIDThisPEInSta]) + nBlkNotFixed + ID ] = 0.0; 
-				sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfApparentResistivityYY[freqIDThisPEInSta]) + nBlkNotFixed + ID ] = 0.0; 
-				sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfPhaseXX[freqIDThisPEInSta]) + nBlkNotFixed + ID ] = 0.0; 
-				sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfPhaseXY[freqIDThisPEInSta]) + nBlkNotFixed + ID ] = 0.0; 
-				sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfPhaseYX[freqIDThisPEInSta]) + nBlkNotFixed + ID ] = 0.0;
-				sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfPhaseYY[freqIDThisPEInSta]) + nBlkNotFixed + ID ] = 0.0;
 				// Sensitivity is kept to be zero if corresponding error is negative
 				if( m_apparentResistivityXXSD[freqIDGlobalInSta] > 0.0 ){
 					if( useImpedanceTensorInsteadOfPhase && isUsedImpedanceTensorFromFreqIDs( freqIDThisPEInSta, ObservedDataStationMT::XX ) ){
@@ -1282,35 +1255,67 @@ void ObservedDataStationApparentResistivityAndPhase::calculateResidualVectorOfDa
 
 	if( useImpedanceTensorInsteadOfPhase && isUsedImpedanceTensorFromFreqIDs( freqIDThisPEInSta, ObservedDataStationMT::XX ) ){
 		OutputFiles::m_logFile << "Notice : Zxx is used instead of apparent resistivity and phase (Station ID : " << getStationID() << ", Frequency : " << freq << " [Hz])." << std::endl;
-		vector[ offset + m_dataIDOfApparentResistivityXX[freqIDThisPEInSta] ] = m_ZxxResidual[freqIDThisPEInSta].realPart;
-		vector[ offset + m_dataIDOfPhaseXX[freqIDThisPEInSta] ] = m_ZxxResidual[freqIDThisPEInSta].imagPart;
+		if (m_dataIDOfApparentResistivityXX[freqIDThisPEInSta] >= 0) {
+			vector[offset + m_dataIDOfApparentResistivityXX[freqIDThisPEInSta]] = m_ZxxResidual[freqIDThisPEInSta].realPart;
+		}
+		if (m_dataIDOfPhaseXX[freqIDThisPEInSta] >= 0) {
+			vector[offset + m_dataIDOfPhaseXX[freqIDThisPEInSta]] = m_ZxxResidual[freqIDThisPEInSta].imagPart;
+		}
 	}else{
-		vector[ offset + m_dataIDOfApparentResistivityXX[freqIDThisPEInSta] ] = m_apparentResistivityXXResidual[freqIDThisPEInSta];
-		vector[ offset + m_dataIDOfPhaseXX[freqIDThisPEInSta] ] = m_PhaseXXResidual[freqIDThisPEInSta];
+		if (m_dataIDOfApparentResistivityXX[freqIDThisPEInSta] >= 0) {
+			vector[offset + m_dataIDOfApparentResistivityXX[freqIDThisPEInSta]] = m_apparentResistivityXXResidual[freqIDThisPEInSta];
+		}
+		if (m_dataIDOfPhaseXX[freqIDThisPEInSta] >= 0) {
+			vector[offset + m_dataIDOfPhaseXX[freqIDThisPEInSta]] = m_PhaseXXResidual[freqIDThisPEInSta];
+		}
 	}
 	if( useImpedanceTensorInsteadOfPhase && isUsedImpedanceTensorFromFreqIDs( freqIDThisPEInSta, ObservedDataStationMT::XY ) ){
 		OutputFiles::m_logFile << "Notice : Zxy is used instead of apparent resistivity and phase (Station ID : " << getStationID() << ", Frequency : " << freq << " [Hz])." << std::endl;
-		vector[ offset + m_dataIDOfApparentResistivityXY[freqIDThisPEInSta] ] = m_ZxyResidual[freqIDThisPEInSta].realPart;
-		vector[ offset + m_dataIDOfPhaseXY[freqIDThisPEInSta] ] = m_ZxyResidual[freqIDThisPEInSta].imagPart;
+		if (m_dataIDOfApparentResistivityXY[freqIDThisPEInSta] >= 0) {
+			vector[offset + m_dataIDOfApparentResistivityXY[freqIDThisPEInSta]] = m_ZxyResidual[freqIDThisPEInSta].realPart;
+		}
+		if (m_dataIDOfPhaseXY[freqIDThisPEInSta] >= 0) {
+			vector[offset + m_dataIDOfPhaseXY[freqIDThisPEInSta]] = m_ZxyResidual[freqIDThisPEInSta].imagPart;
+		}
 	}else{
-		vector[ offset + m_dataIDOfApparentResistivityXY[freqIDThisPEInSta] ] = m_apparentResistivityXYResidual[freqIDThisPEInSta];
-		vector[ offset + m_dataIDOfPhaseXY[freqIDThisPEInSta] ] = m_PhaseXYResidual[freqIDThisPEInSta];
+		if (m_dataIDOfApparentResistivityXY[freqIDThisPEInSta] >= 0) {
+			vector[offset + m_dataIDOfApparentResistivityXY[freqIDThisPEInSta]] = m_apparentResistivityXYResidual[freqIDThisPEInSta];
+		}
+		if (m_dataIDOfPhaseXY[freqIDThisPEInSta] >= 0) {
+			vector[offset + m_dataIDOfPhaseXY[freqIDThisPEInSta]] = m_PhaseXYResidual[freqIDThisPEInSta];
+		}
 	}
 	if( useImpedanceTensorInsteadOfPhase && isUsedImpedanceTensorFromFreqIDs( freqIDThisPEInSta, ObservedDataStationMT::YX ) ){
 		OutputFiles::m_logFile << "Notice : Zyx is used instead of apparent resistivity and phase (Station ID : " << getStationID() << ", Frequency : " << freq << " [Hz])." << std::endl;
-		vector[ offset + m_dataIDOfApparentResistivityYX[freqIDThisPEInSta] ] = m_ZyxResidual[freqIDThisPEInSta].realPart;
-		vector[ offset + m_dataIDOfPhaseYX[freqIDThisPEInSta] ] = m_ZyxResidual[freqIDThisPEInSta].imagPart;
+		if (m_dataIDOfApparentResistivityYX[freqIDThisPEInSta] >= 0) {
+			vector[offset + m_dataIDOfApparentResistivityYX[freqIDThisPEInSta]] = m_ZyxResidual[freqIDThisPEInSta].realPart;
+		}
+		if (m_dataIDOfPhaseYX[freqIDThisPEInSta] >= 0) {
+			vector[offset + m_dataIDOfPhaseYX[freqIDThisPEInSta]] = m_ZyxResidual[freqIDThisPEInSta].imagPart;
+		}
 	}else{
-		vector[ offset + m_dataIDOfApparentResistivityYX[freqIDThisPEInSta] ] = m_apparentResistivityYXResidual[freqIDThisPEInSta];
-		vector[ offset + m_dataIDOfPhaseYX[freqIDThisPEInSta] ] = m_PhaseYXResidual[freqIDThisPEInSta];
+		if (m_dataIDOfApparentResistivityYX[freqIDThisPEInSta] >= 0) {
+			vector[offset + m_dataIDOfApparentResistivityYX[freqIDThisPEInSta]] = m_apparentResistivityYXResidual[freqIDThisPEInSta];
+		}
+		if (m_dataIDOfPhaseYX[freqIDThisPEInSta] >= 0) {
+			vector[offset + m_dataIDOfPhaseYX[freqIDThisPEInSta]] = m_PhaseYXResidual[freqIDThisPEInSta];
+		}
 	}
 	if( useImpedanceTensorInsteadOfPhase && isUsedImpedanceTensorFromFreqIDs( freqIDThisPEInSta, ObservedDataStationMT::YY ) ){
 		OutputFiles::m_logFile << "Notice : Zyy is used instead of apparent resistivity and phase (Station ID : " << getStationID() << ", Frequency : " << freq << " [Hz])." << std::endl;
-		vector[ offset + m_dataIDOfApparentResistivityYY[freqIDThisPEInSta] ] = m_ZyyResidual[freqIDThisPEInSta].realPart;
-		vector[ offset + m_dataIDOfPhaseYY[freqIDThisPEInSta] ] = m_ZyyResidual[freqIDThisPEInSta].imagPart;
+		if (m_dataIDOfApparentResistivityYY[freqIDThisPEInSta] >= 0) {
+			vector[offset + m_dataIDOfApparentResistivityYY[freqIDThisPEInSta]] = m_ZyyResidual[freqIDThisPEInSta].realPart;
+		}
+		if (m_dataIDOfPhaseYY[freqIDThisPEInSta] >= 0) {
+			vector[offset + m_dataIDOfPhaseYY[freqIDThisPEInSta]] = m_ZyyResidual[freqIDThisPEInSta].imagPart;
+		}
 	}else{
-		vector[ offset + m_dataIDOfApparentResistivityYY[freqIDThisPEInSta] ] = m_apparentResistivityYYResidual[freqIDThisPEInSta];
-		vector[ offset + m_dataIDOfPhaseYY[freqIDThisPEInSta] ] = m_PhaseYYResidual[freqIDThisPEInSta];
+		if (m_dataIDOfApparentResistivityYY[freqIDThisPEInSta] >= 0) {
+			vector[offset + m_dataIDOfApparentResistivityYY[freqIDThisPEInSta]] = m_apparentResistivityYYResidual[freqIDThisPEInSta];
+		}
+		if (m_dataIDOfPhaseYY[freqIDThisPEInSta] >= 0) {
+			vector[offset + m_dataIDOfPhaseYY[freqIDThisPEInSta]] = m_PhaseYYResidual[freqIDThisPEInSta];
+		}
 	}
 }
 
@@ -1320,14 +1325,30 @@ double ObservedDataStationApparentResistivityAndPhase::calculateErrorSumOfSquare
 	double misfit(0.0);
 
 	for( int ifreq = 0; ifreq < m_numOfFreqCalculatedByThisStaAndPE; ++ifreq ){
-		misfit += pow( m_apparentResistivityXXResidual[ifreq], 2 );
-		misfit += pow( m_apparentResistivityXYResidual[ifreq], 2 );
-		misfit += pow( m_apparentResistivityYXResidual[ifreq], 2 );
-		misfit += pow( m_apparentResistivityYYResidual[ifreq], 2 );
-		misfit += pow( m_PhaseXXResidual[ifreq], 2 );
-		misfit += pow( m_PhaseXYResidual[ifreq], 2 );
-		misfit += pow( m_PhaseYXResidual[ifreq], 2 );
-		misfit += pow( m_PhaseYYResidual[ifreq], 2 );
+		if (m_dataIDOfApparentResistivityXX[ifreq] >= 0) {
+			misfit += pow(m_apparentResistivityXXResidual[ifreq], 2);
+		}
+		if (m_dataIDOfApparentResistivityXY[ifreq] >= 0) {
+			misfit += pow(m_apparentResistivityXYResidual[ifreq], 2);
+		}
+		if (m_dataIDOfApparentResistivityYX[ifreq] >= 0) {
+			misfit += pow(m_apparentResistivityYXResidual[ifreq], 2);
+		}
+		if (m_dataIDOfApparentResistivityYY[ifreq] >= 0) {
+			misfit += pow(m_apparentResistivityYYResidual[ifreq], 2);
+		}
+		if (m_dataIDOfPhaseXX[ifreq] >= 0) {
+			misfit += pow(m_PhaseXXResidual[ifreq], 2);
+		}
+		if (m_dataIDOfPhaseXY[ifreq] >= 0) {
+			misfit += pow(m_PhaseXYResidual[ifreq], 2);
+		}
+		if (m_dataIDOfPhaseYX[ifreq] >= 0) {
+			misfit += pow(m_PhaseYXResidual[ifreq], 2);
+		}
+		if (m_dataIDOfPhaseYY[ifreq] >= 0) {
+			misfit += pow(m_PhaseYYResidual[ifreq], 2);
+		}
 	}
 
 	return misfit;

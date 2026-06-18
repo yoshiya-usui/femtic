@@ -37,6 +37,8 @@
 #include "Forward3DTetraElement0thOrder.h"
 #include "Forward3DNonConformingHexaElement0thOrder.h"
 #include "MeshData.h"
+#include "ResistivityBlockIsotropic.h"
+#include "ResistivityBlockAnisotropic.h"
 
 // Class of Analysis Control
 class AnalysisControl{
@@ -124,13 +126,12 @@ class AnalysisControl{
 			NEW_DATA_SPACE_ALGORITHM_USING_INV_RTR_MATRIX = 2,
 		};
 
-#ifdef _ANISOTOROPY
-		// Type of anisotropy
-		enum TypeOfAnisotropy{
-			NO_ANISOTROPY = 0,
-			AXIAL_ANISOTROPY = 1,
+		// Options of GCV calculation
+		enum OptionOfGCVCalculation {
+			GCV_WITHOUT_USING_DAMPING_FACTOR = 0,
+			GCV_CONSIDERING_DAMPING_FACTOR,
+			END_OF_OPTION_OF_GCV_CALCULATION
 		};
-#endif
 
 		// Return the the instance of the class
 		static AnalysisControl* getInstance();
@@ -180,9 +181,15 @@ class AnalysisControl{
 		// Get whether the specified parameter is outputed to VTK file
 		bool doesOutputToVTK( const int paramID ) const;
 
-		// Get trade-off parameter for resistivity value
+		// Get trade-off parameter for the spatial variation of resistivity value
 		double getTradeOffParameterForResistivityValue() const;
-		
+
+		// Get trade-off parameter for the degrees of anistropy
+		double getTradeOffParameterForDegreeOfAnisotropy() const;
+
+		// Get trade-off parameter for the spatial variation of the anistropy direction
+		double getTradeOffParameterForAnisotropyDirection() const;
+
 		// Get trade-off parameter for distortion matrix complexity
 		double getTradeOffParameterForDistortionMatrixComplexity() const;
 
@@ -276,13 +283,41 @@ class AnalysisControl{
 		// Get directory of out-of-core files for the sensitivitry matrix
 		std::string getDirectoryOfOutOfCoreFilesForSensitivityMatrix() const;
 
-#ifdef _ANISOTOROPY
-		// Get type of anisotropy
-		int getTypeOfAnisotropy() const;
-
-		// Get flag specifing whether anisotropy of conductivity is taken into account
+		// Get flag specifing whether anisotropic conductivity is considered
 		bool isAnisotropyConsidered() const;
-#endif
+
+		// Get flag specifing whether bottom resistivity is included in roughning
+		bool isBottomResistivityIncluded() const;
+
+		// Get resistivity of the bottom of the model
+		double getBottomResistivity() const;
+
+		// Get roughning factor at the bottom of the model
+		double getRoughningFactorAtBottom() const;
+
+		// Get flag specifing whether small value is added to diagonals of roughening matrix
+		bool isSmallValueToRougheningMatrixDiagonals() const;
+
+		// Set small value added to diagonals
+		double getSmallValueAddedToDiagonals() const;
+
+		// Get minimum distance between current resistivity and resistivity bounds in common logarithm scale
+		double getMinDistanceToBounds() const;
+
+		// Get type of bound constraints
+		int getTypeBoundConstraints() const;
+
+		// Get positive real factor of inverse distance weighting
+		double getInverseDistanceWeightingFactor() const;
+
+		// Get upper limit of the absolute value of the angle updates for anisotropy
+		double getUpperLimitOfAbsAngleUpdatesFoAnisotropy() const;
+
+		// Is the GCV calculation needed?
+		bool needsGCVCalculation() const;
+
+		// Get option of GCV calculation
+		int getOptionOfGCVCalculation() const;
 
 		// Get pointer to the object of class MeshData
 		const MeshData* getPointerOfMeshData() const;
@@ -295,6 +330,15 @@ class AnalysisControl{
 
 		// Get pointer to the object of class MeshDataNonConformingHexaElement
 		const MeshDataNonConformingHexaElement* getPointerOfMeshDataNonConformingHexaElement() const;
+
+		// Get pointer to the object of class ResistivityBlock
+		ResistivityBlock* getPointerOfResistivityBlock() const;
+
+		// Get pointer to the object of class ResistivityBlockIsotropic
+		ResistivityBlockIsotropic* getPointerOfResistivityBlockIsotropic() const;
+
+		// Get pointer to the object of class ResistivityBlockAnisotropic
+		ResistivityBlockAnisotropic* getPointerOfResistivityBlockAnisotropic() const;
 
 private:
 		// Constructer
@@ -356,10 +400,22 @@ private:
 			APP_PHS_OPTION,
 			OUTPUT_ROUGH_MATRIX,
 			DATA_SPACE_METHOD,
-#ifdef _ANISOTOROPY
 			ANISOTROPY,
-#endif
+			MAX_ANGLE_UPDATE,
+			OUTPUT_GCV,
+			GCV_OPTION,
 			EndOfControlParameterID// This must be written at the end of controlParameterID
+		};
+
+		struct ParamsForResistivityBlock {
+			bool includeBottomResistivity;// Flag specifing whether bottom resistivity is included in roughning
+			double bottomResistivity;// Resistivity of the bottom of the model
+			double roughningFactorAtBottom;// Roughning factor at the bottom of the model
+			bool addSmallValueToDiagonals;// Flag specifing whether small value is added to diagonals
+			double smallValueAddedToDiagonals;// Small value added to bottom
+			int typeBoundConstraints;	// Type of bound constraints
+			double minDistanceToBounds;// Minimum distance between current resistivity and resistivity bounds in common logarithm scale
+			double inverseDistanceWeightingFactor;// Positive real factor of inverse distance weighting
 		};
 
 		// Total number of the parameters written in control.dat
@@ -392,11 +448,14 @@ private:
 		// Flag specifing whether the results of 2D forward calculations are outputed
 		bool m_isOutput2DResult;
 
-		//// Flag specifing whether only forward computation is performed or inversion is performed
-		//bool m_performForwardOnly;
-
-		// Trade-off parameter for resistivity value
+		// Trade-off parameter for the spatial variation of resistivity value
 		double m_tradeOffParameterForResistivityValue;
+
+		// Trade-off parameter for the degrees of anistropy
+		double m_tradeOffParameterForDegreeOfAnisotropy;
+
+		// Trade-off parameter for the spatial variation of the anistropy direction
+		double m_tradeOffParameterForAnisotropyDirection;
 
 		// Trade-off parameter for distortion matrix complexity
 		double m_tradeOffParameterForDistortionMatrixComplexity;
@@ -466,23 +525,11 @@ private:
 		// Pointer to the object of class Inversion  
 		Inversion* m_ptrInversion;
 
+		// Pointer to the object of class ResistivityBlock  
+		ResistivityBlock* m_ptrResistivityBlock;
+
 		// Value of objective functional of previous iteration
 		double m_objectFunctionalPre;
-
-		// Data misifit of previous iteration
-		double m_dataMisfitPre;
-
-		// Model roughness of previous iteration
-		double m_modelRoughnessPre;
-
-		// Norm of distortion matrix differences of previous iteration
-		double m_normOfDistortionMatrixDifferencesPre;
-
-		// Norm of the gains of distortion matrices of previous iteration
-		double m_normOfGainsPre;
-
-		// Norm of the rotations of distortion matrices of previous iteration
-		double m_normOfRotationsPre;
 
 		// Number of consecutive iteration of which the value of objective functional decrase from the one of previous iteration
 		int m_numConsecutiveIterFunctionalDecreasing;
@@ -541,6 +588,42 @@ private:
 		// Flag specifing whether roughening matrix is outputed
 		bool m_isRougheningMatrixOutputted;
 
+		// Flag specifing whether anisotropic conductivity is considered
+		bool m_isAnisotropyConsidered;
+
+		// Flag specifing whether bottom resistivity is included in roughning
+		bool m_isBottomResistivityincluded;
+
+		// Resistivity of the bottom of the model
+		double m_bottomResistivity;
+
+		// Roughning factor at the bottom of the model
+		double m_roughningFactorAtBottom;
+
+		// Flag specifing whether small value is added to diagonals of roughening matrix
+		bool m_isSmallValueAddedToRougheningMatrixDiagonals;
+
+		// Small value added to diagonals of roughening matrix
+		double m_smallValueAddedToRougheningMatrixRougheningMatrixDiagonals;
+
+		// Type of bound constraints
+		int m_typeBoundConstraints;
+
+		// Minimum distance between current resistivity and resistivity bounds in common logarithm scale
+		double m_minDistanceToBounds;
+
+		// Positive real factor of inverse distance weighting
+		double m_inverseDistanceWeightingFactor;
+
+		// Upper limit of the absolute value of the angle updates for anisotropy
+		double m_upperLimitOfAbsAngleUpdatesFoAnisotropy;
+
+		// Is the GCV calculation needed?
+		bool m_needsGCVCalculation;
+
+		// Option of GCV calculation
+		int m_optionOfGCVCalculation;
+
 		// Type of data space algorithm
 		int m_typeOfDataSpaceAlgorithm;
 
@@ -565,21 +648,22 @@ private:
 		// Directory of out-of-core files for the sensitivitry matrix
 		std::string m_directoryOfOutOfCoreFilesForSensitivityMatrix;
 
-#ifdef _ANISOTOROPY
-		// Type of anisotropy
-		int m_typeOfAnisotropy;
-#endif
-
 		// Calculate forward computation
 		void calcForwardComputation( const int iter );
 
 		// Adjust factor of step length damping and output convergence data to cnv file
 		AnalysisControl::ConvergenceBehaviors adjustStepLengthDampingFactor( const int iterCur, const int iCutbackCur );
 
+		// Check convergece of the inversion
 		bool checkConvergence( const double objectFunctionalCur );
 
-		bool checkConvergence( const double objectFunctionalCur, const double dataMisft,
-			const double modelRoughness, const double normDist1 = 0.0, const double normDist2 = 0.0 );
+		// Calculate regularization terms and write them to the cnv file for isotropic resistivity
+		// @note: Objective function is returned
+		const double calcRegularizationTermsAndWriteThemToCnvFileIsotropic(const int numDataTotal, const double dataMisfit) const;
+
+		// Calculate regularization terms and write them to the cnv file for anisotropic resistivity
+		// @note: Objective function is returned
+		const double calcRegularizationTermsAndWriteThemToCnvFileAnisotropic(const int numDataTotal, const double dataMisfit, const double dataMisfitPredicted) const;
 
 		// Return flag specifing whether sensitivity is calculated or not
 		bool doesCalculateSensitivity( const int iter ) const;

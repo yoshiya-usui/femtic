@@ -58,8 +58,8 @@ public:
 	// Calculate model roughness for difference filter
 	double calcModelRoughnessForDifferenceFilter( const double* modelVec ) const;
 
-	// Calculate vector of model roughness
-	void calcVectorOfModelRoughness( const double* modelVec, double* roughnessVec ) const;
+	// Calculate residual vector
+	void calcResidualVector(const double* modelVec, double* residualVec) const;
 
 	// Postmultiply diagonal matrix
 	void postmultiplyDiagonalMatrix( const double* diagMatrix );

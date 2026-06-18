@@ -27,7 +27,8 @@
 #include <iomanip>
 
 #include "AnalysisControl.h"
-#include "ResistivityBlock.h"
+#include "ResistivityBlockIsotropic.h"
+#include "ResistivityBlockAnisotropic.h"
 #include "MeshData.h"
 #include "MeshDataBrickElement.h"
 #include "MeshDataNonConformingHexaElement.h"
@@ -37,9 +38,12 @@
 #include "ObservedData.h"
 #include "OutputFiles.h"
 #include "InversionGaussNewtonModelSpace.h"
-#include "InversionGaussNewtonDataSpace.h"
-#include "Forward3DBrickElement0thOrder.h"
-#include "Forward3DTetraElement0thOrder.h"
+#include "InversionGaussNewtonDataSpaceIsotropic.h"
+#include "InversionGaussNewtonDataSpaceAnisotropic.h"
+#include "Forward3DTetraElement0thOrderAnisotropic.h"
+#include "Forward3DTetraElement0thOrderIsotropic.h"
+#include "Forward3DNonConformingHexaElement0thOrderAnisotropic.h"
+#include "Forward3DNonConformingHexaElement0thOrderIsotropic.h"
 #include "mkl.h"
 #include <assert.h>
 
@@ -53,10 +57,10 @@ AnalysisControl* AnalysisControl::getInstance(){
   	return &instance;
 }
 
-// Constructer
-AnalysisControl::AnalysisControl():
-	m_myPE(NULL),
-	m_totalPE(NULL),
+// Constructer0
+AnalysisControl::AnalysisControl() :
+	m_myPE(0),
+	m_totalPE(1),
 	m_numThreads(1),
 	m_startTime(NULL),
 	m_boundaryConditionBottom(AnalysisControl::BOUNDARY_BOTTOM_PERFECT_CONDUCTOR),
@@ -65,11 +69,14 @@ AnalysisControl::AnalysisControl():
 	m_numberingMethod(AnalysisControl::NOT_ASSIGNED),
 	m_isOutput2DResult(false),
 	m_tradeOffParameterForResistivityValue(0.0),
+	m_tradeOffParameterForDegreeOfAnisotropy(0.0),
+	m_tradeOffParameterForAnisotropyDirection(0.0),
 	m_tradeOffParameterForDistortionMatrixComplexity(0.0),
 	m_tradeOffParameterForDistortionGain(0.0),
 	m_tradeOffParameterForDistortionRotation(0.0),
 	m_iterationNumInit(0),
 	m_iterationNumMax(0),
+	m_iterationNumCurrent(0),
 	m_thresholdValueForDecreasing(0.001),
 	m_decreaseRatioForConvegence(1.0),
 	m_stepLengthDampingFactorCur(0.5),
@@ -82,13 +89,10 @@ AnalysisControl::AnalysisControl():
 	m_holdMemoryForwardSolver(false),
 	m_ptrForward3DBrickElement0thOrder(NULL),
 	m_ptrForward3DTetraElement0thOrder(NULL),
+	m_ptrForward3DNonConformingHexaElement0thOrder(NULL),
 	m_ptrInversion(NULL),
+	m_ptrResistivityBlock(NULL),
 	m_objectFunctionalPre(0.0),
-	m_dataMisfitPre(0.0),
-	m_modelRoughnessPre(0.0),
-	m_normOfDistortionMatrixDifferencesPre(0.0),
-	m_normOfGainsPre(0.0),
-	m_normOfRotationsPre(0.0),
 	m_numConsecutiveIterFunctionalDecreasing(0),
 	m_continueWithoutCutback(false),
 	m_maxMemoryPARDISO(3000),
@@ -107,10 +111,18 @@ AnalysisControl::AnalysisControl():
 	m_isObsLocMovedToCenter(false),
 	m_apparentResistivityAndPhaseTreatmentOption(NO_SPECIAL_TREATMENT_APP_AND_PHASE),
 	m_isRougheningMatrixOutputted(false),
-#ifdef _ANISOTOROPY
-	m_typeOfDataSpaceAlgorithm(NEW_DATA_SPACE_ALGORITHM),
-	m_typeOfAnisotropy(NO_ANISOTROPY)
-#else
+	m_isAnisotropyConsidered(false),
+	m_isBottomResistivityincluded(false),
+	m_bottomResistivity(1.0),
+	m_roughningFactorAtBottom(1.0),
+	m_isSmallValueAddedToRougheningMatrixDiagonals(false),
+	m_smallValueAddedToRougheningMatrixRougheningMatrixDiagonals(0.0),
+	m_typeBoundConstraints(ResistivityBlockIsotropic::SIMPLE_BOUND_CONSTRAINING),
+	m_minDistanceToBounds(0.01),
+	m_inverseDistanceWeightingFactor(1.0),
+	m_upperLimitOfAbsAngleUpdatesFoAnisotropy(90.0),
+	m_needsGCVCalculation(false),
+	m_optionOfGCVCalculation(AnalysisControl::GCV_WITHOUT_USING_DAMPING_FACTOR),
 	m_typeOfDataSpaceAlgorithm(NEW_DATA_SPACE_ALGORITHM),
 	m_useDifferenceFilter(false),
 	m_degreeOfLpOptimization(2),
@@ -118,7 +130,6 @@ AnalysisControl::AnalysisControl():
 	m_upperLimitOfDifflog10RhoForLpOptimization(2.0),
 	m_maxIterationIRWLSForLpOptimization(3),
 	m_thresholdIRWLSForLpOptimization(1.0)
-#endif
 {
 	for( int iDir = 0; iDir < 3; ++iDir ){
 		m_alphaWeight[iDir] = 1.0;
@@ -164,6 +175,11 @@ AnalysisControl::~AnalysisControl(){
 		m_ptrInversion = NULL;
 	}
 
+	if (m_ptrResistivityBlock != NULL) {
+		delete m_ptrResistivityBlock;
+		m_ptrResistivityBlock = NULL;
+	}
+
 }
 
 void AnalysisControl::run(){
@@ -183,15 +199,35 @@ void AnalysisControl::run(){
 	OutputFiles::m_logFile << "# Read analysis control data from control.dat." << outputElapsedTime() << std::endl;
 	inputControlData();
 
+	//--------------------------------------------
+	//--- Create object of Resistivity Block   ---
+	//--------------------------------------------
+	if (isAnisotropyConsidered()) {
+		m_ptrResistivityBlock = new ResistivityBlockAnisotropic();
+	}
+	else {
+		m_ptrResistivityBlock = new ResistivityBlockIsotropic();
+	}
+
 	//-------------------------------------------------------
 	//--- Create object of Forward analysis and inversion ---
 	//-------------------------------------------------------
 	if( m_typeOfMesh == MeshData::HEXA ){
 		m_ptrForward3DBrickElement0thOrder = new Forward3DBrickElement0thOrder();
 	}else if( m_typeOfMesh == MeshData::TETRA ){
-		m_ptrForward3DTetraElement0thOrder = new Forward3DTetraElement0thOrder();
+		if (isAnisotropyConsidered()) {
+			m_ptrForward3DTetraElement0thOrder = new Forward3DTetraElement0thOrderAnisotropic();
+		}
+		else {
+			m_ptrForward3DTetraElement0thOrder = new Forward3DTetraElement0thOrderIsotropic();
+		}
 	}else if( m_typeOfMesh == MeshData::NONCONFORMING_HEXA ){
-		m_ptrForward3DNonConformingHexaElement0thOrder = new Forward3DNonConformingHexaElement0thOrder();
+		if (isAnisotropyConsidered()) {
+			m_ptrForward3DNonConformingHexaElement0thOrder = new Forward3DNonConformingHexaElement0thOrderAnisotropic();
+		}
+		else {
+			m_ptrForward3DNonConformingHexaElement0thOrder = new Forward3DNonConformingHexaElement0thOrderIsotropic();
+		}
 	}else{
 		OutputFiles::m_logFile << "Error : Type of mesh is wrong !! : " << m_typeOfMesh << "." << std::endl;
 		exit(1);
@@ -202,7 +238,11 @@ void AnalysisControl::run(){
 			m_ptrInversion = new InversionGaussNewtonModelSpace();
 			break;
 		case Inversion::GAUSS_NEWTON_DATA_SPECE:
-			m_ptrInversion = new InversionGaussNewtonDataSpace();
+			if (isAnisotropyConsidered()) {
+				m_ptrInversion = new InversionGaussNewtonDataSpaceAnisotropic();
+			}else{
+				m_ptrInversion = new InversionGaussNewtonDataSpaceIsotropic();
+			}
 			break;
 		default:
 			OutputFiles::m_logFile << "Error : Type of inversion method is wrong  !! : " << getInversionMethod() << std::endl;
@@ -220,8 +260,7 @@ void AnalysisControl::run(){
 	//--- Read data of resisitivity block model ---
 	//---------------------------------------------
 	OutputFiles::m_logFile << "# Read data of resisitivity block model ." << outputElapsedTime() << std::endl;
-	ResistivityBlock* pResistivityBlock = ResistivityBlock::getInstance();	
-	pResistivityBlock->inputResisitivityBlock();
+	m_ptrResistivityBlock->inputResistivityBlock(getIterationNumInit());
 
 	//-------------------------------------------
 	//--- Read observed data from observe.dat ---
@@ -280,8 +319,11 @@ void AnalysisControl::run(){
 	//-----------------------------------
 	//--- Calculate Roughening Matrix ---
 	//-----------------------------------
-	OutputFiles::m_logFile << "# Calculate Roughening Matrix ." << outputElapsedTime() << std::endl;
-	pResistivityBlock->calcRougheningMatrix();
+	if (!isAnisotropyConsidered()) {
+		// When anisotropic resistivity tensor is considered, roughnening matrix is created in model update phase for each iteration
+		OutputFiles::m_logFile << "# Calculate Roughening Matrix ." << outputElapsedTime() << std::endl;
+		dynamic_cast<ResistivityBlockIsotropic*>(m_ptrResistivityBlock)->calcRougheningMatrix();
+	}
 
 	//-------------------------------------------
 	//--- Output geometory file and case file ---
@@ -289,7 +331,7 @@ void AnalysisControl::run(){
 	if( !m_outputParametersForVis.empty() && writeBinaryFormat() && myProcessID == 0 ){// Write to BINARY file
 		ptrOutputFiles->outputCaseFile();
 		getPointerOfMeshData()->outputMeshDataToBinary();
-		pResistivityBlock->outputResistivityDataToBinary();
+		m_ptrResistivityBlock->outputResistivityDataToBinary();
 	}
 
 	//---------------------
@@ -310,7 +352,7 @@ void AnalysisControl::run(){
 
 		if( !m_outputParametersForVis.empty() && !writeBinaryFormat() ){
 			ptrOutputFiles->openVTKFile( iter );
-			pResistivityBlock->outputResistivityDataToVTK();
+			m_ptrResistivityBlock->outputResistivityDataToVTK();
 		}
 
 		if( m_iterationNumMax > iter && doesOutputToVTK( AnalysisControl::OUTPUT_SENSITIVITY) ){// if output sensitivity
@@ -340,7 +382,7 @@ void AnalysisControl::run(){
 			//-----------------------------------------------------------
 			//--- Change resistivity values and distortion parameters ---
 			//-----------------------------------------------------------
-			pResistivityBlock->updateResistivityValues();
+			m_ptrResistivityBlock->updateResistivityValues();
 			pObservedData->updateDistortionParams();
 		}
 
@@ -360,15 +402,15 @@ void AnalysisControl::run(){
 		// Output resistivity model
 		if( writeBinaryFormat() ){// Write to BINARY file
 			if( myProcessID == 0 ){
-				pResistivityBlock->outputResistivityValuesToBinary( iter );
+				m_ptrResistivityBlock->outputResistivityValuesToBinary(iter);
 			}
 		}
 		else{// Write to ASCII file
-			pResistivityBlock->outputResistivityValuesToVTK();
+			m_ptrResistivityBlock->outputResistivityValuesToVTK();
 		}
 
 		if( myProcessID == 0 && iter > m_iterationNumInit ){// If this PE number is zero and iteration number is not the first one
-			pResistivityBlock->outputResisitivityBlock( iter );
+			m_ptrResistivityBlock->outputResistivityBlock(iter);
 			if( estimateDistortionMatrix() ){
 				pObservedData->outputDistortionParams( iter );
 			}
@@ -402,14 +444,15 @@ void AnalysisControl::run(){
 		OutputFiles::m_logFile << "# Start Inversion.  Iteration : " << iter << std::endl;
 		OutputFiles::m_logFile << "###############################################################################" << std::endl;
 
-		ResistivityBlock* const ptrResistivityBlock = ResistivityBlock::getInstance();
 		ObservedData* const ptrObservedData = ObservedData::getInstance();
-		ptrResistivityBlock->copyResistivityValuesNotFixedCurToPre();
+		m_ptrResistivityBlock->copyUnfixedResistivityValuesCurToPre();
 		ptrObservedData->copyDistortionParamsCurToPre();
+		ptrObservedData->copyResidualVectorCurToPre();
 		if( useDifferenceFilter() ){
 			const int maxIter = getMaxIterationIRWLSForLpOptimization();
+			ResistivityBlockIsotropic* const ptrResistivityBlock  = dynamic_cast<ResistivityBlockIsotropic*>(m_ptrResistivityBlock);
 			double modelRoughnessPre = ptrResistivityBlock->calcModelRoughnessForDifferenceFilter();
-			for( int iter = 0; iter < maxIter; ++iter ){
+				for( int iter = 0; iter < maxIter; ++iter ){
 				OutputFiles::m_logFile << "# Iteration number of reweighted iterative algorithm for Lp optimization : " << iter+1 << std::endl;
 				m_ptrInversion->inversionCalculation();
 				const double modelRoughness = ptrResistivityBlock->calcModelRoughnessForDifferenceFilter();
@@ -436,6 +479,11 @@ void AnalysisControl::run(){
 	if( m_ptrForward3DTetraElement0thOrder != NULL ){
 		delete m_ptrForward3DTetraElement0thOrder;
 		m_ptrForward3DTetraElement0thOrder = NULL;
+	}
+
+	if (m_ptrForward3DNonConformingHexaElement0thOrder != NULL) {
+		delete m_ptrForward3DNonConformingHexaElement0thOrder;
+		m_ptrForward3DNonConformingHexaElement0thOrder = NULL;
 	}
 
 	if( m_ptrInversion != NULL ){
@@ -466,9 +514,6 @@ void AnalysisControl::inputControlData(){
 		hasAlreadyRead[i] = false;
 	}
 
-
-	ResistivityBlock* const ptrResistivityBlock = ResistivityBlock::getInstance();
-
 	while(!inFile.eof())
 	{
 		std::string line;
@@ -480,7 +525,9 @@ void AnalysisControl::inputControlData(){
 
 		double dbuf(0.0);
 		int ibuf(0);
-		if( line.substr(0,25).compare("BOUNDARY_CONDITION_BOTTOM") == 0 ){// Read the type of boundary condition at the bottom of the model
+		if (line.substr(0, 1).compare("#") == 0) {// Comment line
+			continue;
+		}else if (line.substr(0, 25).compare("BOUNDARY_CONDITION_BOTTOM") == 0) {// Read the type of boundary condition at the bottom of the model
 			const int paramID= AnalysisControl::BOUNDARY_CONDITION_BOTTOM;
 			if( hasAlreadyRead[paramID] == true ){
 				OutputFiles::m_logFile << "Error : Already read the data from control.dat !! : BOUNDARY_CONDITION_BOTTOM" << std::endl;
@@ -634,26 +681,27 @@ void AnalysisControl::inputControlData(){
 				OutputFiles::m_logFile << "Error : Already read the data from control.dat !! : TRADE_OFF_PARAM" << std::endl;
 				exit(1);
 			}	
-
-			switch(m_typeOfDistortion){
-				case AnalysisControl::NO_DISTORTION:
-					inFile >> m_tradeOffParameterForResistivityValue;			
-					break;
-				case AnalysisControl::ESTIMATE_DISTORTION_MATRIX_DIFFERENCE:
-					inFile >> m_tradeOffParameterForResistivityValue >> m_tradeOffParameterForDistortionMatrixComplexity;			
-					break;
-				case AnalysisControl::ESTIMATE_GAINS_AND_ROTATIONS:
-					inFile >> m_tradeOffParameterForResistivityValue >> m_tradeOffParameterForDistortionGain >> m_tradeOffParameterForDistortionRotation;			
-					break;
-				case AnalysisControl::ESTIMATE_GAINS_ONLY:
-					inFile >> m_tradeOffParameterForResistivityValue >> m_tradeOffParameterForDistortionGain;			
-					break;
-				default:
-					OutputFiles::m_logFile << "Error : Wrong type of distortion : " << ibuf << std::endl;
-					exit(1);
-					break;
+			inFile >> m_tradeOffParameterForResistivityValue;
+			if (isAnisotropyConsidered()) {
+				inFile >> m_tradeOffParameterForDegreeOfAnisotropy >> m_tradeOffParameterForAnisotropyDirection;
 			}
-
+			switch (m_typeOfDistortion) {
+			case AnalysisControl::NO_DISTORTION:
+				break;
+			case AnalysisControl::ESTIMATE_DISTORTION_MATRIX_DIFFERENCE:
+				inFile >> m_tradeOffParameterForDistortionMatrixComplexity;
+				break;
+			case AnalysisControl::ESTIMATE_GAINS_AND_ROTATIONS:
+				inFile >> m_tradeOffParameterForDistortionGain >> m_tradeOffParameterForDistortionRotation;
+				break;
+			case AnalysisControl::ESTIMATE_GAINS_ONLY:
+				inFile >> m_tradeOffParameterForDistortionGain;
+				break;
+			default:
+				OutputFiles::m_logFile << "Error : Wrong type of distortion : " << ibuf << std::endl;
+				exit(1);
+				break;
+			}
 			hasAlreadyRead[paramID] = true;
 		}else if( line.substr(0,9).compare("ITERATION") == 0 ){
 			const int paramID= AnalysisControl::ITERATION;
@@ -795,7 +843,7 @@ void AnalysisControl::inputControlData(){
 				exit(1);
 			}	
 			inFile >> ibuf;
-			ptrResistivityBlock->setTypeBoundConstraints(ibuf);
+			m_typeBoundConstraints = ibuf;
 			hasAlreadyRead[paramID] = true;
 		}else if( line.substr(0,10).compare("OFILE_TYPE") == 0 ){
 			const int paramID= AnalysisControl::OFILE_TYPE;
@@ -852,15 +900,14 @@ void AnalysisControl::inputControlData(){
 				OutputFiles::m_logFile << "Error : Already read the data from control.dat !! : BOTTOM_RESISTIVITY" << std::endl;
 				exit(1);
 			}
-
-			ptrResistivityBlock->setFlagIncludeBottomResistivity(true);
+			m_isBottomResistivityincluded = true;
 			double dbuf(0.0);
 			inFile >> dbuf;
 			if( dbuf < 0.0 ){
 				OutputFiles::m_logFile << "Error : Bottom resistivity is set to be negative !! : " << dbuf << std::endl;
 				exit(1);
 			}
-			ptrResistivityBlock->setBottomResistivity(dbuf);
+			m_bottomResistivity = dbuf;
 			hasAlreadyRead[paramID] = true;
 		}else if( line.substr(0,23).compare("BOTTOM_ROUGHNING_FACTOR") == 0 ){
 			const int paramID= AnalysisControl::BOTTOM_ROUGHNING_FACTOR;
@@ -873,7 +920,7 @@ void AnalysisControl::inputControlData(){
 				OutputFiles::m_logFile << "Error : Roughning factor at bottom is set to be negative !! : " << dbuf << std::endl;
 				exit(1);
 			}
-			ptrResistivityBlock->setRoughningFactorAtBottom(dbuf);
+			m_roughningFactorAtBottom = dbuf;
 			hasAlreadyRead[paramID] = true;
 		}else if( line.substr(0,10).compare("INV_METHOD") == 0 ){
 			const int paramID= AnalysisControl::INV_METHOD;
@@ -898,7 +945,7 @@ void AnalysisControl::inputControlData(){
 				OutputFiles::m_logFile << "Error : Minimum distance to resistivity bounds must be positive !!" << std::endl;
 				exit(1);
 			}
-			ptrResistivityBlock->setMinDistanceToBounds(dbuf);
+			m_minDistanceToBounds = dbuf;
 			hasAlreadyRead[paramID] = true;
 		}else if( line.substr(0,3).compare("IDW") == 0 ){
 			const int paramID= AnalysisControl::IDW;
@@ -911,7 +958,7 @@ void AnalysisControl::inputControlData(){
 				OutputFiles::m_logFile << "Error : Factor of inverse distance weighting must not be negative !!" << std::endl;
 				exit(1);
 			}
-			ptrResistivityBlock->setInverseDistanceWeightingFactor(dbuf);
+			m_inverseDistanceWeightingFactor = dbuf;
 			hasAlreadyRead[paramID] = true;
 		}else if( line.substr(0,11).compare("SMALL_VALUE") == 0 ){
 			const int paramID= AnalysisControl::SMALL_VALUE;
@@ -924,8 +971,8 @@ void AnalysisControl::inputControlData(){
 				OutputFiles::m_logFile << "Error : Small value added to the diagonals of roughning matrix must not be negative !!" << std::endl;
 				exit(1);
 			}
-			ptrResistivityBlock->setFlagAddSmallValueToDiagonals(true);
-			ptrResistivityBlock->setSmallValueAddedToDiagonals(dbuf);
+			m_isSmallValueAddedToRougheningMatrixDiagonals = true;
+			m_smallValueAddedToRougheningMatrixRougheningMatrixDiagonals = dbuf;
 			hasAlreadyRead[paramID] = true;
 		}else if( line.substr(0,12).compare("MOVE_OBS_LOC") == 0 ){
 			const int paramID= AnalysisControl::MOVE_OBS_LOC;
@@ -981,17 +1028,54 @@ void AnalysisControl::inputControlData(){
 			inFile >> ibuf;
 			m_typeOfDataSpaceAlgorithm = ibuf;
 			hasAlreadyRead[paramID] = true;
-#ifdef _ANISOTOROPY
 		}else if( line.substr(0,10).compare("ANISOTROPY") == 0 ){
+			if (hasAlreadyRead[AnalysisControl::TRADE_OFF_PARAM]) {
+				OutputFiles::m_logFile << "Error : ANISOTROPY should be written before TRADE_OFF_PARAM !!" << std::endl;
+				exit(1);
+			}
 			const int paramID= AnalysisControl::ANISOTROPY;
 			if( hasAlreadyRead[paramID] == true ){
 				OutputFiles::m_logFile << "Error : Already read the data from control.dat !! : ANISOTROPY" << std::endl;
 				exit(1);
 			}
-			inFile >> ibuf;
-			m_typeOfAnisotropy = ibuf;
+			m_isAnisotropyConsidered = true;
 			hasAlreadyRead[paramID] = true;
-#endif
+		}
+		else if (line.substr(0, 16).compare("MAX_ANGLE_UPDATE") == 0) {
+			const int paramID = AnalysisControl::MAX_ANGLE_UPDATE;
+			if (hasAlreadyRead[paramID] == true) {
+				OutputFiles::m_logFile << "Error : Already read the data from control.dat !! : MAX_ANGLE_UPDATE" << std::endl;
+				exit(1);
+			}
+			inFile >> dbuf;
+			if (dbuf <= 0.0) {
+				OutputFiles::m_logFile << "Error : Upper limit of the absolute value of the angle updates should be positive !!" << std::endl;
+				exit(1);
+			}
+			m_upperLimitOfAbsAngleUpdatesFoAnisotropy = dbuf;
+		}
+		else if (line.substr(0, 10).compare("OUTPUT_GCV") == 0) {
+			const int paramID = AnalysisControl::OUTPUT_GCV;
+			if (hasAlreadyRead[paramID] == true) {
+				OutputFiles::m_logFile << "Error : Already read the data from control.dat !! : OUTPUT_GCV" << std::endl;
+				exit(1);
+			}
+			m_needsGCVCalculation = true;
+			hasAlreadyRead[paramID] = true;
+		}
+		else if (line.substr(0, 10).compare("GCV_OPTION") == 0) {
+			const int paramID = AnalysisControl::GCV_OPTION;
+			if (hasAlreadyRead[paramID] == true) {
+				OutputFiles::m_logFile << "Error : Already read the data from control.dat !! : GCV_OPTION" << std::endl;
+				exit(1);
+			}
+			inFile >> ibuf;
+			if (ibuf < 0 && ibuf >= AnalysisControl::END_OF_OPTION_OF_GCV_CALCULATION) {
+				OutputFiles::m_logFile << "Error : Unknown option of GCV_OPTION : " << ibuf << std::endl;
+				exit(1);
+			}
+			m_optionOfGCVCalculation = ibuf;
+			hasAlreadyRead[paramID] = true;
 		}else if( line.substr(0,11).compare("DIFF_FILTER") == 0 ){
 			m_useDifferenceFilter = true;
 			inFile >> ibuf;
@@ -1215,11 +1299,11 @@ void AnalysisControl::inputControlData(){
 		OutputFiles::m_logFile << "# Release memory of coefficient matrix and sparse solver after forward calculation." << std::endl;
 	}
 
-	const int bountConstraingMethod = ( ResistivityBlock::getInstance() )->getTypeBoundConstraints();
-	if(  bountConstraingMethod == ResistivityBlock::SIMPLE_BOUND_CONSTRAINING ){
+	const int bountConstraingMethod = getTypeBoundConstraints();
+	if (bountConstraingMethod == ResistivityBlockIsotropic::SIMPLE_BOUND_CONSTRAINING) {
 		OutputFiles::m_logFile << "# Type of bound constraints method : Simple bound constraining" << std::endl;
 	}
-	else if( bountConstraingMethod == ResistivityBlock::TRANSFORMING_METHOD ){
+	else if (bountConstraingMethod == ResistivityBlockIsotropic::TRANSFORMING_METHOD) {
 		OutputFiles::m_logFile << "# Type of bound constraints method : Transforming method" << std::endl;
 	}
 	else{
@@ -1227,18 +1311,18 @@ void AnalysisControl::inputControlData(){
 		exit(1);
 	}
 
-	OutputFiles::m_logFile << "# Minimum distance to resistivity bounds in common logarithm scale : " << 
-		ptrResistivityBlock->getMinDistanceToBounds() << " ." << std::endl;
+	OutputFiles::m_logFile << "# Minimum distance to resistivity bounds in common logarithm scale : " << getMinDistanceToBounds() << " ." << std::endl;
 
-	if( ptrResistivityBlock->includeBottomResistivity() ){
-		OutputFiles::m_logFile << "# Bottom resistivity : " << ptrResistivityBlock->getBottomResistivity() << " [Ohm-m]" << std::endl;
-		OutputFiles::m_logFile << "# Roughning factor at the bottom : " << ptrResistivityBlock->getRoughningFactorAtBottom() << std::endl;
+	if (isBottomResistivityIncluded()) {
+		OutputFiles::m_logFile << "# Bottom resistivity : " << getBottomResistivity() << " [Ohm-m]" << std::endl;
+		OutputFiles::m_logFile << "# Roughning factor at the bottom : " << getRoughningFactorAtBottom() << std::endl;
 	}
-	else if( ptrResistivityBlock->getFlagAddSmallValueToDiagonals() ){
-		if( getTypeOfDataSpaceAlgorithm() == AnalysisControl::NEW_DATA_SPACE_ALGORITHM_USING_INV_RTR_MATRIX ){
-			OutputFiles::m_logFile << "# Small value added to the diagonals of [R]T*[R] matrix : " << ptrResistivityBlock->getSmallValueAddedToDiagonals() << std::endl;
-		}else{
-			OutputFiles::m_logFile << "# Small value added to the diagonals of roughning matrix : " << ptrResistivityBlock->getSmallValueAddedToDiagonals() << std::endl;
+	else if (isSmallValueToRougheningMatrixDiagonals()) {
+		if (getTypeOfDataSpaceAlgorithm() == AnalysisControl::NEW_DATA_SPACE_ALGORITHM_USING_INV_RTR_MATRIX) {
+			OutputFiles::m_logFile << "# Small value added to the diagonals of [R]T*[R] matrix : " << getSmallValueAddedToDiagonals() << std::endl;
+		}
+		else {
+			OutputFiles::m_logFile << "# Small value added to the diagonals of roughning matrix : " << getSmallValueAddedToDiagonals() << std::endl;
 		}
 	}
 	else if( getInversionMethod() == Inversion::GAUSS_NEWTON_DATA_SPECE ){
@@ -1246,7 +1330,7 @@ void AnalysisControl::inputControlData(){
 		OutputFiles::m_logFile << "        when data space inverson method is selected !!" << std::endl;
 #ifdef _DEBUG_WRITE
 #else
-			exit(1);
+		exit(1);
 #endif
 	}
 
@@ -1261,24 +1345,33 @@ void AnalysisControl::inputControlData(){
 		OutputFiles::m_logFile << "# Convergence criteria of IRWLS for Lp optimization [%] : " << m_thresholdIRWLSForLpOptimization << std::endl;
 	}
 
-#ifdef _ANISOTOROPY
-	switch (getTypeOfAnisotropy()){
-		case AnalysisControl::NO_ANISOTROPY:
-			// No anisotropy => Nothing to do
-			break;
-		case AnalysisControl::AXIAL_ANISOTROPY:
-			OutputFiles::m_logFile << "# Axial anisotropy is considered." << std::endl;
-			if( m_typeOfMesh != MeshData::TETRA ){
-				OutputFiles::m_logFile << "Error : Axial anisotropys is supported only for tetrahedral mesh !!" << std::endl;
-				exit(1);
-			}
-			break;
-		default:
-			OutputFiles::m_logFile << "Error : Wrong type of anisotropy : " << getTypeOfAnisotropy() << std::endl;
+	if (isAnisotropyConsidered()){
+		OutputFiles::m_logFile << "# Anistropic conductivity is considered." << std::endl;
+		if (getInversionMethod() == Inversion::GAUSS_NEWTON_MODEL_SPECE) {
+			OutputFiles::m_logFile << "Error : Model-space Gauss-newton method cannot be used when the anisotropy is considered." << std::endl;
 			exit(1);
-			break;
+		}
+		if (geTypeOfRoughningMatrix() != AnalysisControl::USE_ELEMENTS_SHARE_FACES || useDifferenceFilter()) {
+			OutputFiles::m_logFile << "Warning : Type of roughening matrix cannot be selected when the anisotropy is considered." << std::endl;
+		}
+		OutputFiles::m_logFile << "# Upper limit of the absolute value of the angle updates [deg.] : " << getUpperLimitOfAbsAngleUpdatesFoAnisotropy() << std::endl;
+		if (needsGCVCalculation()) {
+			if (needsGCVCalculation()) {
+				switch (getOptionOfGCVCalculation()) {
+				case AnalysisControl::GCV_WITHOUT_USING_DAMPING_FACTOR:
+					OutputFiles::m_logFile << "# GCV is calculated." << std::endl;
+					break;
+				case AnalysisControl::GCV_CONSIDERING_DAMPING_FACTOR:
+					OutputFiles::m_logFile << "# GCV is calculated considering the damping factor." << std::endl;
+					break;
+				default:
+					OutputFiles::m_logFile << "Error : Unsupported GCV calculation option : " << getOptionOfGCVCalculation() << std::endl;
+					exit(1);
+					break;
+				}
+			}
+		}
 	}
-#endif
 
 	// Open VTK file
 	if( !m_outputParametersForVis.empty() ){
@@ -1301,10 +1394,20 @@ void AnalysisControl::inputControlData(){
 			OutputFiles::m_logFile << "#  - Current density" << std::endl;
 		}
 		if( doesOutputToVTK( AnalysisControl::OUTPUT_SENSITIVITY) ){
-			OutputFiles::m_logFile << "#  - Sensitivity" << std::endl;
+			if (isAnisotropyConsidered()) {
+				OutputFiles::m_logFile << "Warning : Scalared sensitivity cannot be outputted if the anisotropy is considered." << std::endl;
+			}
+			else {
+				OutputFiles::m_logFile << "#  - Sensitivity" << std::endl;
+			}
 		}
 		if( doesOutputToVTK( AnalysisControl::OUTPUT_SENSITIVITY_DENSITY) ){
-			OutputFiles::m_logFile << "#  - Sensitivity density" << std::endl;
+			if (isAnisotropyConsidered()) {
+				OutputFiles::m_logFile << "Warning : Scalared sensitivity density cannot be outputted if the anisotropy is considered." << std::endl;
+			}
+			else {
+				OutputFiles::m_logFile << "#  - Sensitivity density" << std::endl;
+			}
 		}
 	}
 
@@ -1377,7 +1480,12 @@ void AnalysisControl::inputControlData(){
 		exit(1);
 	}
 
-	OutputFiles::m_logFile << "# Trade-off parameter for resistivity value : " << m_tradeOffParameterForResistivityValue << " ." << std::endl;
+	OutputFiles::m_logFile << "# Trade-off parameter for the spatial variation of the resistivity : " << getTradeOffParameterForResistivityValue() << " ." << std::endl;
+	if (isAnisotropyConsidered()) {
+		OutputFiles::m_logFile << "# Trade-off parameter for the degree of the anisotropy : " << getTradeOffParameterForDegreeOfAnisotropy() << " ." << std::endl;
+		OutputFiles::m_logFile << "# Trade-off parameter for the spatial variation of the anistropy direction: " << getTradeOffParameterForAnisotropyDirection() << " ." << std::endl;
+	}
+
 	if( estimateDistortionMatrix() ){
 		if( m_typeOfDistortion == AnalysisControl::ESTIMATE_DISTORTION_MATRIX_DIFFERENCE ){
 			OutputFiles::m_logFile << "# Trade-off parameter for distortion strength : " << m_tradeOffParameterForDistortionMatrixComplexity << " ." << std::endl;
@@ -1393,7 +1501,7 @@ void AnalysisControl::inputControlData(){
 
 	OutputFiles::m_logFile << "# Weighting factor of alpha (X,Y,Z) = (" << m_alphaWeight[0] << ", " << m_alphaWeight[1] << ", " << m_alphaWeight[2] << ") ." << std::endl;
 
-	OutputFiles::m_logFile << "# Factor of inverse distance weighting : " << ptrResistivityBlock->getInverseDistanceWeightingFactor() << "." << std::endl;
+	OutputFiles::m_logFile << "# Factor of inverse distance weighting : " << getInverseDistanceWeightingFactor() << "." << std::endl;
 
 	OutputFiles::m_logFile << "# Initial iteration number : " << m_iterationNumInit << "." << std::endl;
 
@@ -1521,34 +1629,6 @@ int AnalysisControl::getIterationNumMax() const{
 	return m_iterationNumMax;
 }
 
-//// Get Total number of frequencies calculated by this PE
-//int AnalysisControl::getNumOfFrequenciesCalculatedByThisPE() const{
-//	return m_numOfFrequenciesCalculatedByThisPE;
-//}
-//		
-//// Get IDs of Frequencies calculated by this PE
-//int AnalysisControl::getIDsOfFrequenciesCalculatedByThisPE( const int num ) const{
-//	
-//	if( num >= m_numOfFrequenciesCalculatedByThisPE || num < 0 ){
-//		OutputFiles::m_logFile << "Error : num is out range of getIDsOfFrequenciesCalculatedByThisPE !!" << std::endl;
-//		exit(1);
-//	}
-//
-//	return m_IDsOfFrequenciesCalculatedByThisPE[num];
-//
-//}
-//
-//// Get values of Frequencies calculated by this PE
-//double AnalysisControl::getValuesOfFrequenciesCalculatedByThisPE( const int num ) const{
-//
-//	if( num >= m_numOfFrequenciesCalculatedByThisPE || num < 0 ){
-//		OutputFiles::m_logFile << "Error : num is out range of m_valuesOfFrequenciesCalculatedByThisPE !!" << std::endl;
-//		exit(1);
-//	}
-//
-//	return m_valuesOfFrequenciesCalculatedByThisPE[num];
-//}
-
 // Get member variable specifing which backward or forward element is used for calculating EM field
 const AnalysisControl::UseBackwardOrForwardElement AnalysisControl::getUseBackwardOrForwardElement() const{
 	return m_useBackwardOrForwardElement;
@@ -1565,10 +1645,26 @@ bool AnalysisControl::doesOutputToVTK( const int paramID ) const{
 
 }
 
-// Get damping factor for resistivity value
+// Get trade-off parameter for the spatial variation of resistivity value
 double AnalysisControl::getTradeOffParameterForResistivityValue() const{
 
 	return m_tradeOffParameterForResistivityValue;
+
+}
+
+// Get trade-off parameter for the degrees of anistropy
+double AnalysisControl::getTradeOffParameterForDegreeOfAnisotropy() const {
+
+	assert(isAnisotropyConsidered());
+	return m_tradeOffParameterForDegreeOfAnisotropy;
+
+}
+
+// Get trade-off parameter for the spatial variation of the anistropy direction
+double AnalysisControl::getTradeOffParameterForAnisotropyDirection() const {
+
+	assert(isAnisotropyConsidered());
+	return m_tradeOffParameterForAnisotropyDirection;
 
 }
 
@@ -1761,21 +1857,65 @@ std::string AnalysisControl::getDirectoryOfOutOfCoreFilesForSensitivityMatrix() 
 	return m_directoryOfOutOfCoreFilesForSensitivityMatrix;
 }
 
-#ifdef _ANISOTOROPY
-// Get type of anisotropy
-int AnalysisControl::getTypeOfAnisotropy() const{
-	return m_typeOfAnisotropy;
-}
-
 // Get flag specifing whether anisotropy of conductivity is taken into account
 bool AnalysisControl::isAnisotropyConsidered() const{
-	if( getTypeOfAnisotropy() == AnalysisControl::NO_ANISOTROPY ){
-		return false;
-	}else{
-		return true;
-	}
+	return m_isAnisotropyConsidered;
 }
-#endif
+
+// Get flag specifing whether bottom resistivity is included in roughning
+bool AnalysisControl::isBottomResistivityIncluded() const {
+	return m_isBottomResistivityincluded;
+}
+
+// Get resistivity of the bottom of the model
+double AnalysisControl::getBottomResistivity() const {
+	return m_bottomResistivity;
+}
+
+// Get roughning factor at the bottom of the model
+double AnalysisControl::getRoughningFactorAtBottom() const {
+	return m_roughningFactorAtBottom;
+}
+
+// Get flag specifing whether small value is added to diagonals
+bool AnalysisControl::isSmallValueToRougheningMatrixDiagonals() const {
+	return m_isSmallValueAddedToRougheningMatrixDiagonals;
+}
+
+// Set small value added to bottom
+double AnalysisControl::getSmallValueAddedToDiagonals() const {
+	return m_smallValueAddedToRougheningMatrixRougheningMatrixDiagonals;
+}
+
+// Get minimum distance between current resistivity and resistivity bounds in common logarithm scale
+double AnalysisControl::getMinDistanceToBounds() const {
+	return m_minDistanceToBounds;
+}
+
+// Get type of bound constraints
+int AnalysisControl::getTypeBoundConstraints() const {
+	return m_typeBoundConstraints;
+}
+
+// Get positive real factor of inverse distance weighting
+double AnalysisControl::getInverseDistanceWeightingFactor() const {
+	return m_inverseDistanceWeightingFactor;
+}
+
+// Get upper limit of the absolute value of the angle updates for anisotropy
+double AnalysisControl::getUpperLimitOfAbsAngleUpdatesFoAnisotropy() const {
+	return m_upperLimitOfAbsAngleUpdatesFoAnisotropy;
+}
+
+// Is the GCV calculation needed?
+bool AnalysisControl::needsGCVCalculation() const {
+	return m_needsGCVCalculation;
+}
+
+// Get option of GCV calculation
+int AnalysisControl::getOptionOfGCVCalculation() const {
+	return m_optionOfGCVCalculation;
+}
 
 // Get pointer to the object of class MeshData
 const MeshData* AnalysisControl::getPointerOfMeshData() const{
@@ -1822,6 +1962,29 @@ const MeshDataNonConformingHexaElement* AnalysisControl::getPointerOfMeshDataNon
 	}
 
 	return m_ptrForward3DNonConformingHexaElement0thOrder->getPointerToMeshDataNonConformingHexaElement();
+
+}
+
+// Get pointer to the object of class ResistivityBlock
+ResistivityBlock* AnalysisControl::getPointerOfResistivityBlock() const {
+
+	return m_ptrResistivityBlock;
+
+}
+
+// Get pointer to the object of class ResistivityBlockIsotropic
+ResistivityBlockIsotropic* AnalysisControl::getPointerOfResistivityBlockIsotropic() const {
+
+	assert(!m_isAnisotropyConsidered);
+	return dynamic_cast<ResistivityBlockIsotropic*>(m_ptrResistivityBlock);
+
+}
+
+// Get pointer to the object of class ResistivityBlockAnisotropic
+ResistivityBlockAnisotropic* AnalysisControl::getPointerOfResistivityBlockAnisotropic() const {
+
+	assert(m_isAnisotropyConsidered);
+	return dynamic_cast<ResistivityBlockAnisotropic*>(m_ptrResistivityBlock);
 
 }
 
@@ -1896,7 +2059,6 @@ AnalysisControl::ConvergenceBehaviors AnalysisControl::adjustStepLengthDampingFa
 
 	ObservedData* const pObservedData = ObservedData::getInstance();
 
-	//const double dataMisfit = pObservedData->calculateErrorSumOfSquares();
 	double dataMisfitThisPE = pObservedData->calculateErrorSumOfSquaresThisPE();
 
 #ifdef _DEBUG_WRITE
@@ -1906,11 +2068,17 @@ AnalysisControl::ConvergenceBehaviors AnalysisControl::adjustStepLengthDampingFa
 	double dataMisfit(0.0);
 	MPI_Reduce( &dataMisfitThisPE, &dataMisfit, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD );
 
+	double dataMisfitPredicted(-1.0);
+	if (getIterationNumCurrent() > getIterationNumInit() && needsGCVCalculation()) {
+		const double factor = getOptionOfGCVCalculation() == AnalysisControl::GCV_WITHOUT_USING_DAMPING_FACTOR ? 1.0 : getStepLengthDampingFactorCur();
+		const double dataMisfitPredictedThisPE = m_ptrInversion->calculateSumOfSquaresOfPredictedResidualsThisPE(factor);
+		MPI_Reduce(&dataMisfitPredictedThisPE, &dataMisfitPredicted, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
+		OutputFiles::m_logFile << "# Predictions of weighted data misfit : " << dataMisfitPredicted << std::endl;
 #ifdef _DEBUG_WRITE
-	if( myProcessID == 0 ){// Zero process only ---------------------
-		std::cout << "dataMisfit = " << dataMisfit << std::endl;// For debug
-	}
+		std::cout << "PE dataMisfitPredictedThisPE : " << myProcessID << " " << dataMisfitPredictedThisPE << std::endl;// For debug
+		std::cout << "PE dataMisfitPredicted : " << myProcessID << " " << dataMisfitPredicted << std::endl;// For debug
 #endif
+	}
 
 	int iynConverged(0);
 	int iynGoNextIteration(0);
@@ -1920,98 +2088,15 @@ AnalysisControl::ConvergenceBehaviors AnalysisControl::adjustStepLengthDampingFa
 	MPI_Reduce( &numDataThisPE, &numDataTotal, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD );
 
 	if( myProcessID == 0 ){// Zero process only ---------------------
-	
-		const double rms = sqrt( dataMisfit / static_cast<double>( numDataTotal ) );
-
-		double modelRoughness(0.0);
-		if( useDifferenceFilter() ){
-			modelRoughness = ( ResistivityBlock::getInstance() )->calcModelRoughnessForDifferenceFilter();
-		}else{
-			modelRoughness = ( ResistivityBlock::getInstance() )->calcModelRoughnessForLaplacianFilter();
-		}
-		const double modelRoughnessMultipliedByAlphaAlpha = modelRoughness * pow(m_tradeOffParameterForResistivityValue, 2);
-
-		double objectFunctionalCur = dataMisfit	+ modelRoughnessMultipliedByAlphaAlpha;
-
-		double distortionMatrixNorm = -1.0;
-		double normOfGains = -1.0;
-		double normOfRotations = -1.0;
-
-		//----------------------------------------
 		// Output convergence data to cnv file
-		//----------------------------------------
-		if( !OutputFiles::m_cnvFile.is_open() ){
+		if (!OutputFiles::m_cnvFile.is_open()) {
 			OutputFiles::m_logFile << "Error : CNV file has not been opened." << std::endl;
 			exit(1);
 		}
-
-		if( ( AnalysisControl::getInstance() )->getTypeOfDistortion() == AnalysisControl::ESTIMATE_DISTORTION_MATRIX_DIFFERENCE ){
-			distortionMatrixNorm = pObservedData->calculateSumSquareOfDistortionMatrixComplexity();
-			objectFunctionalCur += m_tradeOffParameterForDistortionMatrixComplexity * m_tradeOffParameterForDistortionMatrixComplexity * distortionMatrixNorm;
-
-			OutputFiles::m_cnvFile.precision(6);
-			OutputFiles::m_cnvFile << std::setw(10) << iterCur << std::setw(10) << iCutbackCur
-				<< std::setw(15) << std::scientific << m_tradeOffParameterForResistivityValue
-				<< std::setw(15) << std::scientific << m_tradeOffParameterForDistortionMatrixComplexity
-				<< std::setw(15) << std::scientific << m_stepLengthDampingFactorCur
-				<< std::setw(15) << std::scientific << modelRoughness
-				<< std::setw(15) << std::scientific << distortionMatrixNorm
-				<< std::setw(15) << std::scientific << dataMisfit
-				<< std::setw(15) << std::scientific << rms
-				<< std::setw(15) << std::scientific << objectFunctionalCur
-				<< std::endl;	
-
-		}
-		else if( ( AnalysisControl::getInstance() )->getTypeOfDistortion() == AnalysisControl::ESTIMATE_GAINS_AND_ROTATIONS ){
-			normOfGains = pObservedData->calculateSumSquareOfDistortionMatrixGains();
-			objectFunctionalCur += m_tradeOffParameterForDistortionGain * m_tradeOffParameterForDistortionGain * normOfGains;
-			normOfRotations = pObservedData->calculateSumSquareOfDistortionMatrixRotations();
-			objectFunctionalCur += m_tradeOffParameterForDistortionRotation * m_tradeOffParameterForDistortionRotation * normOfRotations;
-
-			OutputFiles::m_cnvFile.precision(6);
-			OutputFiles::m_cnvFile << std::setw(10) << iterCur << std::setw(10) << iCutbackCur
-				<< std::setw(15) << std::scientific << m_tradeOffParameterForResistivityValue
-				<< std::setw(15) << std::scientific << m_tradeOffParameterForDistortionGain
-				<< std::setw(15) << std::scientific << m_tradeOffParameterForDistortionRotation
-				<< std::setw(15) << std::scientific << m_stepLengthDampingFactorCur
-				<< std::setw(15) << std::scientific << modelRoughness
-				<< std::setw(15) << std::scientific << normOfGains
-				<< std::setw(15) << std::scientific << normOfRotations
-				<< std::setw(15) << std::scientific << dataMisfit
-				<< std::setw(15) << std::scientific << rms
-				<< std::setw(15) << std::scientific << objectFunctionalCur
-				<< std::endl;	
-
-		}
-		else if( ( AnalysisControl::getInstance() )->getTypeOfDistortion() == AnalysisControl::ESTIMATE_GAINS_ONLY ){
-			normOfGains = pObservedData->calculateSumSquareOfDistortionMatrixGains();
-			objectFunctionalCur += m_tradeOffParameterForDistortionGain * m_tradeOffParameterForDistortionGain * normOfGains;
-
-			OutputFiles::m_cnvFile.precision(6);
-			OutputFiles::m_cnvFile << std::setw(10) << iterCur << std::setw(10) << iCutbackCur
-				<< std::setw(15) << std::scientific << m_tradeOffParameterForResistivityValue
-				<< std::setw(15) << std::scientific << m_tradeOffParameterForDistortionGain
-				<< std::setw(15) << std::scientific << m_stepLengthDampingFactorCur
-				<< std::setw(15) << std::scientific << modelRoughness
-				<< std::setw(15) << std::scientific << normOfGains
-				<< std::setw(15) << std::scientific << dataMisfit
-				<< std::setw(15) << std::scientific << rms
-				<< std::setw(15) << std::scientific << objectFunctionalCur
-				<< std::endl;
-		}
-		else{
-
-			OutputFiles::m_cnvFile.precision(6);
-			OutputFiles::m_cnvFile << std::setw(10) << iterCur << std::setw(10) << iCutbackCur
-				<< std::setw(15) << std::scientific << m_tradeOffParameterForResistivityValue
-				<< std::setw(15) << std::scientific << m_stepLengthDampingFactorCur
-				<< std::setw(15) << std::scientific << modelRoughness
-				<< std::setw(15) << std::scientific << dataMisfit
-				<< std::setw(15) << std::scientific << rms
-				<< std::setw(15) << std::scientific << objectFunctionalCur
-				<< std::endl;			
-
-		}		
+		OutputFiles::m_cnvFile << std::setw(10) << iterCur << std::setw(10) << iCutbackCur;
+		const double objectFunctionalCur = isAnisotropyConsidered() ? 
+			calcRegularizationTermsAndWriteThemToCnvFileAnisotropic(numDataTotal, dataMisfit, dataMisfitPredicted) :
+			calcRegularizationTermsAndWriteThemToCnvFileIsotropic(numDataTotal, dataMisfit);
 
 		// Perform convergence test
 		if( checkConvergence( objectFunctionalCur ) ){
@@ -2043,13 +2128,6 @@ AnalysisControl::ConvergenceBehaviors AnalysisControl::adjustStepLengthDampingFa
 				}
 
 				m_objectFunctionalPre = objectFunctionalCur;
-
-				m_dataMisfitPre = dataMisfit;
-				m_modelRoughnessPre = modelRoughness;
-				m_normOfDistortionMatrixDifferencesPre = distortionMatrixNorm;
-				m_normOfGainsPre = normOfGains;
-				m_normOfRotationsPre = normOfRotations;
-
 			}else{
 				// Value of objective functional increase from the one of previous iteration
 
@@ -2085,24 +2163,12 @@ AnalysisControl::ConvergenceBehaviors AnalysisControl::adjustStepLengthDampingFa
 	MPI_Bcast( &iynGoNextIteration, 1, MPI_INT, 0, MPI_COMM_WORLD );
 
 	MPI_Bcast( &m_objectFunctionalPre, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD );
-	MPI_Bcast( &m_dataMisfitPre, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD );
-	MPI_Bcast( &m_modelRoughnessPre, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD );
-	MPI_Bcast( &m_normOfDistortionMatrixDifferencesPre, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD );
-	MPI_Bcast( &m_normOfGainsPre, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD );
-	MPI_Bcast( &m_normOfRotationsPre, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD );
-
 	MPI_Bcast( &m_stepLengthDampingFactorCur, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD );
 	MPI_Bcast( &m_numConsecutiveIterFunctionalDecreasing, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD );
-
 #ifdef _DEBUG_WRITE
 	std::cout << "PE iynConverged : " <<  myProcessID << " " << iynConverged << std::endl;// For debug
 	std::cout << "PE iynGoNextIteration : " <<  myProcessID << " " << iynGoNextIteration << std::endl;// For debug
 	std::cout << "PE m_objectFunctionalPre : " <<  myProcessID << " " << m_objectFunctionalPre << std::endl;// For debug
-	std::cout << "PE m_dataMisfitPre : " <<  myProcessID << " " << m_dataMisfitPre << std::endl;// For debug
-	std::cout << "PE m_modelRoughnessPre : " <<  myProcessID << " " << m_modelRoughnessPre << std::endl;// For debug
-	std::cout << "PE m_normOfDistortionMatrixDifferencesPre : " <<  myProcessID << " " << m_normOfDistortionMatrixDifferencesPre << std::endl;// For debug
-	std::cout << "PE m_normOfGainsPre : " <<  myProcessID << " " << m_normOfGainsPre << std::endl;// For debug
-	std::cout << "PE m_normOfRotationsPre : " <<  myProcessID << " " << m_normOfRotationsPre << std::endl;// For debug
 	std::cout << "PE m_stepLengthDampingFactorCur : " <<  myProcessID << " " << m_stepLengthDampingFactorCur << std::endl;// For debug
 	std::cout << "PE m_numConsecutiveIterFunctionalDecreasing : " <<  myProcessID << " " << m_numConsecutiveIterFunctionalDecreasing << std::endl;// For debug
 #endif
@@ -2133,50 +2199,193 @@ bool AnalysisControl::checkConvergence( const double objectFunctionalCur ){
 	return false;
 }
 
-// Perform convergence test 
-bool AnalysisControl::checkConvergence( const double objectFunctionalCur, const double dataMisft, const double modelRoughness,
-										const double normDist1, const double normDist2 ){
+// Calculate regularization terms and write them to the cnv file for isotropic resistivity
+// @note: Objective function is returned
+const double AnalysisControl::calcRegularizationTermsAndWriteThemToCnvFileIsotropic(const int numDataTotal, const double dataMisfit) const{
 
-	const double criterion = m_decreaseRatioForConvegence * 0.01;
-
-	if( ( AnalysisControl::getInstance() )->getTypeOfDistortion() == AnalysisControl::ESTIMATE_DISTORTION_MATRIX_DIFFERENCE ){
-		if( ( m_objectFunctionalPre - objectFunctionalCur ) > 0.0 &&
-			fabs( m_objectFunctionalPre - objectFunctionalCur ) < m_objectFunctionalPre * criterion &&
-			fabs( m_dataMisfitPre - dataMisft ) < m_dataMisfitPre * criterion &&
-			fabs( m_modelRoughnessPre - modelRoughness ) < m_modelRoughnessPre * criterion &&
-			fabs( m_normOfDistortionMatrixDifferencesPre - normDist1 ) < m_normOfDistortionMatrixDifferencesPre * criterion ){
-			return true;
-		}
-	}
-	else if( ( AnalysisControl::getInstance() )->getTypeOfDistortion() == AnalysisControl::ESTIMATE_GAINS_AND_ROTATIONS ){
-		if( ( m_objectFunctionalPre - objectFunctionalCur ) > 0.0 &&
-			fabs( m_objectFunctionalPre - objectFunctionalCur ) < m_objectFunctionalPre * criterion &&
-			fabs( m_dataMisfitPre - dataMisft ) < m_dataMisfitPre * criterion &&
-			fabs( m_modelRoughnessPre - modelRoughness ) < m_modelRoughnessPre * criterion &&
-			fabs( m_normOfGainsPre - normDist1 ) < m_normOfGainsPre * criterion &&
-			fabs( m_normOfRotationsPre - normDist2 ) < m_normOfRotationsPre * criterion ){
-			return true;
-		}
-	}
-	else if( ( AnalysisControl::getInstance() )->getTypeOfDistortion() == AnalysisControl::ESTIMATE_GAINS_ONLY ){
-		if( ( m_objectFunctionalPre - objectFunctionalCur ) > 0.0 &&
-			fabs( m_objectFunctionalPre - objectFunctionalCur ) < m_objectFunctionalPre * criterion &&
-			fabs( m_dataMisfitPre - dataMisft ) < m_dataMisfitPre * criterion &&
-			fabs( m_modelRoughnessPre - modelRoughness ) < m_modelRoughnessPre * criterion &&
-			fabs( m_normOfGainsPre - normDist1 ) < m_normOfGainsPre * criterion ){
-			return true;
-		}
-	}
-	else{
-		if( ( m_objectFunctionalPre - objectFunctionalCur ) > 0.0 &&
-			fabs( m_objectFunctionalPre - objectFunctionalCur ) < m_objectFunctionalPre * criterion &&
-			fabs( m_dataMisfitPre - dataMisft ) < m_dataMisfitPre * criterion &&
-			fabs( m_modelRoughnessPre - modelRoughness ) < m_modelRoughnessPre * criterion ){
-			return true;
-		}
+	if (!OutputFiles::m_cnvFile.is_open()) {
+		OutputFiles::m_logFile << "Error : CNV file has not been opened." << std::endl;
+		exit(1);
 	}
 
-	return false;
+	const ResistivityBlockIsotropic* const ptrResistivityBlock = getPointerOfResistivityBlockIsotropic();
+	const double modelRoughness = useDifferenceFilter() ? ptrResistivityBlock->calcModelRoughnessForDifferenceFilter() : ptrResistivityBlock->calcModelRoughnessForLaplacianFilter();
+	const double modelRoughnessMultipliedByAlphaAlpha = modelRoughness * pow(m_tradeOffParameterForResistivityValue, 2);
+
+	double objectFunctionalCur = dataMisfit + modelRoughnessMultipliedByAlphaAlpha;
+
+	double distortionMatrixNorm = -1.0;
+	double normOfGains = -1.0;
+	double normOfRotations = -1.0;
+
+	ObservedData* const pObservedData = ObservedData::getInstance();
+	const double rms = sqrt(dataMisfit / static_cast<double>(numDataTotal));
+	if ((AnalysisControl::getInstance())->getTypeOfDistortion() == AnalysisControl::ESTIMATE_DISTORTION_MATRIX_DIFFERENCE) {
+		distortionMatrixNorm = pObservedData->calculateSumSquareOfDistortionMatrixComplexity();
+		objectFunctionalCur += m_tradeOffParameterForDistortionMatrixComplexity * m_tradeOffParameterForDistortionMatrixComplexity * distortionMatrixNorm;
+		OutputFiles::m_cnvFile.precision(6);
+		OutputFiles::m_cnvFile << std::setw(15) << std::scientific << m_tradeOffParameterForResistivityValue
+			<< std::setw(15) << std::scientific << m_tradeOffParameterForDistortionMatrixComplexity
+			<< std::setw(15) << std::scientific << m_stepLengthDampingFactorCur
+			<< std::setw(15) << std::scientific << modelRoughness
+			<< std::setw(15) << std::scientific << distortionMatrixNorm
+			<< std::setw(15) << std::scientific << dataMisfit
+			<< std::setw(15) << std::scientific << rms
+			<< std::setw(15) << std::scientific << objectFunctionalCur
+			<< std::endl;
+	}
+	else if ((AnalysisControl::getInstance())->getTypeOfDistortion() == AnalysisControl::ESTIMATE_GAINS_AND_ROTATIONS) {
+		normOfGains = pObservedData->calculateSumSquareOfDistortionMatrixGains();
+		objectFunctionalCur += m_tradeOffParameterForDistortionGain * m_tradeOffParameterForDistortionGain * normOfGains;
+		normOfRotations = pObservedData->calculateSumSquareOfDistortionMatrixRotations();
+		objectFunctionalCur += m_tradeOffParameterForDistortionRotation * m_tradeOffParameterForDistortionRotation * normOfRotations;
+		OutputFiles::m_cnvFile.precision(6);
+		OutputFiles::m_cnvFile << std::setw(15) << std::scientific << m_tradeOffParameterForResistivityValue
+			<< std::setw(15) << std::scientific << m_tradeOffParameterForDistortionGain
+			<< std::setw(15) << std::scientific << m_tradeOffParameterForDistortionRotation
+			<< std::setw(15) << std::scientific << m_stepLengthDampingFactorCur
+			<< std::setw(15) << std::scientific << modelRoughness
+			<< std::setw(15) << std::scientific << normOfGains
+			<< std::setw(15) << std::scientific << normOfRotations
+			<< std::setw(15) << std::scientific << dataMisfit
+			<< std::setw(15) << std::scientific << rms
+			<< std::setw(15) << std::scientific << objectFunctionalCur
+			<< std::endl;
+	}
+	else if ((AnalysisControl::getInstance())->getTypeOfDistortion() == AnalysisControl::ESTIMATE_GAINS_ONLY) {
+		normOfGains = pObservedData->calculateSumSquareOfDistortionMatrixGains();
+		objectFunctionalCur += m_tradeOffParameterForDistortionGain * m_tradeOffParameterForDistortionGain * normOfGains;
+		OutputFiles::m_cnvFile.precision(6);
+		OutputFiles::m_cnvFile << std::setw(15) << std::scientific << m_tradeOffParameterForResistivityValue
+			<< std::setw(15) << std::scientific << m_tradeOffParameterForDistortionGain
+			<< std::setw(15) << std::scientific << m_stepLengthDampingFactorCur
+			<< std::setw(15) << std::scientific << modelRoughness
+			<< std::setw(15) << std::scientific << normOfGains
+			<< std::setw(15) << std::scientific << dataMisfit
+			<< std::setw(15) << std::scientific << rms
+			<< std::setw(15) << std::scientific << objectFunctionalCur
+			<< std::endl;
+	}
+	else {
+		OutputFiles::m_cnvFile.precision(6);
+		OutputFiles::m_cnvFile << std::setw(15) << std::scientific << m_tradeOffParameterForResistivityValue
+			<< std::setw(15) << std::scientific << m_stepLengthDampingFactorCur
+			<< std::setw(15) << std::scientific << modelRoughness
+			<< std::setw(15) << std::scientific << dataMisfit
+			<< std::setw(15) << std::scientific << rms
+			<< std::setw(15) << std::scientific << objectFunctionalCur
+			<< std::endl;
+	}
+
+	return objectFunctionalCur;
+}
+
+// Calculate regularization terms and write them to the cnv file for anisotropic resistivity
+// @note: Objective function is returned
+const double AnalysisControl::calcRegularizationTermsAndWriteThemToCnvFileAnisotropic(const int numDataTotal, const double dataMisfit, const double dataMisfitPredicted) const {
+
+	if (!OutputFiles::m_cnvFile.is_open()) {
+		OutputFiles::m_logFile << "Error : CNV file has not been opened." << std::endl;
+		exit(1);
+	}
+
+	const double alpha1 = getTradeOffParameterForResistivityValue();
+	const double alpha2 = getTradeOffParameterForDegreeOfAnisotropy();
+	const double alpha3 = getTradeOffParameterForAnisotropyDirection();
+	
+	OutputFiles::m_cnvFile.precision(6);
+	OutputFiles::m_cnvFile << std::setw(15) << std::scientific << alpha1 << std::setw(15) << std::scientific << alpha2
+		<< std::setw(15) << std::scientific << alpha3;
+
+	double objectFunctionalCur = dataMisfit;
+	const ResistivityBlockAnisotropic* const ptrResistivityBlock = getPointerOfResistivityBlockAnisotropic();
+	const double modelRoughness(ptrResistivityBlock->calcModelRoughnessForTransverselyIsotropicConductivity());
+	objectFunctionalCur += modelRoughness * pow(alpha1, 2);
+	const double degreeOfAnisotropy(ptrResistivityBlock->calcL2NormOfDifferencesBetweenResistivityComponentsForTransverselyIsotropicConductivity());
+	objectFunctionalCur += degreeOfAnisotropy * pow(alpha2, 2);
+	const double weightedCrossProductNorm(ptrResistivityBlock->calcL2NormOfCrossProductForTransverselyIsotropicConductivity());
+	objectFunctionalCur += weightedCrossProductNorm * pow(alpha3, 2);
+	double GCV(-1.0);
+	if (getIterationNumCurrent() > getIterationNumInit() && needsGCVCalculation()) {
+		const double factor = getOptionOfGCVCalculation() == AnalysisControl::GCV_WITHOUT_USING_DAMPING_FACTOR ? 1.0 : getStepLengthDampingFactorCur();
+		GCV = dataMisfitPredicted / pow(numDataTotal - factor * m_ptrInversion->getTraceOfHatMatrixWithoutDampingFactor(), 2);
+	}
+	const double rms = sqrt(dataMisfit / static_cast<double>(numDataTotal));
+
+	const ObservedData* const pObservedData = ObservedData::getInstance();
+	if ((AnalysisControl::getInstance())->getTypeOfDistortion() == AnalysisControl::ESTIMATE_DISTORTION_MATRIX_DIFFERENCE) {
+		const double beta = getTradeOffParameterForDistortionMatrixComplexity();
+		const double distortionMatrixNorm = pObservedData->calculateSumSquareOfDistortionMatrixComplexity();
+		objectFunctionalCur += distortionMatrixNorm * pow(beta, 2);
+		OutputFiles::m_cnvFile
+			<< std::setw(15) << std::scientific << beta
+			<< std::setw(15) << std::scientific << getStepLengthDampingFactorCur()
+			<< std::setw(15) << std::scientific << modelRoughness
+			<< std::setw(15) << std::scientific << degreeOfAnisotropy
+			<< std::setw(15) << std::scientific << weightedCrossProductNorm
+			<< std::setw(15) << std::scientific << distortionMatrixNorm
+			<< std::setw(15) << std::scientific << dataMisfit
+			<< std::setw(15) << std::scientific << rms
+			<< std::setw(15) << std::scientific << objectFunctionalCur;
+	}
+	else if ((AnalysisControl::getInstance())->getTypeOfDistortion() == AnalysisControl::ESTIMATE_GAINS_AND_ROTATIONS) {
+		const double beta1 = getTradeOffParameterForGainsOfDistortionMatrix();
+		const double beta2 = getTradeOffParameterForRotationsOfDistortionMatrix();
+		const double normOfGains = pObservedData->calculateSumSquareOfDistortionMatrixGains();
+		objectFunctionalCur += normOfGains * pow(beta1, 2);
+		const double normOfRotations = pObservedData->calculateSumSquareOfDistortionMatrixRotations();
+		objectFunctionalCur += normOfRotations * pow(beta2, 2);
+		OutputFiles::m_cnvFile
+			<< std::setw(15) << std::scientific << beta1
+			<< std::setw(15) << std::scientific << beta2
+			<< std::setw(15) << std::scientific << getStepLengthDampingFactorCur()
+			<< std::setw(15) << std::scientific << modelRoughness
+			<< std::setw(15) << std::scientific << degreeOfAnisotropy
+			<< std::setw(15) << std::scientific << weightedCrossProductNorm
+			<< std::setw(15) << std::scientific << normOfGains
+			<< std::setw(15) << std::scientific << normOfRotations
+			<< std::setw(15) << std::scientific << dataMisfit
+			<< std::setw(15) << std::scientific << rms
+			<< std::setw(15) << std::scientific << objectFunctionalCur;
+	}
+	else if ((AnalysisControl::getInstance())->getTypeOfDistortion() == AnalysisControl::ESTIMATE_GAINS_ONLY) {
+		const double beta = getTradeOffParameterForGainsOfDistortionMatrix();
+		const double normOfGains = pObservedData->calculateSumSquareOfDistortionMatrixGains();
+		objectFunctionalCur += normOfGains * pow(beta, 2);;
+		OutputFiles::m_cnvFile
+			<< std::setw(15) << std::scientific << beta
+			<< std::setw(15) << std::scientific << getStepLengthDampingFactorCur()
+			<< std::setw(15) << std::scientific << modelRoughness
+			<< std::setw(15) << std::scientific << degreeOfAnisotropy
+			<< std::setw(15) << std::scientific << weightedCrossProductNorm
+			<< std::setw(15) << std::scientific << normOfGains
+			<< std::setw(15) << std::scientific << dataMisfit
+			<< std::setw(15) << std::scientific << rms
+			<< std::setw(15) << std::scientific << objectFunctionalCur;
+	}
+	else {
+		OutputFiles::m_cnvFile
+			<< std::setw(15) << std::scientific << getStepLengthDampingFactorCur()
+			<< std::setw(15) << std::scientific << modelRoughness
+			<< std::setw(15) << std::scientific << degreeOfAnisotropy
+			<< std::setw(15) << std::scientific << weightedCrossProductNorm
+			<< std::setw(15) << std::scientific << dataMisfit
+			<< std::setw(15) << std::scientific << rms
+			<< std::setw(15) << std::scientific << objectFunctionalCur;
+	}
+
+	if (needsGCVCalculation()) {
+		if (GCV < 0.0) {
+			OutputFiles::m_cnvFile << std::setw(15) << "ND";
+		}
+		else {
+			OutputFiles::m_cnvFile << std::setw(15) << std::scientific << GCV;
+		}
+	}
+	OutputFiles::m_cnvFile << std::endl;
+
+	return objectFunctionalCur;
+
 }
 
 // Return flag specifing whether sensitivity is calculated or not

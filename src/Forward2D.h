@@ -36,7 +36,7 @@ public:
 	explicit Forward2D( const int planeID, const int iPol );
 
 	// Destructer
-	~Forward2D();
+	virtual ~Forward2D();
 
 	// Get result of forward analysis directly from solution array;
 	std::complex<double> getSolutionDirectly( const int freedum ) const;
@@ -91,6 +91,9 @@ protected:
 
 	// Array converting local IDs to global ones after degeneration
 	int** m_IDsLocal2GlobalDegenerated;
+
+	// Size of the array converting local IDs to global ones
+	int m_sizeOfIDsLocal2Global;
 
 	// Whether array converting local edge IDs to global ones and  global ones after degeneration has already been set or not
 	bool m_hasAlreadySetIDsLocal2Global;

@@ -38,7 +38,7 @@ public:
 	explicit Forward2DQuadrilateralElement( const int planeID, const int iPol );
 
 	// Destructer
-	~Forward2DQuadrilateralElement();
+	virtual ~Forward2DQuadrilateralElement();
 
 	// Calculate EM fields of boundary planes by 2D forward calculcation with 1st order nodal element
 	virtual void calcEMFieldsOfBoundaryPlanes( const double freq, const MeshDataNonConformingHexaElement* const pMeshData ) = 0;

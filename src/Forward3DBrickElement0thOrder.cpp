@@ -28,8 +28,6 @@
 #include "CommonParameters.h"
 #include "AnalysisControl.h"
 #include "OutputFiles.h"
-#include "Forward2DSquareElement0thOrderEdgeBased.h"
-#include "Forward2DSquareElement1stOrderNodeBased.h"
 #include "ObservedData.h"
 #include <stdio.h>
 #include <string.h>
@@ -831,6 +829,19 @@ std::complex<double> Forward3DBrickElement0thOrder::calcVoltageDifference( const
 
 }
 
+// Calculate electric current density vector
+CommonParameters::ComplexValuedVector Forward3DBrickElement0thOrder::calculateElectricCurrentDensityVector(const int iElem) const {
+
+	const double sigma = (AnalysisControl::getInstance())->getPointerOfResistivityBlockIsotropic()->getConductivityValuesFromElemID(iElem);
+	const CommonParameters::ComplexValuedVector electricCurrentDensity = {
+		sigma * calcValueElectricFieldXDirection(iElem, 0.0, 0.0, 0.0),
+		sigma * calcValueElectricFieldYDirection(iElem, 0.0, 0.0, 0.0),
+		sigma * calcValueElectricFieldZDirection(iElem, 0.0, 0.0, 0.0)
+	};
+	return electricCurrentDensity;
+
+}
+
 // Calculate interpolator vector of X component of electric field
 void Forward3DBrickElement0thOrder::calcInterpolatorVectorOfElectricFieldXDirection( const int iElem, const double xLocal, const double yLocal, const double zLocal,
 	const int irhs,	const std::complex<double>& factor ){
@@ -1234,8 +1245,6 @@ void Forward3DBrickElement0thOrder::calcInterpolatorVectorOfVoltageDifference( c
 // Set non-zero strucuture of matrix for forward calculation
 void Forward3DBrickElement0thOrder::setNonZeroStrucuture( ComplexSparseSquareSymmetricMatrix& matrix ){
 
-	const ResistivityBlock* const ptrResistivityBlock = ResistivityBlock::getInstance();
-
 	const int iPol = getPolarizationCurrent();
 
 	const int nElem = m_MeshDataBrickElement.getNumElemTotal();
@@ -1293,7 +1302,7 @@ void Forward3DBrickElement0thOrder::setNonZeroStrucuture( ComplexSparseSquareSym
 // Set non-zero values of matrix and right-hande side vector for forward calculation
 void Forward3DBrickElement0thOrder::setNonZeroValues( ComplexSparseSquareSymmetricMatrix& matrix ){
 
-	const ResistivityBlock* const pResistivityBlock = ResistivityBlock::getInstance();
+	const ResistivityBlockIsotropic* const pResistivityBlock = (AnalysisControl::getInstance())->getPointerOfResistivityBlockIsotropic();
 
 	const int iPol = getPolarizationCurrent();
 	const double freq = getFrequencyCurrent();
@@ -1620,10 +1629,10 @@ void Forward3DBrickElement0thOrder::setNonZeroValues( ComplexSparseSquareSymmetr
 //}
 //----- DO NOT DELETE FOR FUTURE USE <<<<<
 
-// Calculate vector x of the reciprocity algorithm of Rodi (1976)
-void Forward3DBrickElement0thOrder::calVectorXOfReciprocityAlgorithm( const std::complex<double>* const vecIn, const int blkID, std::complex<double>* const vecOut, std::vector<int>& nonZeroRows ){
-	
-	const ResistivityBlock* const pResistivityBlock = ResistivityBlock::getInstance();
+// Calculate vector x of the reciprocity algorithm of Rodi (1976) for isotropic conductivity
+void Forward3DBrickElement0thOrder::calVectorXOfReciprocityAlgorithmForIsotropicConductivity(const std::complex<double>* const vecIn, const int blkID, std::complex<double>* const vecOut, std::vector<int>& nonZeroRows){
+
+	const ResistivityBlockIsotropic* const pResistivityBlock = (AnalysisControl::getInstance())->getPointerOfResistivityBlockIsotropic();
 	if( pResistivityBlock->isFixedResistivityValue(blkID) ){
 		return;
 	}
@@ -1633,7 +1642,7 @@ void Forward3DBrickElement0thOrder::calVectorXOfReciprocityAlgorithm( const std:
 	const double ln10 = 2.30258509299405;
 	const double omega = 2.0 * CommonParameters::PI * freq;//Angular frequency
 
-	const std::vector< std::pair<int,double> >& mdl2Elem = pResistivityBlock->getBlockID2Elements(blkID);
+	const std::vector<int>& mdl2Elem = pResistivityBlock->getBlockID2Elements(blkID);
 	const int nElem = static_cast<int>( mdl2Elem.size() );
 
 	//------------------------------------------
@@ -1657,15 +1666,10 @@ void Forward3DBrickElement0thOrder::calVectorXOfReciprocityAlgorithm( const std:
 	double integral2(0.0);
 	std::complex<double> val(0.0,0.0);
 	int loc(0);
-//#ifdef _USE_OMP
-//	#pragma omp parallel for default(shared) \
-//		private( iElem, elemID, lengX, lengY, lengZ, jacobian, sigma, factor1, factor2, \
-//			iEdge1, iEdge2, row, col, integral1, integral2, ip, val, loc )
-//#endif
 	for( iElem = 0; iElem < nElem; ++iElem ){
 
 		// [Attention] : You must use elemID instead of iElem from this line
-		elemID = mdl2Elem[iElem].first;
+		elemID = mdl2Elem[iElem];
 
 //----- debug >>>>>
 #ifdef _DEBUG_WRITE
@@ -1683,7 +1687,7 @@ void Forward3DBrickElement0thOrder::calVectorXOfReciprocityAlgorithm( const std:
 		sigma = pResistivityBlock->getConductivityValuesFromElemID(elemID);
 
 		factor1 = 0.0;
-		factor2 = std::complex<double>( 0.0, - omega * CommonParameters::mu * sigma * ln10 * mdl2Elem[iElem].second );// exp(-i*omega*t) form
+		factor2 = std::complex<double>(0.0, -omega * CommonParameters::mu * sigma * ln10);// exp(-i*omega*t) form
 
 		for( iEdge1 = 0; iEdge1 < 12; ++iEdge1 ){
 
@@ -1739,6 +1743,14 @@ void Forward3DBrickElement0thOrder::calVectorXOfReciprocityAlgorithm( const std:
 
 	std::sort(nonZeroRows.begin(), nonZeroRows.end());
 	nonZeroRows.erase( std::unique( nonZeroRows.begin(), nonZeroRows.end() ), nonZeroRows.end() );
+
+}
+
+// Calculate vector x of the reciprocity algorithm of Rodi (1976) for anisotropic conductivity
+void Forward3DBrickElement0thOrder::calVectorXOfReciprocityAlgorithmForAnisotropicConductivity(const std::complex<double>* const vecIn, const int blkID, const int paramID, std::complex<double>* const vecOut, std::vector<int>& nonZeroRows) {
+
+	OutputFiles::m_logFile << "Error : " << __FUNCTION__ << " is not implemented" << std::endl;
+	exit(1);
 
 }
 
@@ -2082,17 +2094,13 @@ void Forward3DBrickElement0thOrder::calcArrayConvertLocalID2Global(){
 	//--- Calculate array converting local edge IDs to global ones ---
 	//----------------------------------------------------------------
 	if( m_IDsLocal2Global != NULL ){// Release memory
-		const int num = sizeof( m_IDsLocal2Global ) / sizeof( m_IDsLocal2Global[0] );
-		for( int i = 0; i < num; ++i ){
+		for (int i = 0; i < m_sizeOfIDsLocal2Global; ++i) {
 			delete [] m_IDsLocal2Global[i];
-			m_IDsLocal2Global[i] = NULL;
 		}
 		delete [] m_IDsLocal2Global;
-		m_IDsLocal2Global = NULL;
 	}
-
 	m_IDsLocal2Global = new int*[nElem];
-
+	m_sizeOfIDsLocal2Global = nElem;
 	for( int iElem = 0; iElem < nElem; ++iElem ){
 
 		const int offsetZ = numEdgesXYPlane + ( numElemX + 1 ) * ( numElemY + 1 );
@@ -2171,9 +2179,7 @@ void Forward3DBrickElement0thOrder::calcArrayConvertIDsGlobal2AfterDegenerated()
 	//-----------------------------------------------------------------
 	if( m_IDsGlobal2AfterDegenerated[iPol] != NULL ){// Release memory
 		delete [] m_IDsGlobal2AfterDegenerated[iPol];
-		m_IDsGlobal2AfterDegenerated[iPol] = NULL;
 	}
-
 	m_IDsGlobal2AfterDegenerated[iPol] = new int[m_numOfEquation];
 	for( int i= 0; i < m_numOfEquation; ++i ){// Initialize
 		m_IDsGlobal2AfterDegenerated[iPol][i] = i;
@@ -2446,12 +2452,7 @@ void Forward3DBrickElement0thOrder::calcArrayConvertIDGlobal2NonZeroValues(){
 	//----------------------------------------------------------------------------
 	//--- Calculating EM field of the boundary planes with 2D forward analysis ---
 	//----------------------------------------------------------------------------
-	OutputFiles::m_logFile << "# Calculating EM field of the boundary planes with 2D forward analysis.        " << std::endl;
-	//for( int i = 0; i < 4; ++i ){
-	//	OutputFiles::m_logFile << "#-----------------------------[ Boundary Plane " << i << " ]-----------------------------" << std::endl;
-	//	m_Fwd2DSquareElement[i][iPol]->calcEMFieldsOfBoundaryPlanes( freq, &m_MeshDataBrickElement );
-	//}
-
+	OutputFiles::m_logFile << "# Calculating EM field of the boundary planes with 2D forward analysis." << std::endl;
 	if( iPol == CommonParameters::EX_POLARIZATION ){// Ex polarization
 
 		OutputFiles::m_logFile << "#-----------------------------[ Boundary Plane " << MeshData::ZXMinus << " ]-----------------------------" << std::endl;
@@ -3022,26 +3023,17 @@ void Forward3DBrickElement0thOrder::outputResultToVTK() const{
 	}
 
 	if( pAnalysisControl->doesOutputToVTK( AnalysisControl::OUTPUT_CURRENT_DENSITY ) ){// Output corrent density
-		const ResistivityBlock* pResistivityBlock = ResistivityBlock::getInstance();
-		OutputFiles::m_vtkFile << "VECTORS Re(j)_" << freq <<"(Hz)_" << stringPolarization << " float" <<  std::endl;
-		for( int iElem = 0 ; iElem < nElem; ++iElem ){
-			const double sigma = pResistivityBlock->getConductivityValuesFromElemID(iElem);
-			const float jx = static_cast<float>( sigma * real( calcValueElectricFieldXDirection( iElem, 0.0, 0.0, 0.0 ) ) );
-			const float jy = static_cast<float>( sigma * real( calcValueElectricFieldYDirection( iElem, 0.0, 0.0, 0.0 ) ) );
-			const float jz = static_cast<float>( sigma * real( calcValueElectricFieldZDirection( iElem, 0.0, 0.0, 0.0 ) ) );
-			OutputFiles::m_vtkFile << jx << " " << jy << " " << jz << std::endl;
+		OutputFiles::m_vtkFile << "VECTORS Re(j)_" << freq << "(Hz)_" << stringPolarization << " float" << std::endl;
+		for (int iElem = 0; iElem < nElem; ++iElem) {
+			const CommonParameters::ComplexValuedVector correntDensity = calculateElectricCurrentDensityVector(iElem);
+			OutputFiles::m_vtkFile << static_cast<float>(real(correntDensity.X)) << " " << static_cast<float>(real(correntDensity.Y)) << " " << static_cast<float>(real(correntDensity.Z)) << std::endl;
 		}
-
-		OutputFiles::m_vtkFile << "VECTORS Im(j)_" << freq <<"(Hz)_" << stringPolarization << " float" <<  std::endl;
-		for( int iElem = 0 ; iElem < nElem; ++iElem ){
-			const double sigma = pResistivityBlock->getConductivityValuesFromElemID(iElem);
-			const float jx = static_cast<float>( sigma * imag( calcValueElectricFieldXDirection( iElem, 0.0, 0.0, 0.0 ) ) );
-			const float jy = static_cast<float>( sigma * imag( calcValueElectricFieldYDirection( iElem, 0.0, 0.0, 0.0 ) ) );
-			const float jz = static_cast<float>( sigma * imag( calcValueElectricFieldZDirection( iElem, 0.0, 0.0, 0.0 ) ) );
-			OutputFiles::m_vtkFile << jx << " " << jy << " " << jz << std::endl;
+		OutputFiles::m_vtkFile << "VECTORS Im(j)_" << freq << "(Hz)_" << stringPolarization << " float" << std::endl;
+		for (int iElem = 0; iElem < nElem; ++iElem) {
+			const CommonParameters::ComplexValuedVector correntDensity = calculateElectricCurrentDensityVector(iElem);
+			OutputFiles::m_vtkFile << static_cast<float>(imag(correntDensity.X)) << " "	<< static_cast<float>(imag(correntDensity.Y)) << " " << static_cast<float>(imag(correntDensity.Z)) << std::endl;
 		}
 	}
-
 	
 }
 
@@ -3186,8 +3178,6 @@ void Forward3DBrickElement0thOrder::outputResultToBinary( const int iFreq, const
 	if( pAnalysisControl->doesOutputToVTK( AnalysisControl::OUTPUT_MAGNETIC_FIELD_VECTORS_TO_VTK ) ){
 		// Output imaginary part of magnetic field vector
 
-		const ResistivityBlock* pResistivityBlock = ResistivityBlock::getInstance();
-
 		std::ostringstream oss;
 		oss << "ImH_Freq" << iFreq << "_" << stringPolarization << ".iter" << pAnalysisControl->getIterationNumCurrent();
 		std::ofstream fout;
@@ -3230,8 +3220,6 @@ void Forward3DBrickElement0thOrder::outputResultToBinary( const int iFreq, const
 	if( pAnalysisControl->doesOutputToVTK( AnalysisControl::OUTPUT_CURRENT_DENSITY ) ){
 		// Output real part of corrent density
 
-		const ResistivityBlock* pResistivityBlock = ResistivityBlock::getInstance();
-
 		std::ostringstream oss;
 		oss << "Rej_Freq" << iFreq << "_" << stringPolarization << ".iter" << pAnalysisControl->getIterationNumCurrent();
 		std::ofstream fout;
@@ -3253,20 +3241,20 @@ void Forward3DBrickElement0thOrder::outputResultToBinary( const int iFreq, const
 		fout.write( line, 80 );
 
 		for( int iElem = 0 ; iElem < nElem; ++iElem ){
-			const double sigma = pResistivityBlock->getConductivityValuesFromElemID(iElem);
-			float jx = static_cast<float>( sigma * real( calcValueElectricFieldXDirection( iElem, 0.0, 0.0, 0.0 ) ) );
+			CommonParameters::ComplexValuedVector current = calculateElectricCurrentDensityVector(iElem);
+			float jx = static_cast<float>(real(current.X));
 			fout.write( (char*) &jx, sizeof( float ) );
 		}
 
 		for( int iElem = 0 ; iElem < nElem; ++iElem ){
-			const double sigma = pResistivityBlock->getConductivityValuesFromElemID(iElem);
-			float jy = static_cast<float>( sigma * real( calcValueElectricFieldYDirection( iElem, 0.0, 0.0, 0.0 ) ) );
+			CommonParameters::ComplexValuedVector current = calculateElectricCurrentDensityVector(iElem);
+			float jy = static_cast<float>(real(current.Y));
 			fout.write( (char*) &jy, sizeof( float ) );
 		}
 
 		for( int iElem = 0 ; iElem < nElem; ++iElem ){
-			const double sigma = pResistivityBlock->getConductivityValuesFromElemID(iElem);
-			float jz = static_cast<float>( sigma * real( calcValueElectricFieldZDirection( iElem, 0.0, 0.0, 0.0 ) ) );
+			CommonParameters::ComplexValuedVector current = calculateElectricCurrentDensityVector(iElem);
+			float jz = static_cast<float>(real(current.Z));
 			fout.write( (char*) &jz, sizeof( float ) );
 		}
 
@@ -3276,8 +3264,6 @@ void Forward3DBrickElement0thOrder::outputResultToBinary( const int iFreq, const
 
 	if( pAnalysisControl->doesOutputToVTK( AnalysisControl::OUTPUT_CURRENT_DENSITY ) ){
 		// Output imaginary part of corrent density
-
-		const ResistivityBlock* pResistivityBlock = ResistivityBlock::getInstance();
 
 		std::ostringstream oss;
 		oss << "Imj_Freq" << iFreq << "_" << stringPolarization << ".iter" << pAnalysisControl->getIterationNumCurrent();
@@ -3300,20 +3286,20 @@ void Forward3DBrickElement0thOrder::outputResultToBinary( const int iFreq, const
 		fout.write( line, 80 );
 
 		for( int iElem = 0 ; iElem < nElem; ++iElem ){
-			const double sigma = pResistivityBlock->getConductivityValuesFromElemID(iElem);
-			float jx = static_cast<float>( sigma * imag( calcValueElectricFieldXDirection( iElem, 0.0, 0.0, 0.0 ) ) );
+			CommonParameters::ComplexValuedVector current = calculateElectricCurrentDensityVector(iElem);
+			float jx = static_cast<float>(imag(current.X));
 			fout.write( (char*) &jx, sizeof( float ) );
 		}
 
 		for( int iElem = 0 ; iElem < nElem; ++iElem ){
-			const double sigma = pResistivityBlock->getConductivityValuesFromElemID(iElem);
-			float jy = static_cast<float>( sigma * imag( calcValueElectricFieldYDirection( iElem, 0.0, 0.0, 0.0 ) ) );
+			CommonParameters::ComplexValuedVector current = calculateElectricCurrentDensityVector(iElem);
+			float jy = static_cast<float>(imag(current.Y));
 			fout.write( (char*) &jy, sizeof( float ) );
 		}
 
 		for( int iElem = 0 ; iElem < nElem; ++iElem ){
-			const double sigma = pResistivityBlock->getConductivityValuesFromElemID(iElem);
-			float jz = static_cast<float>( sigma * imag( calcValueElectricFieldZDirection( iElem, 0.0, 0.0, 0.0 ) ) );
+			CommonParameters::ComplexValuedVector current = calculateElectricCurrentDensityVector(iElem);
+			float jz = static_cast<float>(imag(current.Z));
 			fout.write( (char*) &jz, sizeof( float ) );
 		}
 
@@ -3322,10 +3308,3 @@ void Forward3DBrickElement0thOrder::outputResultToBinary( const int iFreq, const
 	}
 
 }
-
-//// Get total number of element
-//int Forward3DBrickElement0thOrder::getNumElemTotal() const{
-//	
-//	return m_MeshDataBrickElement.getNumElemTotal();
-//
-//}

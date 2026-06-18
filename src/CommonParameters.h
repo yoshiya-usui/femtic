@@ -26,6 +26,7 @@
 
 #include <stdio.h>
 #include <math.h>
+#include <complex>
 
 namespace CommonParameters{
 
@@ -96,6 +97,12 @@ struct Vector3D{
 	double Z;
 };
 
+struct ComplexValuedVector{
+	std::complex<double> X;
+	std::complex<double> Y;
+	std::complex<double> Z;
+};
+
 struct AreaCoords{
 	double coord0;
 	double coord1;
@@ -157,12 +164,16 @@ static const double weights3Point[3] = { 0.555555555555556, 0.888888888888889, 0
 // Factor converting value from kilo-meter to meter
 static const double convKilometerToMeter = 1000.0;
 
+// The natural logarithm of 10
+static const double ln10 = 2.30258509299405;
+
+// Is BLAS used for the matrix matrix product?
+static const bool IS_BLAS_USED = false;
+
 static char programName[]="femtic";
 
 // [MajorVersion#].[MinorVersion#].[Revision#]
-// x.x.xa -> alpha version
-// x.x.xb -> beta version
-static char versionID[] = "4.3.0";
+static char versionID[] = "5.0";
 
 }
 

@@ -86,6 +86,12 @@ private:
 	// Assignment operator
 	OutputFiles& operator=(const OutputFiles& rhs);
 		
+	// Write heade to cnv file (isotropic case)
+	void writeHeaderToCnvFileIsotropic();
+
+	// Write heade to cnv file (anisotropic case)
+	void writeHeaderToCnvFileAnisotropic();
+
 };
 
 #endif

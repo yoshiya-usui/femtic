@@ -230,20 +230,20 @@ void DoubleSparseMatrix::convertToCRSFormat(){
 	for( int i = 0; i < m_numNonZeros; ++i ){
 		std::cout << "i : " << i << " m_values[i]  : " << m_values[i] << std::endl;
 	}
-	double* temp = new double[m_numRows*m_numRows];
+	double* temp = new double[m_numRows*m_numColumns];
 	for( int irow = 0; irow < m_numRows; ++irow ){
-		for( int icol = 0; icol < m_numRows; ++icol ){
-			temp[ icol + irow * m_numRows ] = 0.0;
+		for( int icol = 0; icol < m_numColumns; ++icol ){
+			temp[ icol + irow * m_numColumns] = 0.0;
 		}
 	}
 	for( int i = 0; i < m_numRows; ++i ){
-		for( int j = m_rowIndex[i]; j < m_rowIndex[i+1]; ++j ){		
-			temp[ m_columns[j] + i * m_numRows ] = m_values[j];
+		for( long long j = m_rowIndex[i]; j < m_rowIndex[i+1]; ++j ){		
+			temp[ m_columns[j] + i * m_numColumns] = m_values[j];
 		}
 	}
 	for( int irow = 0; irow < m_numRows; ++irow ){
-		for( int icol = 0; icol < m_numRows; ++icol ){
-			std::cout << " " << temp[ icol + irow * m_numRows ];
+		for( int icol = 0; icol < m_numColumns; ++icol ){
+			std::cout << " " << temp[ icol + irow * m_numColumns];
 		}
 		std::cout << std::endl;
 	}
@@ -283,10 +283,10 @@ void DoubleSparseMatrix::addNonZeroValues( const int row, const int col, const d
 	//		return;
 	//	}
 	//}
-	int low = m_rowIndex[row];
-	int high = m_rowIndex[row+1] - 1;
+	long long low = m_rowIndex[row];
+	long long high = m_rowIndex[row+1] - 1;
 	while( low <= high ){// binary search
-		const int mid = ( low + high ) / 2;
+		const long long mid = ( low + high ) / 2;
 		if( m_columns[mid] == col ){// Find column location
 			m_values[mid] += val;
 			return;
@@ -546,7 +546,7 @@ void DoubleSparseMatrix::debugWriteMatrix() const{
 	}
 
 	for( int i = 0; i < m_numRows; ++i ){
-		for( int j = m_rowIndex[i]; j < m_rowIndex[i+1]; ++j ){		
+		for(long long j = m_rowIndex[i]; j < m_rowIndex[i+1]; ++j ){
 			std::cout << "row col val " << i << " " << m_columns[j] << " " << m_values[j] << std::endl;
 		}
 	}
@@ -568,14 +568,14 @@ void DoubleSparseMatrix::debugWriteRightHandSide() const{
 int DoubleSparseMatrix::getRowIndexCRS( const int iRow ) const{
 	assert( m_hasConvertedToCRSFormat );
 	assert( iRow >= 0 && iRow <= m_numRows );
-	return m_rowIndex[iRow];
+	return static_cast<int>(m_rowIndex[iRow]);
 }
 
 //Get column in which non-zero compnents exist
 int DoubleSparseMatrix::getColumnsCRS( const int iNonZero ) const{
 	assert( m_hasConvertedToCRSFormat );
 	assert( iNonZero >= 0 && iNonZero < m_numNonZeros );
-	return m_columns[iNonZero];
+	return static_cast<int>(m_columns[iNonZero]);
 }
 
 //Get value of non-zero compnents
@@ -601,7 +601,7 @@ void DoubleSparseMatrix::calcMatrixVectorProduct( const double* invVec, double* 
 
 	for( int i = 0; i < m_numRows; ++i ){
 		double work(0.0);
-		for( int j = m_rowIndex[i]; j < m_rowIndex[i+1]; ++j ){		
+		for( long long j = m_rowIndex[i]; j < m_rowIndex[i+1]; ++j ){		
 			 work += m_values[j] * invVec[ m_columns[j] ];
 		}
 		outVec[i] = work;
@@ -620,8 +620,28 @@ void DoubleSparseMatrix::calcMatrixVectorProductUsingTransposedMatrix( const dou
 	}
 
 	for( int i = 0; i < m_numRows; ++i ){
-		for( int j = m_rowIndex[i]; j < m_rowIndex[i+1]; ++j ){
-			const int col = m_columns[j];
+		for( long long j = m_rowIndex[i]; j < m_rowIndex[i+1]; ++j ){
+			const long long col = m_columns[j];
+			outVec[col] += m_values[j] * invVec[i];
+		}
+	}
+
+}
+
+// Calculate matrix-vector product of transposed coefficient matrix and inputted vector
+void DoubleSparseMatrix::calcMatrixVectorProductUsingTransposedMatrix(const std::vector<double>& invVec, double* outVec) const {
+
+	assert(!m_matrixTripletFormat);
+	assert(m_numRows == static_cast<int>(invVec.size()));
+
+	const int nCol = getNumColumns();
+	for (int i = 0; i < nCol; ++i) {
+		outVec[i] = 0.0;//Zero clear
+	}
+
+	for (int i = 0; i < m_numRows; ++i) {
+		for (long long j = m_rowIndex[i]; j < m_rowIndex[i + 1]; ++j) {
+			const long long col = m_columns[j];
 			outVec[col] += m_values[j] * invVec[i];
 		}
 	}
@@ -629,7 +649,7 @@ void DoubleSparseMatrix::calcMatrixVectorProductUsingTransposedMatrix( const dou
 }
 
 // Delete the matrix of triplet ( Coordinate ) format
-// Note : This function must be called AFTER the matrix is converted into CRS format
+// @note: This function must be called AFTER the matrix is converted into CRS format
 void DoubleSparseMatrix::deleteTripletMatrix(){
 
 	if( m_matrixTripletFormat != NULL ){

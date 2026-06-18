@@ -73,12 +73,12 @@ void RougheningSquareMatrix::makeRTRMatrix( DoubleSparseSquareSymmetricMatrix& R
 	RTRMatrix.setDegreeOfEquation(m_numRows);
 
 	for( int iRow = 0; iRow < m_numRows; ++iRow ){
-		for( int iColRight = m_rowIndex[iRow]; iColRight < m_rowIndex[iRow+1]; ++iColRight ){
-			const int col = m_columns[iColRight];
-			for( int iColLeft = m_rowIndex[iRow]; iColLeft <= iColRight; ++iColLeft ){
-				const int row = m_columns[iColLeft];
+		for(long long  iColRight = m_rowIndex[iRow]; iColRight < m_rowIndex[iRow+1]; ++iColRight ){
+			const long long  col = m_columns[iColRight];
+			for(long long  iColLeft = m_rowIndex[iRow]; iColLeft <= iColRight; ++iColLeft ){
+				const long long  row = m_columns[iColLeft];
 				const double value = m_values[iColRight] * m_values[iColLeft];
-				RTRMatrix.setStructureAndAddValueByTripletFormat(row, col, value);
+				RTRMatrix.setStructureAndAddValueByTripletFormat(static_cast<int>(row), static_cast<int>(col), value);
 			}
 		}
 	}
@@ -99,7 +99,7 @@ double RougheningSquareMatrix::calcModelRoughness( const double* modelVec ) cons
 	double modelRoughness(0.0);
 	for( int i = 0; i < m_numRows; ++i ){
 		double work(0.0);
-		for( int j = m_rowIndex[i]; j < m_rowIndex[i+1]; ++j ){		
+		for(long long j = m_rowIndex[i]; j < m_rowIndex[i+1]; ++j ){
 			 work += m_values[j] * modelVec[ m_columns[j] ];
 		}
 		modelRoughness += pow( m_rightHandSideVector[i] - work, 2 );
@@ -116,7 +116,7 @@ double RougheningSquareMatrix::calcModelRoughnessForDifferenceFilter( const doub
 	double modelRoughness(0.0);
 	for( int i = 0; i < m_numRows; ++i ){
 		double work(0.0);
-		for( int j = m_rowIndex[i]; j < m_rowIndex[i+1]; ++j ){		
+		for(long long j = m_rowIndex[i]; j < m_rowIndex[i+1]; ++j ){
 			 work += m_values[j] * modelVec[ m_columns[j] ];
 		}
 		modelRoughness += pow( m_rightHandSideVector[i] - work, 2 );
@@ -125,8 +125,8 @@ double RougheningSquareMatrix::calcModelRoughnessForDifferenceFilter( const doub
 
 }
 
-// Calculate vector of model roughness
-void RougheningSquareMatrix::calcVectorOfModelRoughness( const double* modelVec, double* roughnessVec ) const{
+// Calculate residual vector
+void RougheningSquareMatrix::calcResidualVector(const double* modelVec, double* roughnessVec) const {
 
 	assert(!m_matrixTripletFormat);
 
@@ -144,7 +144,7 @@ void RougheningSquareMatrix::postmultiplyDiagonalMatrix( const double* diagMatri
 	assert(!m_matrixTripletFormat);
 
 	for( int i = 0; i < m_numRows; ++i ){
-		for( int j = m_rowIndex[i]; j < m_rowIndex[i+1]; ++j ){		
+		for(long long j = m_rowIndex[i]; j < m_rowIndex[i+1]; ++j ){
 			 m_values[j] *= diagMatrix[ m_columns[j] ];
 		}
 	}
@@ -266,7 +266,7 @@ void RougheningSquareMatrix::calcEigenValues() const{
 	e = new double[m_numRows-1];
 	tau = new double[m_numRows-1];
 
-	int icount(0);
+	long long icount(0);
 	for( long long int irow = 0; irow < m_numRows; ++irow ){
 		for( long long int icol = irow; icol < m_numRows; ++icol ){
 			ap[icount] = 0.0;

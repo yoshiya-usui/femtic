@@ -97,9 +97,6 @@ public:
 	void calculateSensitivityMatrix( const std::complex<double>* const derivativesOfEMFieldExPol, const std::complex<double>* const derivativesOfEMFieldEyPol,
 		const double freq, const int nModel, double* const sensitivityMatrix ) const;
 
-	// Calculate data vector of this PE
-	void calculateResidualVectorOfDataThisPE( double* const vector ) const;
-
 	// Get number of interpolator vectors
 	int getNumInterpolatorVectors() const;
 
@@ -174,6 +171,12 @@ public:
 
 	// Find and return frequency IDs from frequency value
 	int getFreqIDs( const double freq ) const;
+
+	// Copy residual vector to previous values
+	void copyResidualVectorCurToPre();
+
+	// Get  previous value of residual vector component
+	double getValueOfResidualVectorComponentPre(const int iComp) const;
 
 private:
 	// Constructer
@@ -272,6 +275,9 @@ private:
 	// Types of distortion parameters whose value is not fixed
 	std::vector<int> m_typesOfDistortionParamsNotFixed;
 
+	// The previous residual vector for this PE
+	double* m_residualVectorPreThisPE;
+
 	// Add new frequency to the array of all frequencies for which observed data exists after checking 
 	// wheter inputed frequency have not been contained
 	void checkAndAddNewFrequency( const double freq );
@@ -284,6 +290,9 @@ private:
 
 	// Calculate total number of components of distortion parameters whose value is not fixed
 	void calcNumDistortionParamsNotFixed();
+
+	// Calculate data vector of this PE
+	void calculateResidualVectorOfDataThisPE(double* const vector) const;
 
 };
 

@@ -71,11 +71,9 @@ ObservedData::ObservedData():
 	m_observedStationNMT2(NULL),
 	m_observedStationNMT2ApparentResistivityAndPhase(NULL),
 	m_additinalOutputPoint(NULL),
-	m_numObservedDataThisPEAccumulated(NULL)
+	m_numObservedDataThisPEAccumulated(NULL),
+	m_residualVectorPreThisPE(NULL)
 {
-	//for( int i = 0; i < 2; ++i ){
-	//	m_derivativesOfEMField[i] = NULL;
-	//}
 }
 
 //Destructer
@@ -131,13 +129,6 @@ ObservedData::~ObservedData(){
 		m_numObservedDataThisPEAccumulated = NULL;
 	}
 
-	//for( int i = 0; i < 2; ++i ){
-	//	if( m_derivativesOfEMField[i] != NULL ){
-	//		delete [] m_derivativesOfEMField[i];
-	//		m_derivativesOfEMField[i] = NULL;
-	//	}
-	//}
-
 	if( m_IDsOfFrequenciesCalculatedByThisPE != NULL ){
 		delete [] m_IDsOfFrequenciesCalculatedByThisPE;
 		m_IDsOfFrequenciesCalculatedByThisPE = NULL;
@@ -148,6 +139,10 @@ ObservedData::~ObservedData(){
 		m_valuesOfFrequenciesCalculatedByThisPE = NULL;
 	}
 
+	if (m_residualVectorPreThisPE != NULL) {
+		delete[] m_residualVectorPreThisPE;
+		m_residualVectorPreThisPE = NULL;
+	}
 
 }
 
@@ -740,7 +735,7 @@ void ObservedData::checkAndAddNewFrequency( const double freq ){
 	const double thresholdFrequency = 1e-8;
 
 	if( freq < thresholdFrequency ){
-		OutputFiles::m_logFile << "Error : Inputed frequency " << freq << " is less than threshold value " << thresholdFrequency << " ." << std::endl;
+		OutputFiles::m_logFile << "Error : Inputted frequency " << freq << " is less than threshold value " << thresholdFrequency << " ." << std::endl;
 		exit(1);
 	}
 
@@ -884,8 +879,8 @@ void ObservedData::calcNumDistortionParamsNotFixed(){
 				// Exclude station without data and fixed distortion matrix
 				for( int j = 0; j < 4; ++j ){
 					m_observedStationMT[i].setIDOfDistortionParams( j, icount );
-					if( ObservedDataStationMT::COMPONENT_ID_CXX || ObservedDataStationMT::COMPONENT_ID_CXY ||
-						ObservedDataStationMT::COMPONENT_ID_CYX || ObservedDataStationMT::COMPONENT_ID_CYY ){
+					if (j == ObservedDataStationMT::COMPONENT_ID_CXX || j == ObservedDataStationMT::COMPONENT_ID_CXY ||
+						j == ObservedDataStationMT::COMPONENT_ID_CYX || j == ObservedDataStationMT::COMPONENT_ID_CYY) {
 						m_typesOfDistortionParamsNotFixed.push_back(j);
 					}else{
 						OutputFiles::m_logFile << "Error : Component number of distortion matrix is wrong !!" << j << std::endl;
@@ -900,8 +895,8 @@ void ObservedData::calcNumDistortionParamsNotFixed(){
 				// Exclude station without data and fixed distortion matrix
 				for( int j = 0; j < 4; ++j ){
 					m_observedStationApparentResistivityAndPhase[i].setIDOfDistortionParams( j, icount );
-					if( ObservedDataStationMT::COMPONENT_ID_CXX || ObservedDataStationMT::COMPONENT_ID_CXY ||
-						ObservedDataStationMT::COMPONENT_ID_CYX || ObservedDataStationMT::COMPONENT_ID_CYY ){
+					if(j == ObservedDataStationMT::COMPONENT_ID_CXX || j == ObservedDataStationMT::COMPONENT_ID_CXY ||
+					   j == ObservedDataStationMT::COMPONENT_ID_CYX || j == ObservedDataStationMT::COMPONENT_ID_CYY ){
 						m_typesOfDistortionParamsNotFixed.push_back(j);
 					}else{
 						OutputFiles::m_logFile << "Error : Component number of distortion matrix is wrong !!" << j << std::endl;
@@ -918,8 +913,8 @@ void ObservedData::calcNumDistortionParamsNotFixed(){
 				// Exclude station without data and fixed distortion matrix
 				for( int j = 0; j < 4; ++j ){
 					m_observedStationMT[i].setIDOfDistortionParams( j, icount );
-					if( ObservedDataStationMT::EX_GAIN || ObservedDataStationMT::EY_GAIN ||
-						ObservedDataStationMT::EX_ROTATION || ObservedDataStationMT::EY_ROTATION ){
+					if (j == ObservedDataStationMT::EX_GAIN     || j == ObservedDataStationMT::EY_GAIN ||
+						j == ObservedDataStationMT::EX_ROTATION || j == ObservedDataStationMT::EY_ROTATION) {
 						m_typesOfDistortionParamsNotFixed.push_back(j);
 					}else{
 						OutputFiles::m_logFile << "Error : Component number of gains or rotations is wrong !!" << j << std::endl;
@@ -2537,4 +2532,21 @@ int  ObservedData::getFreqIDs( const double freq ) const{
 
 	return -1;
 
+}
+
+// Copy residual vector to previous values
+void ObservedData::copyResidualVectorCurToPre(){
+
+	int numDataThisPE = getNumObservedDataThisPETotal();
+	if (m_residualVectorPreThisPE == NULL) {
+		m_residualVectorPreThisPE = new double[numDataThisPE];
+	}
+	calculateResidualVectorOfDataThisPE(m_residualVectorPreThisPE);
+
+}
+
+// Get  previous value of residual vector component
+double ObservedData::getValueOfResidualVectorComponentPre(const int iComp) const {
+	assert(m_residualVectorPreThisPE != NULL);
+	return m_residualVectorPreThisPE[iComp];
 }

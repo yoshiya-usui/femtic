@@ -23,7 +23,8 @@
 //-------------------------------------------------------------------------------------------------------
 #include "Forward3DTetraElement0thOrder.h"
 #include "MeshDataTetraElement.h"
-#include "ResistivityBlock.h"
+#include "AnalysisControl.h"
+#include "ResistivityBlockIsotropic.h"
 #include "CommonParameters.h"
 #include "OutputFiles.h"
 #include "Forward2DTriangleElement0thOrderEdgeBased.h"
@@ -90,19 +91,14 @@ Forward3DTetraElement0thOrder::Forward3DTetraElement0thOrder():
 Forward3DTetraElement0thOrder::~Forward3DTetraElement0thOrder(){
 
 	for( int i = 0; i < 4; ++i ){
-		//for( int j = 0; j < 2; ++j ){
-		//	if( m_Fwd2DTriangleElement[i][j] != NULL ){
-		//		delete m_Fwd2DTriangleElement[i][j];
-		//	}
-		//}
 		if( m_Fwd2DTriangleElement[i] != NULL ){
 			delete m_Fwd2DTriangleElement[i];
 		}
 	}
 
 	if( m_signInversion != NULL ){
-		const int num = sizeof( m_signInversion ) / sizeof( m_signInversion[0] );
-		for( int i = 0; i < num; ++i ){
+		const int nElem = m_MeshDataTetraElement.getNumElemTotal();
+		for (int i = 0; i < nElem; ++i) {
 			delete [] m_signInversion[i];
 			m_signInversion[i] = NULL;
 		}
@@ -1226,16 +1222,7 @@ void Forward3DTetraElement0thOrder::calcInterpolatorVectorOfRotatedElectricField
 void Forward3DTetraElement0thOrder::calcInterpolatorVectorOfMagneticFieldXDirection( const int iElem, const double uCoord, const double vCoord, const double wCoord,
 	const int irhs,	const std::complex<double>& factor ){
 
-	//if( m_IDsLocal2Global == NULL ){
-	//	OutputFiles::m_logFile << "Error : m_IDsLocal2Global is NULL." << std::endl;
-	//	exit(1);
-	//}
-
 	const int iPol = getPolarizationCurrent();
-	//if( m_IDsGlobal2AfterDegenerated[iPol] == NULL ){
-	//	OutputFiles::m_logFile << "Error : m_IDsGlobal2AfterDegenerated[iPol] is NULL." << std::endl;
-	//	exit(1);
-	//}
 
 	assert( m_IDsLocal2Global != NULL );
 	assert( m_IDsGlobal2AfterDegenerated[iPol] != NULL );
@@ -1320,44 +1307,6 @@ void Forward3DTetraElement0thOrder::calcInterpolatorVectorOfMagneticFieldYDirect
 void Forward3DTetraElement0thOrder::calcInterpolatorVectorOfMagneticFieldZDirection( const int iElem, const double uCoord, const double vCoord, const double wCoord,
 	const int irhs,	const std::complex<double>& factor ){
 
-	//if( m_IDsLocal2Global == NULL ){
-	//	OutputFiles::m_logFile << "Error : m_IDsLocal2Global is NULL." << std::endl;
-	//	exit(1);
-	//}
-
-	//const int iPol = getPolarizationCurrent();
-	//if( m_IDsGlobal2AfterDegenerated[iPol] == NULL ){
-	//	OutputFiles::m_logFile << "Error : m_IDsGlobal2AfterDegenerated[iPol] is NULL." << std::endl;
-	//	exit(1);
-	//}
-
-	//Forward3DTetraElement0thOrder::Matrix3x3 jacobMat = { 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0 };
-	//double detJacob(0.0);
-	//calcJacobianMatrix( iElem, jacobMat, detJacob );
-
-	//const double omega = 2.0 * CommonParameters::PI * getFrequencyCurrent();//Angular frequency
-	//const std::complex<double> constant = factor / std::complex<double>(0.0, omega * CommonParameters::mu);
-
-	//for( int i = 0; i < 6; ++i ){
-
-	//	const int irow = m_IDsGlobal2AfterDegenerated[iPol][ m_IDsLocal2Global[iElem][i] ];
-	//	if( irow < 0 ){
-	//		continue;
-	//	}
-
-	//	const double length = m_MeshDataTetraElement.calcEdgeLengthFromElementAndEdge( iElem, i );
-
-	//	if( m_signInversion[iElem][i] ){
-	//		addValuesToRhsVectors( irow, irhs, std::complex<double>( - getShapeFuncRotatedReferenceCoordU(i) * length * jacobMat.mat13/detJacob, 0.0 ) * constant );
-	//		addValuesToRhsVectors( irow, irhs, std::complex<double>( - getShapeFuncRotatedReferenceCoordV(i) * length * jacobMat.mat23/detJacob, 0.0 ) * constant );
-	//		addValuesToRhsVectors( irow, irhs, std::complex<double>( - getShapeFuncRotatedReferenceCoordW(i) * length * jacobMat.mat33/detJacob, 0.0 ) * constant );
-	//	}else{
-	//		addValuesToRhsVectors( irow, irhs, std::complex<double>(   getShapeFuncRotatedReferenceCoordU(i) * length * jacobMat.mat13/detJacob, 0.0 ) * constant );
-	//		addValuesToRhsVectors( irow, irhs, std::complex<double>(   getShapeFuncRotatedReferenceCoordV(i) * length * jacobMat.mat23/detJacob, 0.0 ) * constant );
-	//		addValuesToRhsVectors( irow, irhs, std::complex<double>(   getShapeFuncRotatedReferenceCoordW(i) * length * jacobMat.mat33/detJacob, 0.0 ) * constant );
-	//	}
-	//}
-
 	const double omega = 2.0 * CommonParameters::PI * getFrequencyCurrent();//Angular frequency
 	const std::complex<double> constant = factor / std::complex<double>(0.0, omega * CommonParameters::mu);
 
@@ -1375,16 +1324,7 @@ void Forward3DTetraElement0thOrder::calcInterpolatorVectorOfVoltageDifference( c
 void Forward3DTetraElement0thOrder::calcInterpolatorVectorOfVoltageDifference( const int nElem, const int* elememtsIncludingDipole, const int* const facesIncludingDipole, 
 	const CommonParameters::AreaCoords* const areaCoordValStartPoint, const CommonParameters::AreaCoords* const areaCoordValEndPoint, const int irhs ){
 
-	//if( m_IDsLocal2Global == NULL ){
-	//	OutputFiles::m_logFile << "Error : m_IDsLocal2Global is NULL." << std::endl;
-	//	exit(1);
-	//}
-
 	const int iPol = getPolarizationCurrent();
-	//if( m_IDsGlobal2AfterDegenerated[iPol] == NULL ){
-	//	OutputFiles::m_logFile << "Error : m_IDsGlobal2AfterDegenerated[iPol] is NULL." << std::endl;
-	//	exit(1);
-	//}
 
 	assert( m_IDsLocal2Global != NULL );
 	assert( m_IDsGlobal2AfterDegenerated[iPol] != NULL );
@@ -1509,8 +1449,6 @@ void Forward3DTetraElement0thOrder::calcInterpolatorVectorOfVoltageDifference( c
 // Set non-zero strucuture of matrix for forward calculation
 void Forward3DTetraElement0thOrder::setNonZeroStrucuture( ComplexSparseSquareSymmetricMatrix& matrix ){
 
-	const ResistivityBlock* const ptrResistivityBlock = ResistivityBlock::getInstance();
-
 	const int iPol = getPolarizationCurrent();
 
 	const int nElem = m_MeshDataTetraElement.getNumElemTotal();
@@ -1565,306 +1503,6 @@ void Forward3DTetraElement0thOrder::setNonZeroStrucuture( ComplexSparseSquareSym
 
 }
 
-#ifdef _ANISOTOROPY
-// Set non-zero values of matrix and right-hande side vector for forward calculation
-void Forward3DTetraElement0thOrder::setNonZeroValues( ComplexSparseSquareSymmetricMatrix& matrix ){
-
-	if( (AnalysisControl::getInstance() )->isAnisotropyConsidered() ){
-		setNonZeroValuesAnisotropy( matrix );
-	}else{
-		setNonZeroValuesIsotropy( matrix );
-	}
-
-}
-	// Set non-zero values of matrix and right-hande side vector for isotropic medium
-void Forward3DTetraElement0thOrder::setNonZeroValuesIsotropy( ComplexSparseSquareSymmetricMatrix& matrix ){
-
-	assert( !(AnalysisControl::getInstance() )->isAnisotropyConsidered() );
-#else
-// Set non-zero values of matrix and right-hande side vector for forward calculation
-void Forward3DTetraElement0thOrder::setNonZeroValues( ComplexSparseSquareSymmetricMatrix& matrix ){
-#endif
-
-	const ResistivityBlock* const pResistivityBlock = ResistivityBlock::getInstance();
-
-	const int iPol = getPolarizationCurrent();
-	const double freq = getFrequencyCurrent();
-	const double ln10 = 2.30258509299405;
-	const double omega = 2.0 * CommonParameters::PI * freq;//Angular frequency
-
-	const int nElem = m_MeshDataTetraElement.getNumElemTotal();
-
-	const int rowIndex[6] = { 0, 6, 11, 15, 18, 20 };
-
-	//------------------------------------------
-	//--- Components due to stiffness matrix ---
-	//------------------------------------------
-	int iElem(0);
-	int elemID(0);
-	//----- modified by Y.Usui 2013.12.15 Do not delete for future use >>>>>
-	//Forward3DTetraElement0thOrder::Matrix3x3 jacobMat = { 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0 };
-	//Forward3DTetraElement0thOrder::Matrix3x3 invJacobMat = { 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0 };
-	//double detJacob(0.0);
-	//double divDetJacob(0.0);
-	//double length[6] = { 0.0,0.0,0.0,0.0,0.0,0.0 };
-	//int i(0);
-	//int ip(0);
-	//----- modified by Y.Usui 2013.12.15 Do not delete for future use <<<<<
-	double sigma(0.0);
-	double factor1(0.0);
-	std::complex<double> factor2(0.0,0.0);
-	double eMat[21];
-	double fMat[21];
-	int iEdge1(0);
-	int iEdge2(0);
-	int row(0);
-	int col(0);
-	double integral1(0.0);
-	double integral2(0.0);
-	std::complex<double> val(0.0,0.0);
-	int loc(0);
-	//------------------------------------------------------------ Start of parallel region >>>>>
-#ifdef _USE_OMP
-#pragma omp parallel for default(shared) \
-		private( iElem, elemID, sigma, factor1, factor2, eMat, fMat, \
-			iEdge1, iEdge2, row, col, integral1, integral2, val, loc )
-#endif
-	for( iElem = 0; iElem < nElem; ++iElem ){
-
-		elemID = iElem;
-
-		//----- modified by Y.Usui 2013.12.15 Do not delete for future use >>>>>
-		////--- Calculate Jacobian
-		//calcJacobianMatrix( elemID, jacobMat, detJacob );
-		//divDetJacob = 1.0 / detJacob;
-		////--- Calculate inverse of Jacobian matrix multiplied by determinant
-		//calcInverseOfJacobianMatrix( jacobMat, invJacobMat );
-
-		//for( i = 0; i < 6; ++i ){
-		//	length[i] = m_MeshDataTetraElement.calcEdgeLengthFromElementAndEdge( elemID, i );
-		//}
-		//----- modified by Y.Usui 2013.12.15 Do not delete for future use <<<<<
-
-		//--- Calculate omega * mu * sigma
-		sigma = pResistivityBlock->getConductivityValuesFromElemID(elemID);
-
-		factor1 = 1.0;
-		factor2 = std::complex<double>( 0.0, omega * CommonParameters::mu * sigma );// exp(-i*omega*t) form
-
-		//--- Calculate integrals of which element matrix consisits
-		calcIntegrals( elemID, eMat, fMat );
-
-		for( iEdge1 = 0; iEdge1 < 6; ++iEdge1 ){
-
-			row = m_IDsGlobal2AfterDegenerated[iPol][ m_IDsLocal2Global[elemID][iEdge1] ];
-			if( row < 0 ){
-				continue;
-			}
-
-			for( iEdge2 = 0; iEdge2 < 6; ++iEdge2 ){
-
-				col = m_IDsGlobal2AfterDegenerated[iPol][ m_IDsLocal2Global[elemID][iEdge2] ];
-				if( col <= Forward3DTetraElement0thOrder::DIRICHLET_BOUNDARY_ZERO_VALUE ){
-					continue;
-				}
-				//----- modified by Y.Usui 2013.12.15 : Do not delete for future use >>>>>
-				//integral1 = 0.0;
-				//integral2 = 0.0;
-				//for( ip = 0; ip < m_numIntegralPoints; ++ip ){
-				//	integral1 += (   ( getShapeFuncRotatedReferenceCoordU(iEdge1) * jacobMat.mat11 + getShapeFuncRotatedReferenceCoordV(iEdge1) * jacobMat.mat21  + getShapeFuncRotatedReferenceCoordW(iEdge1) * jacobMat.mat31 )
-				//				   * ( getShapeFuncRotatedReferenceCoordU(iEdge2) * jacobMat.mat11 + getShapeFuncRotatedReferenceCoordV(iEdge2) * jacobMat.mat21  + getShapeFuncRotatedReferenceCoordW(iEdge2) * jacobMat.mat31 )
-				//				   + ( getShapeFuncRotatedReferenceCoordU(iEdge1) * jacobMat.mat12 + getShapeFuncRotatedReferenceCoordV(iEdge1) * jacobMat.mat22  + getShapeFuncRotatedReferenceCoordW(iEdge1) * jacobMat.mat32 )
-				//				   * ( getShapeFuncRotatedReferenceCoordU(iEdge2) * jacobMat.mat12 + getShapeFuncRotatedReferenceCoordV(iEdge2) * jacobMat.mat22  + getShapeFuncRotatedReferenceCoordW(iEdge2) * jacobMat.mat32 )
-				//				   + ( getShapeFuncRotatedReferenceCoordU(iEdge1) * jacobMat.mat13 + getShapeFuncRotatedReferenceCoordV(iEdge1) * jacobMat.mat23  + getShapeFuncRotatedReferenceCoordW(iEdge1) * jacobMat.mat33 )
-				//				   * ( getShapeFuncRotatedReferenceCoordU(iEdge2) * jacobMat.mat13 + getShapeFuncRotatedReferenceCoordV(iEdge2) * jacobMat.mat23  + getShapeFuncRotatedReferenceCoordW(iEdge2) * jacobMat.mat33 ) ) * m_weights[ip];
-				//	integral2 += ( (  getShapeFuncReferenceCoordU( m_uCoord[ip], m_vCoord[ip], m_wCoord[ip], iEdge1 ) * invJacobMat.mat11
-				//				    + getShapeFuncReferenceCoordV( m_uCoord[ip], m_vCoord[ip], m_wCoord[ip], iEdge1 ) * invJacobMat.mat12
-				//				    + getShapeFuncReferenceCoordW( m_uCoord[ip], m_vCoord[ip], m_wCoord[ip], iEdge1 ) * invJacobMat.mat13 )
-				//				 * (  getShapeFuncReferenceCoordU( m_uCoord[ip], m_vCoord[ip], m_wCoord[ip], iEdge2 ) * invJacobMat.mat11
-				//				    + getShapeFuncReferenceCoordV( m_uCoord[ip], m_vCoord[ip], m_wCoord[ip], iEdge2 ) * invJacobMat.mat12
-				//					+ getShapeFuncReferenceCoordW( m_uCoord[ip], m_vCoord[ip], m_wCoord[ip], iEdge2 ) * invJacobMat.mat13 )
-				//				 + (  getShapeFuncReferenceCoordU( m_uCoord[ip], m_vCoord[ip], m_wCoord[ip], iEdge1 ) * invJacobMat.mat21
-				//				    + getShapeFuncReferenceCoordV( m_uCoord[ip], m_vCoord[ip], m_wCoord[ip], iEdge1 ) * invJacobMat.mat22
-				//					+ getShapeFuncReferenceCoordW( m_uCoord[ip], m_vCoord[ip], m_wCoord[ip], iEdge1 ) * invJacobMat.mat23 )
-				//				 * (  getShapeFuncReferenceCoordU( m_uCoord[ip], m_vCoord[ip], m_wCoord[ip], iEdge2 ) * invJacobMat.mat21
-				//				    + getShapeFuncReferenceCoordV( m_uCoord[ip], m_vCoord[ip], m_wCoord[ip], iEdge2 ) * invJacobMat.mat22
-				//					+ getShapeFuncReferenceCoordW( m_uCoord[ip], m_vCoord[ip], m_wCoord[ip], iEdge2 ) * invJacobMat.mat23 )
-				//				 + (  getShapeFuncReferenceCoordU( m_uCoord[ip], m_vCoord[ip], m_wCoord[ip], iEdge1 ) * invJacobMat.mat31
-				//				    + getShapeFuncReferenceCoordV( m_uCoord[ip], m_vCoord[ip], m_wCoord[ip], iEdge1 ) * invJacobMat.mat32
-				//					+ getShapeFuncReferenceCoordW( m_uCoord[ip], m_vCoord[ip], m_wCoord[ip], iEdge1 ) * invJacobMat.mat33 )
-				//				 * (  getShapeFuncReferenceCoordU( m_uCoord[ip], m_vCoord[ip], m_wCoord[ip], iEdge2 ) * invJacobMat.mat31
-				//				    + getShapeFuncReferenceCoordV( m_uCoord[ip], m_vCoord[ip], m_wCoord[ip], iEdge2 ) * invJacobMat.mat32
-				//					+ getShapeFuncReferenceCoordW( m_uCoord[ip], m_vCoord[ip], m_wCoord[ip], iEdge2 ) * invJacobMat.mat33 ) ) * m_weights[ip];
-				//}
-
-				//if( m_signInversion[elemID][iEdge1] != m_signInversion[elemID][iEdge2] ){
-				//	integral1 *= - ( divDetJacob * length[iEdge1] * length[iEdge2] );
-				//	integral2 *= - ( divDetJacob * length[iEdge1] * length[iEdge2] );
-				//}else{
-				//	integral1 *= ( divDetJacob * length[iEdge1] * length[iEdge2] );
-				//	integral2 *= ( divDetJacob * length[iEdge1] * length[iEdge2] );
-				//}
-				//----- modified by Y.Usui 2013.12.15 : Do not delete for future use <<<<<
-
-				if( m_signInversion[elemID][iEdge1] != m_signInversion[elemID][iEdge2] ){
-					integral1 = -eMat[ iEdge1 < iEdge2 ? rowIndex[iEdge1] + iEdge2 - iEdge1 : rowIndex[iEdge2] + iEdge1 - iEdge2 ];
-					integral2 = -fMat[ iEdge1 < iEdge2 ? rowIndex[iEdge1] + iEdge2 - iEdge1 : rowIndex[iEdge2] + iEdge1 - iEdge2 ];
-				}else{
-					integral1 =  eMat[ iEdge1 < iEdge2 ? rowIndex[iEdge1] + iEdge2 - iEdge1 : rowIndex[iEdge2] + iEdge1 - iEdge2 ];
-					integral2 =  fMat[ iEdge1 < iEdge2 ? rowIndex[iEdge1] + iEdge2 - iEdge1 : rowIndex[iEdge2] + iEdge1 - iEdge2 ];
-				}
-
-				val = std::complex<double>( integral1 * factor1 , 0.0 ) - std::complex<double>( integral2, 0.0 ) * factor2;// exp(-i*omega*t) form
-
-				if( col == DIRICHLET_BOUNDARY_NONZERO_VALUE ){
-#ifdef _USE_OMP
-					#pragma omp critical (addToRhs)
-#endif
-					{
-						matrix.addRightHandSideVector( row, -val * m_globalID2NonZeroValues[ m_IDsLocal2Global[elemID][iEdge2] ] );// Add to right hand side vector
-					}
-
-				}else if( col >= row ){// Store only upper triangle part
-					loc = matrix.checkAndGetLocationNonZeroValue( row, col );
-#ifdef _USE_OMP
-					#pragma omp critical (addToMatrix)
-#endif
-					{
-						matrix.addNonZeroValuesWithoutSearchingLocation( loc, val );// Add to matrix
-					}
-
-				}
-
-			}// iEdge2
-
-		}// iEdge1		
-	}
-
-}
-
-#ifdef _ANISOTOROPY
-// Set non-zero values of matrix and right-hande side vector for forward calculation for anisotropic medium
-void Forward3DTetraElement0thOrder::setNonZeroValuesAnisotropy( ComplexSparseSquareSymmetricMatrix& matrix ){
-
-	assert( (AnalysisControl::getInstance() )->isAnisotropyConsidered() );
-
-	const ResistivityBlock* const pResistivityBlock = ResistivityBlock::getInstance();
-
-	const int iPol = getPolarizationCurrent();
-	const double freq = getFrequencyCurrent();
-	const double ln10 = 2.30258509299405;
-	const double omega = 2.0 * CommonParameters::PI * freq;//Angular frequency
-
-	//------------------------------------------
-	//--- Components due to stiffness matrix ---
-	//------------------------------------------
-	const int nElem = m_MeshDataTetraElement.getNumElemTotal();
-	for( int iElem = 0; iElem < nElem; ++iElem ){
-		const int elemID = iElem;
-
-		//--- Calculate Jacobian
-		Forward3DTetraElement0thOrder::Matrix3x3 jacobMat = { 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0 };
-		double detJacob(0.0);
-		calcJacobianMatrix( elemID, jacobMat, detJacob );
-		const double divDetJacob = 1.0 / detJacob;
-		//--- Calculate inverse of Jacobian matrix multiplied by determinant
-		Forward3DTetraElement0thOrder::Matrix3x3 invJacobMat = { 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0 };
-		calcInverseOfJacobianMatrix( jacobMat, invJacobMat );
-
-		double length[6] = { 0.0,0.0,0.0,0.0,0.0,0.0 };
-		for( int i = 0; i < 6; ++i ){
-			length[i] = m_MeshDataTetraElement.calcEdgeLengthFromElementAndEdge( elemID, i );
-		}
-
-		//--- Calculate omega * mu * sigma
-		const double factor1 = 1.0;
-		const std::complex<double> factor2 = std::complex<double>( 0.0, omega * CommonParameters::mu );// exp(-i*omega*t) form
-
-		//--- Calculate coefficents of conductivity tensor
-		//CommonParameters::Vector3D matX = { 0.0, 0.0, 0.0 };
-		//CommonParameters::Vector3D matY = { 0.0, 0.0, 0.0 };
-		//CommonParameters::Vector3D matZ = { 0.0, 0.0, 0.0 };
-		//pResistivityBlock->calcAisotropicConductivityTensor( pResistivityBlock->getBlockIDFromElemID(iElem), matX, matY, matZ );
-		double sigmaTensor[3][3] = { {0.0, 0.0, 0.0}, {0.0, 0.0, 0.0}, {0.0, 0.0, 0.0} };
-		pResistivityBlock->calcAisotropicConductivityTensor( pResistivityBlock->getBlockIDFromElemID(iElem), sigmaTensor );
-
-		for( int iEdge1 = 0; iEdge1 < 6; ++iEdge1 ){
-			const int row = m_IDsGlobal2AfterDegenerated[iPol][ m_IDsLocal2Global[elemID][iEdge1] ];
-			if( row < 0 ){
-				continue;
-			}
-			for( int iEdge2 = 0; iEdge2 < 6; ++iEdge2 ){
-				const int col = m_IDsGlobal2AfterDegenerated[iPol][ m_IDsLocal2Global[elemID][iEdge2] ];
-				if( col <= Forward3DTetraElement0thOrder::DIRICHLET_BOUNDARY_ZERO_VALUE ){
-					continue;
-				}
-				double integral1 = 0.0;
-				double integral2 = 0.0;
-				for( int ip = 0; ip < m_numIntegralPoints; ++ip ){
-					integral1 += (  ( getShapeFuncRotatedReferenceCoordU(iEdge1) * jacobMat.mat11
-									+ getShapeFuncRotatedReferenceCoordV(iEdge1) * jacobMat.mat21
-									+ getShapeFuncRotatedReferenceCoordW(iEdge1) * jacobMat.mat31 )
-								  * ( getShapeFuncRotatedReferenceCoordU(iEdge2) * jacobMat.mat11
-								    + getShapeFuncRotatedReferenceCoordV(iEdge2) * jacobMat.mat21  
-									+ getShapeFuncRotatedReferenceCoordW(iEdge2) * jacobMat.mat31 )
-								  + ( getShapeFuncRotatedReferenceCoordU(iEdge1) * jacobMat.mat12 
-								    + getShapeFuncRotatedReferenceCoordV(iEdge1) * jacobMat.mat22  
-									+ getShapeFuncRotatedReferenceCoordW(iEdge1) * jacobMat.mat32 )
-								  * ( getShapeFuncRotatedReferenceCoordU(iEdge2) * jacobMat.mat12 
-								    + getShapeFuncRotatedReferenceCoordV(iEdge2) * jacobMat.mat22  
-									+ getShapeFuncRotatedReferenceCoordW(iEdge2) * jacobMat.mat32 )
-								  + ( getShapeFuncRotatedReferenceCoordU(iEdge1) * jacobMat.mat13 
-								    + getShapeFuncRotatedReferenceCoordV(iEdge1) * jacobMat.mat23  
-									+ getShapeFuncRotatedReferenceCoordW(iEdge1) * jacobMat.mat33 )
-								  * ( getShapeFuncRotatedReferenceCoordU(iEdge2) * jacobMat.mat13 
-								    + getShapeFuncRotatedReferenceCoordV(iEdge2) * jacobMat.mat23  
-									+ getShapeFuncRotatedReferenceCoordW(iEdge2) * jacobMat.mat33 ) ) * m_weights[ip];
-					const double Nx = getShapeFuncReferenceCoordU( m_uCoord[ip], m_vCoord[ip], m_wCoord[ip], iEdge2 ) * invJacobMat.mat11
-									+ getShapeFuncReferenceCoordV( m_uCoord[ip], m_vCoord[ip], m_wCoord[ip], iEdge2 ) * invJacobMat.mat12
-									+ getShapeFuncReferenceCoordW( m_uCoord[ip], m_vCoord[ip], m_wCoord[ip], iEdge2 ) * invJacobMat.mat13;
-					const double Ny = getShapeFuncReferenceCoordU( m_uCoord[ip], m_vCoord[ip], m_wCoord[ip], iEdge2 ) * invJacobMat.mat21
-									+ getShapeFuncReferenceCoordV( m_uCoord[ip], m_vCoord[ip], m_wCoord[ip], iEdge2 ) * invJacobMat.mat22
-									+ getShapeFuncReferenceCoordW( m_uCoord[ip], m_vCoord[ip], m_wCoord[ip], iEdge2 ) * invJacobMat.mat23;
-					const double Nz = getShapeFuncReferenceCoordU( m_uCoord[ip], m_vCoord[ip], m_wCoord[ip], iEdge2 ) * invJacobMat.mat31
-									+ getShapeFuncReferenceCoordV( m_uCoord[ip], m_vCoord[ip], m_wCoord[ip], iEdge2 ) * invJacobMat.mat32
-									+ getShapeFuncReferenceCoordW( m_uCoord[ip], m_vCoord[ip], m_wCoord[ip], iEdge2 ) * invJacobMat.mat33; 
-					integral2 += ( (  getShapeFuncReferenceCoordU( m_uCoord[ip], m_vCoord[ip], m_wCoord[ip], iEdge1 ) * invJacobMat.mat11
-								    + getShapeFuncReferenceCoordV( m_uCoord[ip], m_vCoord[ip], m_wCoord[ip], iEdge1 ) * invJacobMat.mat12
-								    + getShapeFuncReferenceCoordW( m_uCoord[ip], m_vCoord[ip], m_wCoord[ip], iEdge1 ) * invJacobMat.mat13 )
-								 * ( Nx * sigmaTensor[0][0] + Ny * sigmaTensor[0][1] + Nz * sigmaTensor[0][2] )
-								 + (  getShapeFuncReferenceCoordU( m_uCoord[ip], m_vCoord[ip], m_wCoord[ip], iEdge1 ) * invJacobMat.mat21
-								    + getShapeFuncReferenceCoordV( m_uCoord[ip], m_vCoord[ip], m_wCoord[ip], iEdge1 ) * invJacobMat.mat22
-									+ getShapeFuncReferenceCoordW( m_uCoord[ip], m_vCoord[ip], m_wCoord[ip], iEdge1 ) * invJacobMat.mat23 )
-								 * ( Nx * sigmaTensor[1][0] + Ny * sigmaTensor[1][1] + Nz * sigmaTensor[1][2] )
-								 + (  getShapeFuncReferenceCoordU( m_uCoord[ip], m_vCoord[ip], m_wCoord[ip], iEdge1 ) * invJacobMat.mat31
-								    + getShapeFuncReferenceCoordV( m_uCoord[ip], m_vCoord[ip], m_wCoord[ip], iEdge1 ) * invJacobMat.mat32
-									+ getShapeFuncReferenceCoordW( m_uCoord[ip], m_vCoord[ip], m_wCoord[ip], iEdge1 ) * invJacobMat.mat33 )
-								 * ( Nx * sigmaTensor[2][0] + Ny * sigmaTensor[2][1] + Nz * sigmaTensor[2][2] ) ) * m_weights[ip];
-				}
-
-				if( m_signInversion[elemID][iEdge1] != m_signInversion[elemID][iEdge2] ){
-					integral1 *= - ( divDetJacob * length[iEdge1] * length[iEdge2] );
-					integral2 *= - ( divDetJacob * length[iEdge1] * length[iEdge2] );
-				}else{
-					integral1 *= ( divDetJacob * length[iEdge1] * length[iEdge2] );
-					integral2 *= ( divDetJacob * length[iEdge1] * length[iEdge2] );
-				}
-
-				const std::complex<double> val = std::complex<double>( integral1 * factor1 , 0.0 ) - std::complex<double>( integral2, 0.0 ) * factor2;// exp(-i*omega*t) form
-
-				if( col == DIRICHLET_BOUNDARY_NONZERO_VALUE ){
-					matrix.addRightHandSideVector( row, -val * m_globalID2NonZeroValues[ m_IDsLocal2Global[elemID][iEdge2] ] );// Add to right hand side vector
-				}else if( col >= row ){// Store only upper triangle part
-					const int loc = matrix.checkAndGetLocationNonZeroValue( row, col );
-					matrix.addNonZeroValuesWithoutSearchingLocation( loc, val );// Add to matrix
-				}
-
-			}// iEdge2
-		}// iEdge1		
-	}// iElem
-
-}
-#endif
 
 //----- DO NOT DELETE FOR FUTURE USE >>>>>
 //// Set non-zero strucuture of matrix for calculating derivatives
@@ -2114,168 +1752,6 @@ void Forward3DTetraElement0thOrder::setNonZeroValuesAnisotropy( ComplexSparseSqu
 //}
 //----- DO NOT DELETE FOR FUTURE USE <<<<<
 
-// Calculate vector x of the reciprocity algorithm of Rodi (1976)
-void Forward3DTetraElement0thOrder::calVectorXOfReciprocityAlgorithm( const std::complex<double>* const vecIn, const int blkID, std::complex<double>* const vecOut, std::vector<int>& nonZeroRows ){
-
-	const ResistivityBlock* const pResistivityBlock = ResistivityBlock::getInstance();
-
-	if( pResistivityBlock->isFixedResistivityValue(blkID) ){
-		return;
-	}
-
-	const int iPol = getPolarizationCurrent();
-	const double freq = getFrequencyCurrent();
-	const double ln10 = 2.30258509299405;
-	const double omega = 2.0 * CommonParameters::PI * freq;//Angular frequency
-
-	const std::vector< std::pair<int,double> >& mdl2Elem = pResistivityBlock->getBlockID2Elements(blkID);
-	const int nElem = static_cast<int>( mdl2Elem.size() );
-
-	const int rowIndex[6] = { 0, 6, 11, 15, 18, 20 };
-
-	//------------------------------------------
-	//--- Components due to stiffness matrix ---
-	//------------------------------------------
-	int iElem(0);
-	int elemID(0);
-	//----- modified by Y.Usui 2013.12.15 Do not delete for future use >>>>>
-	//Forward3DTetraElement0thOrder::Matrix3x3 jacobMat = { 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0 };
-	//Forward3DTetraElement0thOrder::Matrix3x3 invJacobMat = { 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0 };
-	//double detJacob(0.0);
-	//double divDetJacob(0.0);
-	//double length[6] = { 0.0,0.0,0.0,0.0,0.0,0.0 };
-	//int i(0);
-	//int ip(0);
-	//----- modified by Y.Usui 2013.12.15 Do not delete for future use <<<<<
-	double sigma(0.0);
-	double factor1(0.0);
-	std::complex<double> factor2(0.0,0.0);
-	double eMat[21];
-	double fMat[21];
-	int iEdge1(0);
-	int iEdge2(0);
-	int row(0);
-	int col(0);
-	double integral1(0.0);
-	double integral2(0.0);
-	std::complex<double> val(0.0,0.0);
-//#ifdef _USE_OMP
-//	#pragma omp parallel for default(shared) \
-//		private( iElem, elemID, sigma, factor1, factor2, eMat, fMat, \
-//			iEdge1, iEdge2, row, col, integral1, integral2, val, loc )
-//#endif
-	for( iElem = 0; iElem < nElem; ++iElem ){
-
-		// [Attention] : You must use elemID instead of iElem from this line
-		elemID = mdl2Elem[iElem].first;
-
-#ifdef _DEBUG_WRITE
-		std::cout << "blkID iElem elemID = " << blkID << " " << iElem << " " << elemID << std::endl;
-#endif
-
-		//----- modified by Y.Usui 2013.12.15 Do not delete for future use >>>>>
-		////--- Calculate Jacobian
-		//calcJacobianMatrix( elemID, jacobMat, detJacob );
-		//divDetJacob = 1.0 / detJacob;
-		////--- Calculate inverse of Jacobian matrix multiplied by determinant
-		//calcInverseOfJacobianMatrix( jacobMat, invJacobMat );
-
-		//for( i = 0; i < 6; ++i ){
-		//	length[i] = m_MeshDataTetraElement.calcEdgeLengthFromElementAndEdge( elemID, i );
-		//}
-		//----- modified by Y.Usui 2013.12.15 Do not delete for future use <<<<<
-
-		//--- Calculate omega * mu * sigma
-		sigma = pResistivityBlock->getConductivityValuesFromElemID(elemID);
-
-		factor1 = 0.0;
-		factor2 = std::complex<double>( 0.0, - omega * CommonParameters::mu * sigma * ln10 * mdl2Elem[iElem].second );// exp(-i*omega*t) form
-
-		//--- Calculate integrals of which element matrix consisits
-		calcIntegrals( elemID, eMat, fMat );
-
-		for( iEdge1 = 0; iEdge1 < 6; ++iEdge1 ){
-
-			row = m_IDsGlobal2AfterDegenerated[iPol][ m_IDsLocal2Global[elemID][iEdge1] ];
-			if( row < 0 ){
-				continue;
-			}
-
-			for( iEdge2 = 0; iEdge2 < 6; ++iEdge2 ){
-
-				col = m_IDsGlobal2AfterDegenerated[iPol][ m_IDsLocal2Global[elemID][iEdge2] ];
-				if( col <= Forward3DTetraElement0thOrder::DIRICHLET_BOUNDARY_ZERO_VALUE ){
-					continue;
-				}
-
-				//----- modified by Y.Usui 2013.12.15 : Do not delete for future use >>>>>
-				//integral1 = 0.0;
-				//integral2 = 0.0;
-				//for( ip = 0; ip < m_numIntegralPoints; ++ip ){
-				//	integral1 += (   ( getShapeFuncRotatedReferenceCoordU(iEdge1) * jacobMat.mat11 + getShapeFuncRotatedReferenceCoordV(iEdge1) * jacobMat.mat21  + getShapeFuncRotatedReferenceCoordW(iEdge1) * jacobMat.mat31 )
-				//				   * ( getShapeFuncRotatedReferenceCoordU(iEdge2) * jacobMat.mat11 + getShapeFuncRotatedReferenceCoordV(iEdge2) * jacobMat.mat21  + getShapeFuncRotatedReferenceCoordW(iEdge2) * jacobMat.mat31 )
-				//				   + ( getShapeFuncRotatedReferenceCoordU(iEdge1) * jacobMat.mat12 + getShapeFuncRotatedReferenceCoordV(iEdge1) * jacobMat.mat22  + getShapeFuncRotatedReferenceCoordW(iEdge1) * jacobMat.mat32 )
-				//				   * ( getShapeFuncRotatedReferenceCoordU(iEdge2) * jacobMat.mat12 + getShapeFuncRotatedReferenceCoordV(iEdge2) * jacobMat.mat22  + getShapeFuncRotatedReferenceCoordW(iEdge2) * jacobMat.mat32 )
-				//				   + ( getShapeFuncRotatedReferenceCoordU(iEdge1) * jacobMat.mat13 + getShapeFuncRotatedReferenceCoordV(iEdge1) * jacobMat.mat23  + getShapeFuncRotatedReferenceCoordW(iEdge1) * jacobMat.mat33 )
-				//				   * ( getShapeFuncRotatedReferenceCoordU(iEdge2) * jacobMat.mat13 + getShapeFuncRotatedReferenceCoordV(iEdge2) * jacobMat.mat23  + getShapeFuncRotatedReferenceCoordW(iEdge2) * jacobMat.mat33 ) ) * m_weights[ip];
-				//	integral2 += ( (  getShapeFuncReferenceCoordU( m_uCoord[ip], m_vCoord[ip], m_wCoord[ip], iEdge1 ) * invJacobMat.mat11
-				//				    + getShapeFuncReferenceCoordV( m_uCoord[ip], m_vCoord[ip], m_wCoord[ip], iEdge1 ) * invJacobMat.mat12
-				//				    + getShapeFuncReferenceCoordW( m_uCoord[ip], m_vCoord[ip], m_wCoord[ip], iEdge1 ) * invJacobMat.mat13 )
-				//				 * (  getShapeFuncReferenceCoordU( m_uCoord[ip], m_vCoord[ip], m_wCoord[ip], iEdge2 ) * invJacobMat.mat11
-				//				    + getShapeFuncReferenceCoordV( m_uCoord[ip], m_vCoord[ip], m_wCoord[ip], iEdge2 ) * invJacobMat.mat12
-				//					+ getShapeFuncReferenceCoordW( m_uCoord[ip], m_vCoord[ip], m_wCoord[ip], iEdge2 ) * invJacobMat.mat13 )
-				//				 + (  getShapeFuncReferenceCoordU( m_uCoord[ip], m_vCoord[ip], m_wCoord[ip], iEdge1 ) * invJacobMat.mat21
-				//				    + getShapeFuncReferenceCoordV( m_uCoord[ip], m_vCoord[ip], m_wCoord[ip], iEdge1 ) * invJacobMat.mat22
-				//					+ getShapeFuncReferenceCoordW( m_uCoord[ip], m_vCoord[ip], m_wCoord[ip], iEdge1 ) * invJacobMat.mat23 )
-				//				 * (  getShapeFuncReferenceCoordU( m_uCoord[ip], m_vCoord[ip], m_wCoord[ip], iEdge2 ) * invJacobMat.mat21
-				//				    + getShapeFuncReferenceCoordV( m_uCoord[ip], m_vCoord[ip], m_wCoord[ip], iEdge2 ) * invJacobMat.mat22
-				//					+ getShapeFuncReferenceCoordW( m_uCoord[ip], m_vCoord[ip], m_wCoord[ip], iEdge2 ) * invJacobMat.mat23 )
-				//				 + (  getShapeFuncReferenceCoordU( m_uCoord[ip], m_vCoord[ip], m_wCoord[ip], iEdge1 ) * invJacobMat.mat31
-				//				    + getShapeFuncReferenceCoordV( m_uCoord[ip], m_vCoord[ip], m_wCoord[ip], iEdge1 ) * invJacobMat.mat32
-				//					+ getShapeFuncReferenceCoordW( m_uCoord[ip], m_vCoord[ip], m_wCoord[ip], iEdge1 ) * invJacobMat.mat33 )
-				//				 * (  getShapeFuncReferenceCoordU( m_uCoord[ip], m_vCoord[ip], m_wCoord[ip], iEdge2 ) * invJacobMat.mat31
-				//				    + getShapeFuncReferenceCoordV( m_uCoord[ip], m_vCoord[ip], m_wCoord[ip], iEdge2 ) * invJacobMat.mat32
-				//					+ getShapeFuncReferenceCoordW( m_uCoord[ip], m_vCoord[ip], m_wCoord[ip], iEdge2 ) * invJacobMat.mat33 ) ) * m_weights[ip];
-				//}
-
-				//if( m_signInversion[elemID][iEdge1] != m_signInversion[elemID][iEdge2] ){
-				//	integral1 *= - ( divDetJacob * length[iEdge1] * length[iEdge2] );
-				//	integral2 *= - ( divDetJacob * length[iEdge1] * length[iEdge2] );
-				//}else{
-				//	integral1 *= ( divDetJacob * length[iEdge1] * length[iEdge2] );
-				//	integral2 *= ( divDetJacob * length[iEdge1] * length[iEdge2] );
-				//}
-				//----- modified by Y.Usui 2013.12.15 : Do not delete for future use <<<<<
-
-				if( m_signInversion[elemID][iEdge1] != m_signInversion[elemID][iEdge2] ){
-					integral1 = -eMat[ iEdge1 < iEdge2 ? rowIndex[iEdge1] + iEdge2 - iEdge1 : rowIndex[iEdge2] + iEdge1 - iEdge2 ];
-					integral2 = -fMat[ iEdge1 < iEdge2 ? rowIndex[iEdge1] + iEdge2 - iEdge1 : rowIndex[iEdge2] + iEdge1 - iEdge2 ];
-				}else{
-					integral1 =  eMat[ iEdge1 < iEdge2 ? rowIndex[iEdge1] + iEdge2 - iEdge1 : rowIndex[iEdge2] + iEdge1 - iEdge2 ];
-					integral2 =  fMat[ iEdge1 < iEdge2 ? rowIndex[iEdge1] + iEdge2 - iEdge1 : rowIndex[iEdge2] + iEdge1 - iEdge2 ];
-				}
-
-				val = std::complex<double>( integral1 * factor1 , 0.0 ) - std::complex<double>( integral2, 0.0 ) * factor2;// exp(-i*omega*t) form
-
-				if( col == DIRICHLET_BOUNDARY_NONZERO_VALUE ){
-					vecOut[row] -= val * m_globalID2NonZeroValues[ m_IDsLocal2Global[elemID][iEdge2] ];
-					nonZeroRows.push_back(row);
-
-				}else{
-					vecOut[row] -= val * vecIn[col];
-					nonZeroRows.push_back(row);
-				}
-
-			}// iEdge2
-
-		}// iEdge1		
-
-	}
-
-	std::sort(nonZeroRows.begin(), nonZeroRows.end());
-	nonZeroRows.erase( std::unique( nonZeroRows.begin(), nonZeroRows.end() ), nonZeroRows.end() );
-
-}
 
 // Call function inputMeshData of the class MeshData
 void Forward3DTetraElement0thOrder::callInputMeshData(){
@@ -2329,15 +1805,13 @@ void Forward3DTetraElement0thOrder::calcArrayConvertLocalID2Global(){
 
 	// Allocate memory to m_IDsLocal2Global ---
 	if( m_IDsLocal2Global != NULL ){
-		const int nElem = sizeof( m_IDsLocal2Global ) / sizeof( m_IDsLocal2Global[0] );
-		for( int iElem = 0; iElem < nElem; ++iElem ){
-			delete [] m_IDsLocal2Global[iElem];
+		for( int i = 0; i < m_sizeOfIDsLocal2Global; ++i ){
+			delete [] m_IDsLocal2Global[i];
 		}
 		delete [] m_IDsLocal2Global;
-		m_IDsLocal2Global = NULL;
 	}
-
 	m_IDsLocal2Global = new int*[nElem]; 
+	m_sizeOfIDsLocal2Global = nElem;
 	for( int iElem = 0; iElem < nElem; ++iElem ){
 		m_IDsLocal2Global[iElem] = new int[6];
 	}
@@ -2345,15 +1819,11 @@ void Forward3DTetraElement0thOrder::calcArrayConvertLocalID2Global(){
 
 	// Allocate memory to m_signInversion ---
 	if( m_signInversion != NULL ){
-		const int num = sizeof( m_signInversion ) / sizeof( m_signInversion[0] );
-		for( int i = 0; i < num; ++i ){
+		for (int i = 0; i < nElem; ++i) {
 			delete [] m_signInversion[i];
-			m_signInversion[i] = NULL;
 		}
 		delete [] m_signInversion;
-		m_signInversion = NULL;
 	}
-
 	m_signInversion = new bool*[nElem];
 	for( int iElem = 0; iElem < nElem; ++iElem ){
 		m_signInversion[iElem] = new bool[6];
@@ -2657,7 +2127,7 @@ void Forward3DTetraElement0thOrder::calcArrayConvertIDGlobal2NonZeroValues(){
 }
 
 // Get shape functions of the 1st direction with respect to the reference element coordinate system
-inline double Forward3DTetraElement0thOrder::getShapeFuncReferenceCoordU( const double uLocal, const double vLocal, const double wLocal, const int num ) const{
+double Forward3DTetraElement0thOrder::getShapeFuncReferenceCoordU(const double uLocal, const double vLocal, const double wLocal, const int num) const {
 
 	switch( num ){
 		case 0:
@@ -2687,7 +2157,7 @@ inline double Forward3DTetraElement0thOrder::getShapeFuncReferenceCoordU( const 
 }
 
 // Get shape functions of the 2nd direction with respect to the reference element coordinate system
-inline double Forward3DTetraElement0thOrder::getShapeFuncReferenceCoordV( const double uLocal, const double vLocal, const double wLocal, const int num ) const{
+double Forward3DTetraElement0thOrder::getShapeFuncReferenceCoordV(const double uLocal, const double vLocal, const double wLocal, const int num) const {
 
 	switch( num ){
 		case 0:
@@ -2717,7 +2187,7 @@ inline double Forward3DTetraElement0thOrder::getShapeFuncReferenceCoordV( const 
 }
 
 // Get shape functions of the 3rd direction with respect to the reference element coordinate system
-inline double Forward3DTetraElement0thOrder::getShapeFuncReferenceCoordW( const double uLocal, const double vLocal, const double wLocal, const int num ) const{
+double Forward3DTetraElement0thOrder::getShapeFuncReferenceCoordW(const double uLocal, const double vLocal, const double wLocal, const int num) const {
 
 	switch( num ){
 		case 0:
@@ -2747,7 +2217,7 @@ inline double Forward3DTetraElement0thOrder::getShapeFuncReferenceCoordW( const 
 }
 
 // Get 2D shape functions of the 1st direction with respect to the reference element coordinate system
-inline double Forward3DTetraElement0thOrder::get2DShapeFuncReferenceCoordU( const double uLocal, const double vLocal, const int num ) const{
+double Forward3DTetraElement0thOrder::get2DShapeFuncReferenceCoordU(const double uLocal, const double vLocal, const int num) const {
 
 	switch( num ){
 		case 0:
@@ -2768,7 +2238,7 @@ inline double Forward3DTetraElement0thOrder::get2DShapeFuncReferenceCoordU( cons
 }
 
 // Get 2D shape functions of the 2nd direction with respect to the reference element coordinate system
-inline double Forward3DTetraElement0thOrder::get2DShapeFuncReferenceCoordV( const double uLocal, const double vLocal, const int num ) const{
+double Forward3DTetraElement0thOrder::get2DShapeFuncReferenceCoordV(const double uLocal, const double vLocal, const int num) const {
 
 	switch( num ){
 		case 0:
@@ -2789,14 +2259,14 @@ inline double Forward3DTetraElement0thOrder::get2DShapeFuncReferenceCoordV( cons
 }
 
 // Get 2D shape functions rotated with respect to the reference element coordinate system
-inline double Forward3DTetraElement0thOrder::get2DShapeFuncRotated() const{
+double Forward3DTetraElement0thOrder::get2DShapeFuncRotated() const {
 
 	return 2.0;
 
 }
 
 // Get shape functions rotated with respect to the reference element coordinate system ( The 1st direction )
-inline double Forward3DTetraElement0thOrder::getShapeFuncRotatedReferenceCoordU( const int num ) const{
+double Forward3DTetraElement0thOrder::getShapeFuncRotatedReferenceCoordU(const int num) const {
 
 	switch( num ){
 		case 0:
@@ -2826,7 +2296,7 @@ inline double Forward3DTetraElement0thOrder::getShapeFuncRotatedReferenceCoordU(
 }
 
 // Get shape functions rotated with respect to the reference element coordinate system ( The 2nd direction )
-inline double Forward3DTetraElement0thOrder::getShapeFuncRotatedReferenceCoordV( const int num ) const{
+double Forward3DTetraElement0thOrder::getShapeFuncRotatedReferenceCoordV(const int num) const {
 
 	switch( num ){
 		case 0:
@@ -2856,7 +2326,7 @@ inline double Forward3DTetraElement0thOrder::getShapeFuncRotatedReferenceCoordV(
 }
 
 // Get shape functions rotated with respect to the reference element coordinate system ( The 3rd direction )
-inline double Forward3DTetraElement0thOrder::getShapeFuncRotatedReferenceCoordW( const int num ) const{
+double Forward3DTetraElement0thOrder::getShapeFuncRotatedReferenceCoordW(const int num) const {
 
 	switch( num ){
 		case 0:
@@ -3250,23 +2720,15 @@ void Forward3DTetraElement0thOrder::outputResultToVTK() const{
 	}
 
 	if( pAnalysisControl->doesOutputToVTK( AnalysisControl::OUTPUT_CURRENT_DENSITY ) ){// Output corrent density
-		const ResistivityBlock* pResistivityBlock = ResistivityBlock::getInstance();
-		OutputFiles::m_vtkFile << "VECTORS Re(j)_" << freq <<"(Hz)_" << stringPolarization << " float" <<  std::endl;
-		for( int iElem = 0 ; iElem < nElem; ++iElem ){
-			const double sigma = pResistivityBlock->getConductivityValuesFromElemID(iElem);
-			const float jx = static_cast<float>( sigma * real( calcValueElectricFieldXDirection( iElem, 0.25, 0.25, 0.25 ) ) );
-			const float jy = static_cast<float>( sigma * real( calcValueElectricFieldYDirection( iElem, 0.25, 0.25, 0.25 ) ) );
-			const float jz = static_cast<float>( sigma * real( calcValueElectricFieldZDirection( iElem, 0.25, 0.25, 0.25 ) ) );
-			OutputFiles::m_vtkFile << jx << " " << jy << " " << jz << std::endl;
+		OutputFiles::m_vtkFile << "VECTORS Re(j)_" << freq << "(Hz)_" << stringPolarization << " float" << std::endl;
+		for (int iElem = 0; iElem < nElem; ++iElem) {
+			const CommonParameters::ComplexValuedVector correntDensity = calculateElectricCurrentDensityVector(iElem);
+			OutputFiles::m_vtkFile << static_cast<float>(real(correntDensity.X)) << " " << static_cast<float>(real(correntDensity.Y)) << " " << static_cast<float>(real(correntDensity.Z)) << std::endl;
 		}
-
-		OutputFiles::m_vtkFile << "VECTORS Im(j)_" << freq <<"(Hz)_" << stringPolarization << " float" <<  std::endl;
-		for( int iElem = 0 ; iElem < nElem; ++iElem ){
-			const double sigma = pResistivityBlock->getConductivityValuesFromElemID(iElem);
-			const float jx = static_cast<float>( sigma * imag( calcValueElectricFieldXDirection( iElem, 0.25, 0.25, 0.25 ) ) );
-			const float jy = static_cast<float>( sigma * imag( calcValueElectricFieldYDirection( iElem, 0.25, 0.25, 0.25 ) ) );
-			const float jz = static_cast<float>( sigma * imag( calcValueElectricFieldZDirection( iElem, 0.25, 0.25, 0.25 ) ) );
-			OutputFiles::m_vtkFile << jx << " " << jy << " " << jz << std::endl;
+		OutputFiles::m_vtkFile << "VECTORS Im(j)_" << freq << "(Hz)_" << stringPolarization << " float" << std::endl;
+		for (int iElem = 0; iElem < nElem; ++iElem) {
+			const CommonParameters::ComplexValuedVector correntDensity = calculateElectricCurrentDensityVector(iElem);
+			OutputFiles::m_vtkFile << static_cast<float>(imag(correntDensity.X)) << " " << static_cast<float>(imag(correntDensity.Y)) << " " << static_cast<float>(imag(correntDensity.Z)) << std::endl;
 		}
 	}
 		
@@ -3413,8 +2875,6 @@ void Forward3DTetraElement0thOrder::outputResultToBinary( const int iFreq, const
 	if( pAnalysisControl->doesOutputToVTK( AnalysisControl::OUTPUT_MAGNETIC_FIELD_VECTORS_TO_VTK ) ){
 		// Output imaginary part of magnetic field vector
 
-		const ResistivityBlock* pResistivityBlock = ResistivityBlock::getInstance();
-
 		std::ostringstream oss;
 		oss << "ImH_Freq" << iFreq << "_" << stringPolarization << ".iter" << pAnalysisControl->getIterationNumCurrent();
 		std::ofstream fout;
@@ -3457,8 +2917,6 @@ void Forward3DTetraElement0thOrder::outputResultToBinary( const int iFreq, const
 	if( pAnalysisControl->doesOutputToVTK( AnalysisControl::OUTPUT_CURRENT_DENSITY ) ){
 		// Output real part of corrent density
 
-		const ResistivityBlock* pResistivityBlock = ResistivityBlock::getInstance();
-
 		std::ostringstream oss;
 		oss << "Rej_Freq" << iFreq << "_" << stringPolarization << ".iter" << pAnalysisControl->getIterationNumCurrent();
 		std::ofstream fout;
@@ -3480,20 +2938,20 @@ void Forward3DTetraElement0thOrder::outputResultToBinary( const int iFreq, const
 		fout.write( line, 80 );
 
 		for( int iElem = 0 ; iElem < nElem; ++iElem ){
-			const double sigma = pResistivityBlock->getConductivityValuesFromElemID(iElem);
-			float jx = static_cast<float>( sigma * real( calcValueElectricFieldXDirection( iElem, 0.0, 0.0, 0.0 ) ) );
+			CommonParameters::ComplexValuedVector current = calculateElectricCurrentDensityVector(iElem);
+			float jx = static_cast<float>(real(current.X));
 			fout.write( (char*) &jx, sizeof( float ) );
 		}
 
 		for( int iElem = 0 ; iElem < nElem; ++iElem ){
-			const double sigma = pResistivityBlock->getConductivityValuesFromElemID(iElem);
-			float jy = static_cast<float>( sigma * real( calcValueElectricFieldYDirection( iElem, 0.0, 0.0, 0.0 ) ) );
+			CommonParameters::ComplexValuedVector current = calculateElectricCurrentDensityVector(iElem);
+			float jy = static_cast<float>(real(current.Y));
 			fout.write( (char*) &jy, sizeof( float ) );
 		}
 
 		for( int iElem = 0 ; iElem < nElem; ++iElem ){
-			const double sigma = pResistivityBlock->getConductivityValuesFromElemID(iElem);
-			float jz = static_cast<float>( sigma * real( calcValueElectricFieldZDirection( iElem, 0.0, 0.0, 0.0 ) ) );
+			CommonParameters::ComplexValuedVector current = calculateElectricCurrentDensityVector(iElem);
+			float jz = static_cast<float>(real(current.Z));
 			fout.write( (char*) &jz, sizeof( float ) );
 		}
 
@@ -3503,8 +2961,6 @@ void Forward3DTetraElement0thOrder::outputResultToBinary( const int iFreq, const
 
 	if( pAnalysisControl->doesOutputToVTK( AnalysisControl::OUTPUT_CURRENT_DENSITY ) ){
 		// Output imaginary part of corrent density
-
-		const ResistivityBlock* pResistivityBlock = ResistivityBlock::getInstance();
 
 		std::ostringstream oss;
 		oss << "Imj_Freq" << iFreq << "_" << stringPolarization << ".iter" << pAnalysisControl->getIterationNumCurrent();
@@ -3527,20 +2983,20 @@ void Forward3DTetraElement0thOrder::outputResultToBinary( const int iFreq, const
 		fout.write( line, 80 );
 
 		for( int iElem = 0 ; iElem < nElem; ++iElem ){
-			const double sigma = pResistivityBlock->getConductivityValuesFromElemID(iElem);
-			float jx = static_cast<float>( sigma * imag( calcValueElectricFieldXDirection( iElem, 0.0, 0.0, 0.0 ) ) );
+			CommonParameters::ComplexValuedVector current = calculateElectricCurrentDensityVector(iElem);
+			float jx = static_cast<float>(imag(current.X));
 			fout.write( (char*) &jx, sizeof( float ) );
 		}
 
 		for( int iElem = 0 ; iElem < nElem; ++iElem ){
-			const double sigma = pResistivityBlock->getConductivityValuesFromElemID(iElem);
-			float jy = static_cast<float>( sigma * imag( calcValueElectricFieldYDirection( iElem, 0.0, 0.0, 0.0 ) ) );
+			CommonParameters::ComplexValuedVector current = calculateElectricCurrentDensityVector(iElem);
+			float jy = static_cast<float>(imag(current.Y));
 			fout.write( (char*) &jy, sizeof( float ) );
 		}
 
 		for( int iElem = 0 ; iElem < nElem; ++iElem ){
-			const double sigma = pResistivityBlock->getConductivityValuesFromElemID(iElem);
-			float jz = static_cast<float>( sigma * imag( calcValueElectricFieldZDirection( iElem, 0.0, 0.0, 0.0 ) ) );
+			CommonParameters::ComplexValuedVector current = calculateElectricCurrentDensityVector(iElem);
+			float jz = static_cast<float>(imag(current.Z));
 			fout.write( (char*) &jz, sizeof( float ) );
 		}
 

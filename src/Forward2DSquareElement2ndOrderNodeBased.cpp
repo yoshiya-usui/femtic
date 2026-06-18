@@ -110,14 +110,14 @@ void Forward2DSquareElement2ndOrderNodeBased::calcEMFieldsOfBoundaryPlanes( cons
 		//--- Calculate array converting local edge IDs to global ones 
 		//---
 		if( m_IDsLocal2Global != NULL ){// Release memory
-			const int num = sizeof( m_IDsLocal2Global ) / sizeof( m_IDsLocal2Global[0] );
-			for( int i = 0; i < num; ++i ){
+			for (int i = 0; i < m_sizeOfIDsLocal2Global; ++i) {
 				delete [] m_IDsLocal2Global[i];
 			}
 			delete [] m_IDsLocal2Global;
 			m_IDsLocal2Global = NULL;
 		}
 		m_IDsLocal2Global = new int*[nElem];
+		m_sizeOfIDsLocal2Global = nElem;
 
 		const int offset = 3 * numElemW + 2;// <= ( 2 * numElemW + 1 ) + ( numElemW + 1 )
 
@@ -141,15 +141,13 @@ void Forward2DSquareElement2ndOrderNodeBased::calcEMFieldsOfBoundaryPlanes( cons
 		//--- Calculate array converting local edge IDs to global ones after degeneration
 		//---
 		if( m_IDsLocal2GlobalDegenerated != NULL ){// Release memory
-			const int num = sizeof( m_IDsLocal2GlobalDegenerated ) / sizeof( m_IDsLocal2GlobalDegenerated[0] );
-			for( int i = 0; i < num; ++i ){
+			for (int i = 0; i < m_sizeOfIDsLocal2Global; ++i) {
 				delete [] m_IDsLocal2GlobalDegenerated[i];
 			}
 			delete [] m_IDsLocal2GlobalDegenerated;
 			m_IDsLocal2GlobalDegenerated = NULL;
 		}		
 		m_IDsLocal2GlobalDegenerated = new int*[nElem];
-
 		if( ( imode == CommonParameters::TM_MODE && m_sourceFieldElectric == false ) ||
 			( imode == CommonParameters::TE_MODE && m_sourceFieldElectric == true  ) ) {
 			// TM mode and magnetic field specified at the top of the model as source
@@ -437,7 +435,7 @@ void Forward2DSquareElement2ndOrderNodeBased::calcEMFieldsOfBoundaryPlanes( cons
 	m_matrix2DAnalysis.zeroClearRightHandSideVector();// Zero clear right hand side vector
 
 	OutputFiles::m_logFile << "# Start setting values of matrix and right hand side vector." << pAnalysisControl->outputElapsedTime() << std::endl;
-	ResistivityBlock* pResistivityBlock = ResistivityBlock::getInstance();
+	const ResistivityBlockIsotropic* const pResistivityBlock = (AnalysisControl::getInstance())->getPointerOfResistivityBlockIsotropic();
 
 	const double sourceValueMagnetic = 1;
 	const double sourceValueElectric = CommonParameters::sourceValueElectric;

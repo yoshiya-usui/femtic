@@ -311,12 +311,12 @@ int ComplexSparseMatrix::checkAndGetLocationNonZeroValue( const int row, const i
 	//		return;
 	//	}
 	//}
-	int low = m_rowIndex[row];
-	int high = m_rowIndex[row+1] - 1;
+	long long low = m_rowIndex[row];
+	long long high = m_rowIndex[row+1] - 1;
 	while( low <= high ){// binary search
-		const int mid = ( low + high ) / 2;
+		const long long mid = ( low + high ) / 2;
 		if( m_columns[mid] == col ){// Find column location
-			return mid;
+			return static_cast<int>(mid);
 		}else if( m_columns[mid] < col ){
 			low = mid + 1;
 		}else{
@@ -604,7 +604,7 @@ void ComplexSparseMatrix::debugWriteMatrix() const{
 	}
 
 	for( int i = 0; i < m_numRows; ++i ){
-		for( int j = m_rowIndex[i]; j < m_rowIndex[i+1]; ++j ){		
+		for( long long j = m_rowIndex[i]; j < m_rowIndex[i+1]; ++j ){		
 			std::cout << "row col val " << i << " " << m_columns[j] << " " << m_values[j] << std::endl;
 		}
 	}

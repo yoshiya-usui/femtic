@@ -108,15 +108,13 @@ void Forward2DSquareElement1stOrderNodeBased::calcEMFieldsOfBoundaryPlanes( cons
 		//--- Calculate array converting local edge IDs to global ones 
 		//---
 		if( m_IDsLocal2Global != NULL ){// Release memory
-			const int num = sizeof( m_IDsLocal2Global ) / sizeof( m_IDsLocal2Global[0] );
-			for( int i = 0; i < num; ++i ){
+			for (int i = 0; i < m_sizeOfIDsLocal2Global; ++i) {
 				delete [] m_IDsLocal2Global[i];
 			}
 			delete [] m_IDsLocal2Global;
-			m_IDsLocal2Global = NULL;
 		}
 		m_IDsLocal2Global = new int*[nElem];
-
+		m_sizeOfIDsLocal2Global = nElem;
 		const int offset = numElemW + 1;
 		for( int iElem = 0; iElem < nElem; ++iElem ){
 			const int ih = iElem / numElemW;
@@ -134,16 +132,12 @@ void Forward2DSquareElement1stOrderNodeBased::calcEMFieldsOfBoundaryPlanes( cons
 		//--- Calculate array converting local edge IDs to global ones after degeneration
 		//---
 		if( m_IDsLocal2GlobalDegenerated != NULL ){// Release memory
-			const int num = sizeof( m_IDsLocal2GlobalDegenerated ) / sizeof( m_IDsLocal2GlobalDegenerated[0] );
-			for( int i = 0; i < num; ++i ){
+			for (int i = 0; i < m_sizeOfIDsLocal2Global; ++i) {
 				delete [] m_IDsLocal2GlobalDegenerated[i];
 			}
 			delete [] m_IDsLocal2GlobalDegenerated;
-			m_IDsLocal2GlobalDegenerated = NULL;
 		}
-
 		m_IDsLocal2GlobalDegenerated = new int*[nElem];
-
 		for( int iElem = 0; iElem < nElem; ++iElem ){// Exclude nodes of top side because Dirichlet condition is set to the nodes
 			m_IDsLocal2GlobalDegenerated[iElem] = new int[4];
 
@@ -318,7 +312,7 @@ void Forward2DSquareElement1stOrderNodeBased::calcEMFieldsOfBoundaryPlanes( cons
 	//--- Set values of matrix and right hand side vector ---
 	//-------------------------------------------------------
 	OutputFiles::m_logFile << "# Set values of matrix and right hand side vector. " << pAnalysisControl->outputElapsedTime() << std::endl;
-	ResistivityBlock* pResistivityBlock = ResistivityBlock::getInstance();
+	const ResistivityBlockIsotropic* const pResistivityBlock = (AnalysisControl::getInstance())->getPointerOfResistivityBlockIsotropic();
 	const double sourceValueElectric = CommonParameters::sourceValueElectric;
 
 	//------------------------------------------

@@ -37,7 +37,7 @@ PARDISOSolver::PARDISOSolver():
 	m_maxfct(1),
 	m_mnum(1),
 	m_mtype(PARDISOSolver::COMPLEX_AND_SYMMETRIC_MATRIX),
-	m_numEquations(NULL),
+	m_numEquations(0),
 	m_msglvl(0),
 	m_peakMemorySymbolicFactorization(0.0),
 	m_permanetMemorySymbolicFactorization(0.0),
@@ -56,7 +56,7 @@ PARDISOSolver::PARDISOSolver( const long long int matrixType ):
 	m_maxfct(1),
 	m_mnum(1),
 	m_mtype(matrixType),
-	m_numEquations(NULL),
+	m_numEquations(0),
 	m_msglvl(0),
 	m_peakMemorySymbolicFactorization(0.0),
 	m_permanetMemorySymbolicFactorization(0.0),
@@ -163,13 +163,13 @@ void PARDISOSolver::analysis( const long long int nEq, long long int* rowIndex, 
     {
  	//	OutputFiles::m_logFile << "Error : Error during analysis phase of forward solver. : error = " << error << std::endl;
 		//exit(1);
-		outputErrorMessages( error );
+		outputErrorMessages( static_cast<int>(error) );
     }
 
-	m_peakMemorySymbolicFactorization = m_iparm[14];
-	m_permanetMemorySymbolicFactorization = m_iparm[15];
-	m_memoryForNumericalFactorizationIncore = m_iparm[16];
-	m_memoryForNumericalFactorizationOutcore = m_iparm[62];
+	m_peakMemorySymbolicFactorization = static_cast<int>(m_iparm[14]);
+	m_permanetMemorySymbolicFactorization = static_cast<int>(m_iparm[15]);
+	m_memoryForNumericalFactorizationIncore = static_cast<int>(m_iparm[16]);
+	m_memoryForNumericalFactorizationOutcore = static_cast<int>(m_iparm[62]);
 
 	m_solutionStage = PARDISOSolver::ANALYZED;
 
@@ -197,7 +197,7 @@ void PARDISOSolver::releaseMemory(){
     {
  	//	OutputFiles::m_logFile << "Error : Error during memory release phase of forward solver. : error = " << error << std::endl;
 		//exit(1);
- 		outputErrorMessages( error );
+ 		outputErrorMessages( static_cast<int>(error) );
    }
 
 	m_solutionStage = PARDISOSolver::MEMORY_RELEASED;

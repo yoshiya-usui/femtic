@@ -28,7 +28,7 @@
 #include "Forward3D.h"
 #include "MeshDataNonConformingHexaElement.h"
 
-// Class of 3D forward calculation by using the 0th order nonconforming hexahedral element 
+// Class of 3D forward calculation using the 0th order nonconforming hexahedral element 
 class Forward3DNonConformingHexaElement0thOrder : public Forward3D {
 
 public:
@@ -54,7 +54,7 @@ public:
 	// Calculate Z component of rotated electric field
 	virtual std::complex<double> calcValueRotatedElectricFieldZDirection( const int iElem, const double xLocal, const double yLocal, const double zLocal ) const;
 
-	// Calculate X component of electric field only from the edges on the Earth's surface
+	// Calculate rotated electric field normal to the Earth's surface
 	std::complex<double> calcValueRotatedElectricFieldNormal( const int iElem, const double xLocal, const double yLocal ) const;
 
 	// Calculate X component of electric field only from the edges on the Earth's surface
@@ -96,7 +96,7 @@ public:
 	// Calculate interpolator vector of Z component of rotated electric field
 	virtual void calcInterpolatorVectorOfRotatedElectricFieldZDirection( const int iElem, const double xLocal, const double yLocal, const double zLocal, const int irhs, const std::complex<double>& factor = std::complex<double>(1.0,0.0) );
 
-	// Calculate interpolator vector of X component of electric field only from the edges on the Earth's surface
+	// Calculate interpolator vector of rotated electric field normal to the Earth's surface
 	void calcInterpolatorVectorOfRotatedElectricFieldNormal( const int iElem, const double xLocal, const double yLocal, const int irhs, const std::complex<double>& factor = std::complex<double>(1.0,0.0) );
 
 	// Calculate interpolator vector of X component of electric field only from the edges on the Earth's surface
@@ -136,12 +136,6 @@ public:
 	// Set non-zero strucuture of matrix for forward calculation
 	virtual void setNonZeroStrucuture( ComplexSparseSquareSymmetricMatrix& matrix );
 
-	// Set non-zero values of matrix and right-hande side vector for forward calculation
-	virtual void setNonZeroValues( ComplexSparseSquareSymmetricMatrix& matrix );
-
-	// Calculate vector x of the reciprocity algorithm of Rodi (1976)
-	virtual void calVectorXOfReciprocityAlgorithm( const std::complex<double>* const vecIn, const int blkID, std::complex<double>* const vecOut, std::vector<int>& nonZeroRows );
-
 	// Copy solution vector degenerated
 	virtual void copySolutionVectorDegenerated( const int iPol, std::complex<double>* solutionVector ) const;
 
@@ -165,8 +159,7 @@ public:
 	// Get total number of equations finally solved
 	virtual int getNumOfEquationFinallySolved() const;
 
-
-private:
+protected:
 
 	const static int DIRICHLET_BOUNDARY_NONZERO_VALUE = -1;// This must be the same as the ones of other functions !!
 
@@ -247,7 +240,7 @@ private:
 	// Calculate array converting global edge IDs non-zero electric field values specified to the edges
 	void calcArrayConvertIDGlobal2NonZeroValues();
 
-	// Make map converting master dofs after degeneration and MPC factors from slave dof after degeneration 
+	// Calculate 2D jacobian matrix for the Earth's surface
 	double calc2DJacobianMatrixForEarthSurface( const int elemID, const double xi, const double eta, 
 		Forward3D::Matrix2x2& JacobMat ) const;
 
@@ -257,7 +250,7 @@ private:
 	// Calculate MPC constants
 	void calcMPCConstants();
 
-	// Add master dof and factor pair to m_slaveDofToMasterDofAndFactors
+	// Calculate flag specifing whether integral X component first
 	bool doesIntegralXCompFirst( const CommonParameters::locationXY& startPoint, const CommonParameters::locationXY& endPoint,
 		bool& rotationDirectionPlus, CommonParameters::locationXY& sharedPoint ) const;
 
@@ -282,7 +275,7 @@ private:
 	// Get z component of shape function rotated for 0th order edge-based elements
 	double getShapeFuncRotatedZ( const double xi, const double eta, const double zeta, const int num, const Forward3D::Matrix3x3& invJacobMat ) const;
 
-	// Calculate jacobian matrix of the elements
+	// Get 2D shape functions rotated for the Earth's surface
 	double get2DShapeFuncRotatedForEarthSurface( const double xi, const double eta, const int num, const Forward3D::Matrix2x2& invJacobMat ) const;
 
 	// Calculate jacobian matrix of the elements

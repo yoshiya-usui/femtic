@@ -23,7 +23,7 @@
 //-------------------------------------------------------------------------------------------------------
 #include "Forward3DNonConformingHexaElement0thOrder.h"
 #include "MeshDataNonConformingHexaElement.h"
-#include "ResistivityBlock.h"
+#include "AnalysisControl.h"
 #include "CommonParameters.h"
 #include "OutputFiles.h"
 #include "ObservedData.h"
@@ -161,7 +161,13 @@ Forward3DNonConformingHexaElement0thOrder::~Forward3DNonConformingHexaElement0th
 		delete [] m_vectorMPCConstants;
 		m_vectorMPCConstants = NULL;
 	}
-	
+
+	for (int i = 0; i < 4; ++i) {
+		if (m_Fwd2DQuadrilateralElement[i] != NULL) {
+			delete m_Fwd2DQuadrilateralElement[i];
+		}
+	}
+
 }
 
 // Run 3D forward calculation
@@ -341,7 +347,7 @@ void Forward3DNonConformingHexaElement0thOrder::forwardCalculation( const double
 
 }
 
-// Calculate X component of electric field
+// Calculate interpolator vector of X component of electric field
 std::complex<double> Forward3DNonConformingHexaElement0thOrder::calcValueElectricFieldXDirection( const int iElem, const double xLocal, const double yLocal, const double zLocal ) const{
 
 	assert( m_solution != NULL );
@@ -421,7 +427,7 @@ std::complex<double> Forward3DNonConformingHexaElement0thOrder::calcValueRotated
 
 }
 
-// Calculate X component of electric field only from the edges on the Earth's surface
+// Calculate rotated electric field normal to the Earth's surface
 std::complex<double> Forward3DNonConformingHexaElement0thOrder::calcValueRotatedElectricFieldNormal( const int iElem, const double xLocal, const double yLocal ) const{
 
 	assert( m_solution != NULL );
@@ -674,7 +680,7 @@ void Forward3DNonConformingHexaElement0thOrder::calcInterpolatorVectorOfRotatedE
 
 }
 
-// Calculate interpolator vector of X component of electric field only from the edges on the Earth's surface
+// Calculate interpolator vector of rotated electric field normal to the Earth's surface
 void Forward3DNonConformingHexaElement0thOrder::calcInterpolatorVectorOfRotatedElectricFieldNormal( const int iElem, const double xLocal, const double yLocal,
 	 const int irhs, const std::complex<double>& factor ){
 
@@ -912,8 +918,6 @@ void Forward3DNonConformingHexaElement0thOrder::calcInterpolatorVectorOfVoltageD
 // Set non-zero strucuture of matrix for forward calculation
 void Forward3DNonConformingHexaElement0thOrder::setNonZeroStrucuture( ComplexSparseSquareSymmetricMatrix& matrix ){
 
-	const ResistivityBlock* const pResistivityBlock = ResistivityBlock::getInstance();
-
 	const int iPol = getPolarizationCurrent();
 
 	const int nElem = m_MeshDataNonConformingHexaElement.getNumElemTotal();
@@ -943,226 +947,6 @@ void Forward3DNonConformingHexaElement0thOrder::setNonZeroStrucuture( ComplexSpa
 			}// iEdge2
 		}// iEdge1		
 	}
-
-}
-
-// Set non-zero values of matrix and right-hande side vector for forward calculation
-void Forward3DNonConformingHexaElement0thOrder::setNonZeroValues( ComplexSparseSquareSymmetricMatrix& matrix ){
-
-#ifdef _DEBUG_WRITE
-	ComplexSparseSquareSymmetricMatrix matrixTemp(m_numOfEquationDegenerated);
-#endif
-
-	const ResistivityBlock* const pResistivityBlock = ResistivityBlock::getInstance();
-
-	const int iPol = getPolarizationCurrent();
-	const double freq = getFrequencyCurrent();
-	const double ln10 = 2.30258509299405;
-	const double omega = 2.0 * CommonParameters::PI * freq;//Angular frequency
-
-	const int nElem = m_MeshDataNonConformingHexaElement.getNumElemTotal();
-	for( int iElem = 0; iElem < nElem; ++iElem ){
-		const int elemID = iElem;
-		//--- Calculate omega * mu * sigma
-		const double sigma = pResistivityBlock->getConductivityValuesFromElemID(elemID);
-		const double factor1 = 1.0;
-		const std::complex<double> factor2 = std::complex<double>( 0.0, omega * CommonParameters::mu * sigma );// exp(-i*omega*t) form
-		double length[12];
-		for( int i = 0; i < 12; ++i ){
-			length[i] = m_MeshDataNonConformingHexaElement.calcEdgeLengthFromElementAndEdge( elemID, i );
-		}
-		for( int iEdge1 = 0; iEdge1 < 12; ++iEdge1 ){
-			const int row = m_IDsGlobal2AfterDegenerated[iPol][ m_IDsLocal2Global[elemID][iEdge1] ];
-			if( row < 0 ){
-				continue;
-			}
-			for( int iEdge2 = 0; iEdge2 < 12; ++iEdge2 ){
-				const int col = m_IDsGlobal2AfterDegenerated[iPol][ m_IDsLocal2Global[elemID][iEdge2] ];
-				if( col <= Forward3DNonConformingHexaElement0thOrder::DIRICHLET_BOUNDARY_ZERO_VALUE ){
-					continue;
-				}
-				double integral1 = 0.0;
-				double integral2 = 0.0;
-				for( int ip = 0; ip < m_numIntegralPoints; ++ip ){
-					const double xi = m_integralPointXi[ip];
-					const double eta = m_integralPointEta[ip];
-					const double zeta = m_integralPointZeta[ip];
-					Forward3D::Matrix3x3 JacobMat;
-					const double detJacob = calcJacobianMatrix( elemID, xi, eta, zeta, JacobMat );
-					Forward3D::Matrix3x3 invJacobMat;
-					calcInverseOfJacobianMatrix( JacobMat, detJacob, invJacobMat );
-					integral1 += ( getShapeFuncRotatedX( xi, eta, zeta, iEdge1, invJacobMat )
-						         * getShapeFuncRotatedX( xi, eta, zeta, iEdge2, invJacobMat )
-								 + getShapeFuncRotatedY( xi, eta, zeta, iEdge1, invJacobMat ) 
-						         * getShapeFuncRotatedY( xi, eta, zeta, iEdge2, invJacobMat )
-								 + getShapeFuncRotatedZ( xi, eta, zeta, iEdge1, invJacobMat ) 
-						         * getShapeFuncRotatedZ( xi, eta, zeta, iEdge2, invJacobMat ) )
-							     * detJacob * m_weights[ip];
-					integral2 += ( getShapeFuncX( xi, eta, zeta, iEdge1, invJacobMat )
-						         * getShapeFuncX( xi, eta, zeta, iEdge2, invJacobMat )
-						         + getShapeFuncY( xi, eta, zeta, iEdge1, invJacobMat )
-								 * getShapeFuncY( xi, eta, zeta, iEdge2, invJacobMat )
-						         + getShapeFuncZ( xi, eta, zeta, iEdge1, invJacobMat )
-								 * getShapeFuncZ( xi, eta, zeta, iEdge2, invJacobMat ) )
-								 * detJacob * m_weights[ip];
-				}
-				integral1 *= length[iEdge1] * length[iEdge2];
-				integral2 *= length[iEdge1] * length[iEdge2];
-				const std::complex<double> val = std::complex<double>( integral1 * factor1 , 0.0 ) - std::complex<double>( integral2, 0.0 ) * factor2;// exp(-i*omega*t) form
-//#ifdef _DEBUG_WRITE
-//				if( col == Forward3DNonConformingHexaElement0thOrder::DIRICHLET_BOUNDARY_NONZERO_VALUE ){
-//					matrixTemp.addRightHandSideVector( row, -val * m_globalID2NonZeroValues[ m_IDsLocal2Global[elemID][iEdge2] ] );// Add to right hand side vector
-//				}else if( col >= row ){// Store only upper triangle part
-//					matrixTemp.setStructureAndAddValueByTripletFormat( row, col, val );// Add to matrix
-//				}
-//#endif
-				const std::vector< std::pair<int,double> >& rowMasters= m_slaveDofToMasterDofAndFactors[row];
-				for( std::vector< std::pair<int,double> >::const_iterator itrRow = rowMasters.begin(); itrRow != rowMasters.end(); ++itrRow ){
-					const int rowMod = m_IDsAfterDegenerated2AfterConstrained[itrRow->first];
-					const std::complex<double> valMod = val * std::complex<double>(itrRow->second, 0.0);
-					if( col == Forward3DNonConformingHexaElement0thOrder::DIRICHLET_BOUNDARY_NONZERO_VALUE ){
-						// Add to right hand side vector
-						matrix.addRightHandSideVector( rowMod, -valMod * m_globalID2NonZeroValues[ m_IDsLocal2Global[elemID][iEdge2] ] );
-					}else{
-						// Add to right hand side vector corresponding to MPC constants
-						matrix.addRightHandSideVector( rowMod, valMod * m_vectorMPCConstants[col] );
-						const std::vector< std::pair<int,double> >& colMasters= m_slaveDofToMasterDofAndFactors[col];
-						for( std::vector< std::pair<int,double> >::const_iterator itrCol = colMasters.begin(); itrCol != colMasters.end(); ++itrCol ){
-							const int colMod = m_IDsAfterDegenerated2AfterConstrained[itrCol->first];
-							const std::complex<double> valModMod = valMod * std::complex<double>(itrCol->second, 0.0);
-							if( colMod >= rowMod ){// Store only upper triangle part
-								const int loc = matrix.checkAndGetLocationNonZeroValue( rowMod, colMod );
-								matrix.addNonZeroValuesWithoutSearchingLocation( loc, valModMod );// Add to matrix
-							}
-						}
-					}
-				}
-			}// iEdge2
-		}// iEdge1		
-	}
-
-#ifdef _DEBUG_WRITE
-	std::cout << "matrix" << std::endl;
-	matrix.debugWriteMatrix();
-	matrix.debugWriteRightHandSide();
-#endif
-
-//#ifdef _DEBUG_WRITE
-//	matrixTemp.transformationByConstraintMatrix( m_numOfEquationDegeneratedAndConstrained, m_transposedConstraintMatrix );
-//	matrixTemp.convertToCRSFormat();
-//	std::cout << "matrixTemp" << std::endl;
-//	matrixTemp.debugWriteMatrix();
-//	matrixTemp.debugWriteRightHandSide();
-//#endif
-
-}
-
-// Calculate vector x of the reciprocity algorithm of Rodi (1976)
-void Forward3DNonConformingHexaElement0thOrder::calVectorXOfReciprocityAlgorithm( const std::complex<double>* const vecIn, const int blkID, std::complex<double>* const vecOut, std::vector<int>& nonZeroRows ){
-
-	const ResistivityBlock* const pResistivityBlock = ResistivityBlock::getInstance();
-
-	if( pResistivityBlock->isFixedResistivityValue(blkID) ){
-		return;
-	}
-
-	const int iPol = getPolarizationCurrent();
-	const double freq = getFrequencyCurrent();
-	const double ln10 = 2.30258509299405;
-	const double omega = 2.0 * CommonParameters::PI * freq;//Angular frequency
-
-	const std::vector< std::pair<int,double> >& mdl2Elem = pResistivityBlock->getBlockID2Elements(blkID);
-	const int nElem = static_cast<int>( mdl2Elem.size() );
-
-	for( int iElem = 0; iElem < nElem; ++iElem ){
-		// [Attention] : You must use elemID instead of iElem from this line
-		const int elemID = mdl2Elem[iElem].first;
-
-//----- debug >>>>>
-#ifdef _DEBUG_WRITE
-		std::cout << "blkID iElem elemID = " << blkID << " " << iElem << " " << elemID << std::endl;
-#endif
-//----- debug <<<<<
-
-		//--- Calculate omega * mu * sigma
-		const double sigma = pResistivityBlock->getConductivityValuesFromElemID(elemID);
-		const double factor1 = 0.0;
-		const std::complex<double> factor2 = std::complex<double>(0.0, - omega * CommonParameters::mu * sigma * ln10 * mdl2Elem[iElem].second);// exp(-i*omega*t) form
-		double length[12];
-		for( int i = 0; i < 12; ++i ){
-			length[i] = m_MeshDataNonConformingHexaElement.calcEdgeLengthFromElementAndEdge( elemID, i );
-		}
-		for( int iEdge1 = 0; iEdge1 < 12; ++iEdge1 ){
-			const int row = m_IDsGlobal2AfterDegenerated[iPol][ m_IDsLocal2Global[elemID][iEdge1] ];
-			if( row < 0 ){
-				continue;
-			}
-			for( int iEdge2 = 0; iEdge2 < 12; ++iEdge2 ){
-				const int col = m_IDsGlobal2AfterDegenerated[iPol][ m_IDsLocal2Global[elemID][iEdge2] ];
-				if( col <= Forward3DNonConformingHexaElement0thOrder::DIRICHLET_BOUNDARY_ZERO_VALUE ){
-					continue;
-				}
-				double integral1 = 0.0;
-				double integral2 = 0.0;
-				for( int ip = 0; ip < m_numIntegralPoints; ++ip ){
-					const double xi = m_integralPointXi[ip];
-					const double eta = m_integralPointEta[ip];
-					const double zeta = m_integralPointZeta[ip];
-					Forward3D::Matrix3x3 JacobMat;
-					const double detJacob = calcJacobianMatrix( elemID, xi, eta, zeta, JacobMat );
-					Forward3D::Matrix3x3 invJacobMat;
-					calcInverseOfJacobianMatrix( JacobMat, detJacob, invJacobMat );
-					integral1 += ( getShapeFuncRotatedX( xi, eta, zeta, iEdge1, invJacobMat )
-						         * getShapeFuncRotatedX( xi, eta, zeta, iEdge2, invJacobMat )
-								 + getShapeFuncRotatedY( xi, eta, zeta, iEdge1, invJacobMat ) 
-						         * getShapeFuncRotatedY( xi, eta, zeta, iEdge2, invJacobMat )
-								 + getShapeFuncRotatedZ( xi, eta, zeta, iEdge1, invJacobMat ) 
-						         * getShapeFuncRotatedZ( xi, eta, zeta, iEdge2, invJacobMat ) )
-							     * detJacob * m_weights[ip];
-					integral2 += ( getShapeFuncX( xi, eta, zeta, iEdge1, invJacobMat )
-						         * getShapeFuncX( xi, eta, zeta, iEdge2, invJacobMat )
-						         + getShapeFuncY( xi, eta, zeta, iEdge1, invJacobMat )
-								 * getShapeFuncY( xi, eta, zeta, iEdge2, invJacobMat )
-						         + getShapeFuncZ( xi, eta, zeta, iEdge1, invJacobMat )
-								 * getShapeFuncZ( xi, eta, zeta, iEdge2, invJacobMat ) )
-								 * detJacob * m_weights[ip];
-				}
-				integral1 *= length[iEdge1] * length[iEdge2];
-				integral2 *= length[iEdge1] * length[iEdge2];
-				const std::complex<double> val = std::complex<double>( integral1 * factor1 , 0.0 ) - std::complex<double>( integral2, 0.0 ) * factor2;// exp(-i*omega*t) form
-//#ifdef _DEBUG_WRITE
-//				if( col == Forward3DNonConformingHexaElement0thOrder::DIRICHLET_BOUNDARY_NONZERO_VALUE ){
-//					matrixTemp.addRightHandSideVector( row, -val * m_globalID2NonZeroValues[ m_IDsLocal2Global[elemID][iEdge2] ] );// Add to right hand side vector
-//				}else if( col >= row ){// Store only upper triangle part
-//					matrixTemp.setStructureAndAddValueByTripletFormat( row, col, val );// Add to matrix
-//				}
-//#endif
-				const std::vector< std::pair<int,double> >& rowMasters= m_slaveDofToMasterDofAndFactors[row];
-				for( std::vector< std::pair<int,double> >::const_iterator itrRow = rowMasters.begin(); itrRow != rowMasters.end(); ++itrRow ){
-					const int rowMod = m_IDsAfterDegenerated2AfterConstrained[itrRow->first];
-					const std::complex<double> valMod = val * std::complex<double>(itrRow->second, 0.0);
-					if( col == Forward3DNonConformingHexaElement0thOrder::DIRICHLET_BOUNDARY_NONZERO_VALUE ){
-						nonZeroRows.push_back(rowMod);
-						// Add to right hand side vector
-						vecOut[rowMod] -= valMod * m_globalID2NonZeroValues[ m_IDsLocal2Global[elemID][iEdge2] ];
-					}else{
-						nonZeroRows.push_back(rowMod);
-						// Add to right hand side vector corresponding to MPC constants
-						vecOut[rowMod] += valMod * m_vectorMPCConstants[col];
-						const std::vector< std::pair<int,double> >& colMasters= m_slaveDofToMasterDofAndFactors[col];
-						for( std::vector< std::pair<int,double> >::const_iterator itrCol = colMasters.begin(); itrCol != colMasters.end(); ++itrCol ){
-							const int colMod = m_IDsAfterDegenerated2AfterConstrained[itrCol->first];
-							const std::complex<double> valModMod = valMod * std::complex<double>(itrCol->second, 0.0);
-							vecOut[rowMod] -= valModMod * vecIn[colMod];
-						}
-					}
-				}
-			}// iEdge2
-		}// iEdge1		
-	}
-
-	std::sort(nonZeroRows.begin(), nonZeroRows.end());
-	nonZeroRows.erase( std::unique( nonZeroRows.begin(), nonZeroRows.end() ), nonZeroRows.end() );
 
 }
 
@@ -1295,14 +1079,13 @@ void Forward3DNonConformingHexaElement0thOrder::calcArrayConvertLocalID2Global()
 
 	// Allocate memory to m_IDsLocal2Global ---
 	if( m_IDsLocal2Global != NULL ){
-		const int nElem = sizeof( m_IDsLocal2Global ) / sizeof( m_IDsLocal2Global[0] );
-		for( int iElem = 0; iElem < nElem; ++iElem ){
-			delete [] m_IDsLocal2Global[iElem];
+		for( int i = 0; i < m_sizeOfIDsLocal2Global; ++i ){
+			delete [] m_IDsLocal2Global[i];
 		}
 		delete [] m_IDsLocal2Global;
-		m_IDsLocal2Global = NULL;
 	}
 	m_IDsLocal2Global = new int*[nElem]; 
+	m_sizeOfIDsLocal2Global = nElem;
 	for( int iElem = 0; iElem < nElem; ++iElem ){
 		m_IDsLocal2Global[iElem] = new int[12];
 	}
@@ -1621,21 +1404,31 @@ void Forward3DNonConformingHexaElement0thOrder::makeMapSlaveDofToMasterDofAndFac
 					// Slave dofs on interior edges of the face
 					addMasterDofAndFactorPair( dofSlaves[0][3], dofMaster[2], 0.5 );
 				}else{
-					// In this case, MPC constants are calcunated in calcMPCConstants
+					// In this case, MPC constants are calculated in calcMPCConstants
 				}
 				if( dofMaster[3] >= 0 ){
 					// Slave dofs on interior edges of the face
 					addMasterDofAndFactorPair( dofSlaves[0][3], dofMaster[3], 0.5 );
 				}else{
-					// In this case, MPC constants are calcunated in calcMPCConstants
+					// In this case, MPC constants are calculated in calcMPCConstants
 				}
 				// Slave dofs on outer edges of the face
-				m_IDsAfterDegenerated2AfterConstrained[ dofSlaves[0][0] ] = Forward3DNonConformingHexaElement0thOrder::SLAVE_ON_OUTER_EDGES;
-				m_IDsAfterDegenerated2AfterConstrained[ dofSlaves[1][0] ] = Forward3DNonConformingHexaElement0thOrder::SLAVE_ON_OUTER_EDGES;
-				m_IDsAfterDegenerated2AfterConstrained[ dofSlaves[0][1] ] = Forward3DNonConformingHexaElement0thOrder::SLAVE_ON_OUTER_EDGES;
-				m_IDsAfterDegenerated2AfterConstrained[ dofSlaves[1][1] ] = Forward3DNonConformingHexaElement0thOrder::SLAVE_ON_OUTER_EDGES;
+				if (dofSlaves[0][0] >= 0) {
+					m_IDsAfterDegenerated2AfterConstrained[dofSlaves[0][0]] = Forward3DNonConformingHexaElement0thOrder::SLAVE_ON_OUTER_EDGES;
+				}
+				if (dofSlaves[1][0] >= 0) {
+					m_IDsAfterDegenerated2AfterConstrained[dofSlaves[1][0]] = Forward3DNonConformingHexaElement0thOrder::SLAVE_ON_OUTER_EDGES;
+				}
+				if (dofSlaves[0][1] >= 0) {
+					m_IDsAfterDegenerated2AfterConstrained[dofSlaves[0][1]] = Forward3DNonConformingHexaElement0thOrder::SLAVE_ON_OUTER_EDGES;
+				}
+				if (dofSlaves[1][1] >= 0) {
+					m_IDsAfterDegenerated2AfterConstrained[dofSlaves[1][1]] = Forward3DNonConformingHexaElement0thOrder::SLAVE_ON_OUTER_EDGES;
+				}
 				// Slave dofs on interior edges of the face
-				m_IDsAfterDegenerated2AfterConstrained[ dofSlaves[0][3] ] = Forward3DNonConformingHexaElement0thOrder::SLAVE_ON_INTERIOR_EDGES;
+				if (dofSlaves[0][3] >= 0) {
+					m_IDsAfterDegenerated2AfterConstrained[dofSlaves[0][3]] = Forward3DNonConformingHexaElement0thOrder::SLAVE_ON_INTERIOR_EDGES;
+				}
 			}else if( numNeibElements == 4 ){
 				// Dofs of slave edges
 				int dofSlaves[4][4] = { { -1, -1, -1, -1 }, { -1, -1, -1, -1 }, { -1, -1, -1, -1 }, { -1, -1, -1, -1 } };
@@ -1658,7 +1451,7 @@ void Forward3DNonConformingHexaElement0thOrder::makeMapSlaveDofToMasterDofAndFac
 					addMasterDofAndFactorPair( dofSlaves[0][1], dofMaster[0], 0.5 );
 					addMasterDofAndFactorPair( dofSlaves[1][1], dofMaster[0], 0.5 );
 				}else{
-					// In this case, MPC constants are calcunated in calcMPCConstants
+					// In this case, MPC constants are calculated in calcMPCConstants
 				}
 				if( dofMaster[1] >= 0 ){
 					// Slave dofs on outer edges of the face
@@ -1668,7 +1461,7 @@ void Forward3DNonConformingHexaElement0thOrder::makeMapSlaveDofToMasterDofAndFac
 					addMasterDofAndFactorPair( dofSlaves[0][1], dofMaster[1], 0.5 );
 					addMasterDofAndFactorPair( dofSlaves[1][1], dofMaster[1], 0.5 );
 				}else{
-					// In this case, MPC constants are calcunated in calcMPCConstants
+					// In this case, MPC constants are calculated in calcMPCConstants
 				}
 				if( dofMaster[2] >= 0 ){
 					// Slave dofs on outer edges of the face
@@ -1678,7 +1471,7 @@ void Forward3DNonConformingHexaElement0thOrder::makeMapSlaveDofToMasterDofAndFac
 					addMasterDofAndFactorPair( dofSlaves[0][3], dofMaster[2], 0.5 );
 					addMasterDofAndFactorPair( dofSlaves[2][3], dofMaster[2], 0.5 );
 				}else{
-					// In this case, MPC constants are calcunated in calcMPCConstants
+					// In this case, MPC constants are calculated in calcMPCConstants
 				}
 				if( dofMaster[3] >= 0 ){
 					// Slave dofs on outer edges of the face
@@ -1688,22 +1481,46 @@ void Forward3DNonConformingHexaElement0thOrder::makeMapSlaveDofToMasterDofAndFac
 					addMasterDofAndFactorPair( dofSlaves[0][3], dofMaster[3], 0.5 );
 					addMasterDofAndFactorPair( dofSlaves[2][3], dofMaster[3], 0.5 );
 				}else{
-					// In this case, MPC constants are calcunated in calcMPCConstants
+					// In this case, MPC constants are calculated in calcMPCConstants
 				}
 				// Slave dofs on outer edges of the face
-				m_IDsAfterDegenerated2AfterConstrained[ dofSlaves[0][0] ] = Forward3DNonConformingHexaElement0thOrder::SLAVE_ON_OUTER_EDGES;
-				m_IDsAfterDegenerated2AfterConstrained[ dofSlaves[1][0] ] = Forward3DNonConformingHexaElement0thOrder::SLAVE_ON_OUTER_EDGES;
-				m_IDsAfterDegenerated2AfterConstrained[ dofSlaves[2][1] ] = Forward3DNonConformingHexaElement0thOrder::SLAVE_ON_OUTER_EDGES;
-				m_IDsAfterDegenerated2AfterConstrained[ dofSlaves[3][1] ] = Forward3DNonConformingHexaElement0thOrder::SLAVE_ON_OUTER_EDGES;
-				m_IDsAfterDegenerated2AfterConstrained[ dofSlaves[0][2] ] = Forward3DNonConformingHexaElement0thOrder::SLAVE_ON_OUTER_EDGES;
-				m_IDsAfterDegenerated2AfterConstrained[ dofSlaves[2][2] ] = Forward3DNonConformingHexaElement0thOrder::SLAVE_ON_OUTER_EDGES;
-				m_IDsAfterDegenerated2AfterConstrained[ dofSlaves[1][3] ] = Forward3DNonConformingHexaElement0thOrder::SLAVE_ON_OUTER_EDGES;
-				m_IDsAfterDegenerated2AfterConstrained[ dofSlaves[3][3] ] = Forward3DNonConformingHexaElement0thOrder::SLAVE_ON_OUTER_EDGES;
+				if (dofSlaves[0][0] >= 0) {
+					m_IDsAfterDegenerated2AfterConstrained[dofSlaves[0][0]] = Forward3DNonConformingHexaElement0thOrder::SLAVE_ON_OUTER_EDGES;
+				}
+				if (dofSlaves[1][0] >= 0) {
+					m_IDsAfterDegenerated2AfterConstrained[dofSlaves[1][0]] = Forward3DNonConformingHexaElement0thOrder::SLAVE_ON_OUTER_EDGES;
+				}
+				if (dofSlaves[2][1] >= 0) {
+					m_IDsAfterDegenerated2AfterConstrained[dofSlaves[2][1]] = Forward3DNonConformingHexaElement0thOrder::SLAVE_ON_OUTER_EDGES;
+				}
+				if (dofSlaves[3][1] >= 0) {
+					m_IDsAfterDegenerated2AfterConstrained[dofSlaves[3][1]] = Forward3DNonConformingHexaElement0thOrder::SLAVE_ON_OUTER_EDGES;
+				}
+				if (dofSlaves[0][2] >= 0) {
+					m_IDsAfterDegenerated2AfterConstrained[dofSlaves[0][2]] = Forward3DNonConformingHexaElement0thOrder::SLAVE_ON_OUTER_EDGES;
+				}
+				if (dofSlaves[2][2] >= 0) {
+					m_IDsAfterDegenerated2AfterConstrained[dofSlaves[2][2]] = Forward3DNonConformingHexaElement0thOrder::SLAVE_ON_OUTER_EDGES;
+				}
+				if (dofSlaves[1][3] >= 0) {
+					m_IDsAfterDegenerated2AfterConstrained[dofSlaves[1][3]] = Forward3DNonConformingHexaElement0thOrder::SLAVE_ON_OUTER_EDGES;
+				}
+				if (dofSlaves[3][3] >= 0) {
+					m_IDsAfterDegenerated2AfterConstrained[dofSlaves[3][3]] = Forward3DNonConformingHexaElement0thOrder::SLAVE_ON_OUTER_EDGES;
+				}
 				// Slave dofs on interior edges of the face
-				m_IDsAfterDegenerated2AfterConstrained[ dofSlaves[0][1] ] = Forward3DNonConformingHexaElement0thOrder::SLAVE_ON_INTERIOR_EDGES;
-				m_IDsAfterDegenerated2AfterConstrained[ dofSlaves[1][1] ] = Forward3DNonConformingHexaElement0thOrder::SLAVE_ON_INTERIOR_EDGES;
-				m_IDsAfterDegenerated2AfterConstrained[ dofSlaves[0][3] ] = Forward3DNonConformingHexaElement0thOrder::SLAVE_ON_INTERIOR_EDGES;
-				m_IDsAfterDegenerated2AfterConstrained[ dofSlaves[2][3] ] = Forward3DNonConformingHexaElement0thOrder::SLAVE_ON_INTERIOR_EDGES;
+				if (dofSlaves[0][1] >= 0) {
+					m_IDsAfterDegenerated2AfterConstrained[dofSlaves[0][1]] = Forward3DNonConformingHexaElement0thOrder::SLAVE_ON_INTERIOR_EDGES;
+				}
+				if (dofSlaves[1][1] >= 0) {
+					m_IDsAfterDegenerated2AfterConstrained[dofSlaves[1][1]] = Forward3DNonConformingHexaElement0thOrder::SLAVE_ON_INTERIOR_EDGES;
+				}
+				if (dofSlaves[0][3] >= 0) {
+					m_IDsAfterDegenerated2AfterConstrained[dofSlaves[0][3]] = Forward3DNonConformingHexaElement0thOrder::SLAVE_ON_INTERIOR_EDGES;
+				}
+				if (dofSlaves[2][3] >= 0) {
+					m_IDsAfterDegenerated2AfterConstrained[dofSlaves[2][3]] = Forward3DNonConformingHexaElement0thOrder::SLAVE_ON_INTERIOR_EDGES;
+				}
 			}else{
 				OutputFiles::m_logFile << "Error : Number of neighbor elements is wrong :  " << numNeibElements << std::endl;
 				exit(1);
@@ -1862,7 +1679,7 @@ void Forward3DNonConformingHexaElement0thOrder::calcMPCConstants(){
 
 }
 
-// Add master dof and factor pair to m_slaveDofToMasterDofAndFactors
+// Calculate flag specifing whether integral X component first
 bool Forward3DNonConformingHexaElement0thOrder::doesIntegralXCompFirst( const CommonParameters::locationXY& startPoint, const CommonParameters::locationXY& endPoint,
 	bool& rotationDirectionPlus, CommonParameters::locationXY& sharedPoint ) const{
 
@@ -1921,28 +1738,10 @@ bool Forward3DNonConformingHexaElement0thOrder::doesIntegralXCompFirst( const Co
 // Add master dof and factor pair to m_slaveDofToMasterDofAndFactors
 void Forward3DNonConformingHexaElement0thOrder::addMasterDofAndFactorPair( const int slaveDof, const int masterDof, const double factor  ){
 
-	//std::map< int, std::vector< std::pair<int,double> > >::iterator itr = m_slaveDofToMasterDofAndFactors.find(slaveDof);
-	//if( itr == m_slaveDofToMasterDofAndFactors.end() ){
-	//	// Pair has not been inserted
-	//	std::pair<int,double> pair = std::make_pair( masterDof, factor );
-	//	std::vector< std::pair<int,double> >  vec;
-	//	vec.push_back(pair);
-	//	m_slaveDofToMasterDofAndFactors.insert( std::make_pair( slaveDof, vec ) );
-	//}else{
-	//	// Pair has already been inserted
-	//	std::vector< std::pair<int,double> >& vec = itr->second;
-	//	bool found(false);
-	//	for( std::vector< std::pair<int,double> >::iterator itrVec = vec.begin(); itrVec != vec.end(); ++itrVec ){
-	//		if(itrVec->first == masterDof){
-	//			found = true;
-	//			break;
-	//		}
-	//	}
-	//	if( !found ){
-	//		// Insert only if the master has not been found
-	//		itr->second.push_back( std::make_pair( masterDof, factor ) );
-	//	}
-	//}
+	if (slaveDof < 0) {
+		return;
+	}
+
 	std::vector< std::pair<int,double> >& vec = m_slaveDofToMasterDofAndFactors[slaveDof];;
 	bool found(false);
 	for( std::vector< std::pair<int,double> >::iterator itrVec = vec.begin(); itrVec != vec.end(); ++itrVec ){
@@ -2161,7 +1960,7 @@ double Forward3DNonConformingHexaElement0thOrder::getShapeFuncRotatedZ( const do
 	return tmp1 + tmp2;
 }
 
-// Calculate jacobian matrix of the elements
+// Get 2D shape functions rotated for the Earth's surface
 double Forward3DNonConformingHexaElement0thOrder::get2DShapeFuncRotatedForEarthSurface( const double xi, const double eta, const int num, const Forward3D::Matrix2x2& invJacobMat ) const{
 
 	// Array of reference coord xi values for each edge
@@ -2315,22 +2114,15 @@ void Forward3DNonConformingHexaElement0thOrder::outputResultToVTK() const{
 	}
 
 	if( pAnalysisControl->doesOutputToVTK( AnalysisControl::OUTPUT_CURRENT_DENSITY ) ){// Output corrent density
-		const ResistivityBlock* pResistivityBlock = ResistivityBlock::getInstance();
-		OutputFiles::m_vtkFile << "VECTORS Re(j)_" << freq <<"(Hz)_" << stringPolarization << " float" <<  std::endl;
-		for( int iElem = 0 ; iElem < nElem; ++iElem ){
-			const double sigma = pResistivityBlock->getConductivityValuesFromElemID(iElem);
-			const float jx = static_cast<float>( sigma * real( calcValueElectricFieldXDirection( iElem, 0.0, 0.0, 0.0 ) ) );
-			const float jy = static_cast<float>( sigma * real( calcValueElectricFieldYDirection( iElem, 0.0, 0.0, 0.0 ) ) );
-			const float jz = static_cast<float>( sigma * real( calcValueElectricFieldZDirection( iElem, 0.0, 0.0, 0.0 ) ) );
-			OutputFiles::m_vtkFile << jx << " " << jy << " " << jz << std::endl;
+		OutputFiles::m_vtkFile << "VECTORS Re(j)_" << freq << "(Hz)_" << stringPolarization << " float" << std::endl;
+		for (int iElem = 0; iElem < nElem; ++iElem) {
+			const CommonParameters::ComplexValuedVector correntDensity = calculateElectricCurrentDensityVector(iElem);
+			OutputFiles::m_vtkFile << static_cast<float>(real(correntDensity.X)) << " "	<< static_cast<float>(real(correntDensity.Y)) << " " << static_cast<float>(real(correntDensity.Z)) << std::endl;
 		}
-		OutputFiles::m_vtkFile << "VECTORS Im(j)_" << freq <<"(Hz)_" << stringPolarization << " float" <<  std::endl;
-		for( int iElem = 0 ; iElem < nElem; ++iElem ){
-			const double sigma = pResistivityBlock->getConductivityValuesFromElemID(iElem);
-			const float jx = static_cast<float>( sigma * imag( calcValueElectricFieldXDirection( iElem, 0.0, 0.0, 0.0 ) ) );
-			const float jy = static_cast<float>( sigma * imag( calcValueElectricFieldYDirection( iElem, 0.0, 0.0, 0.0 ) ) );
-			const float jz = static_cast<float>( sigma * imag( calcValueElectricFieldZDirection( iElem, 0.0, 0.0, 0.0 ) ) );
-			OutputFiles::m_vtkFile << jx << " " << jy << " " << jz << std::endl;
+		OutputFiles::m_vtkFile << "VECTORS Im(j)_" << freq << "(Hz)_" << stringPolarization << " float" << std::endl;
+		for (int iElem = 0; iElem < nElem; ++iElem) {
+			const CommonParameters::ComplexValuedVector correntDensity = calculateElectricCurrentDensityVector(iElem);
+			OutputFiles::m_vtkFile << static_cast<float>(imag(correntDensity.X)) << " "	<< static_cast<float>(imag(correntDensity.Y)) << " " << static_cast<float>(imag(correntDensity.Z)) << std::endl;
 		}
 	}
 
@@ -2443,7 +2235,6 @@ void Forward3DNonConformingHexaElement0thOrder::outputResultToBinary( const int 
 
 	if( pAnalysisControl->doesOutputToVTK( AnalysisControl::OUTPUT_MAGNETIC_FIELD_VECTORS_TO_VTK ) ){
 		// Output imaginary part of magnetic field vector
-		const ResistivityBlock* const pResistivityBlock = ResistivityBlock::getInstance();
 		std::ostringstream oss;
 		oss << "ImH_Freq" << iFreq << "_" << stringPolarization << ".iter" << pAnalysisControl->getIterationNumCurrent();
 		std::ofstream fout;
@@ -2476,7 +2267,6 @@ void Forward3DNonConformingHexaElement0thOrder::outputResultToBinary( const int 
 
 	if( pAnalysisControl->doesOutputToVTK( AnalysisControl::OUTPUT_CURRENT_DENSITY ) ){
 		// Output real part of corrent density
-		const ResistivityBlock* const pResistivityBlock = ResistivityBlock::getInstance();
 		std::ostringstream oss;
 		oss << "Rej_Freq" << iFreq << "_" << stringPolarization << ".iter" << pAnalysisControl->getIterationNumCurrent();
 		std::ofstream fout;
@@ -2493,18 +2283,18 @@ void Forward3DNonConformingHexaElement0thOrder::outputResultToBinary( const int 
 		strcpy( line, "hexa8" );
 		fout.write( line, 80 );
 		for( int iElem = 0 ; iElem < nElem; ++iElem ){
-			const double sigma = pResistivityBlock->getConductivityValuesFromElemID(iElem);
-			float jx = static_cast<float>( sigma * real( calcValueElectricFieldXDirection( iElem, 0.0, 0.0, 0.0 ) ) );
+			CommonParameters::ComplexValuedVector current = calculateElectricCurrentDensityVector(iElem);
+			float jx = static_cast<float>(real(current.X));
 			fout.write( (char*) &jx, sizeof( float ) );
 		}
 		for( int iElem = 0 ; iElem < nElem; ++iElem ){
-			const double sigma = pResistivityBlock->getConductivityValuesFromElemID(iElem);
-			float jy = static_cast<float>( sigma * real( calcValueElectricFieldYDirection( iElem, 0.0, 0.0, 0.0 ) ) );
+			CommonParameters::ComplexValuedVector current = calculateElectricCurrentDensityVector(iElem);
+			float jy = static_cast<float>(real(current.Y));
 			fout.write( (char*) &jy, sizeof( float ) );
 		}
 		for( int iElem = 0 ; iElem < nElem; ++iElem ){
-			const double sigma = pResistivityBlock->getConductivityValuesFromElemID(iElem);
-			float jz = static_cast<float>( sigma * real( calcValueElectricFieldZDirection( iElem, 0.0, 0.0, 0.0 ) ) );
+			CommonParameters::ComplexValuedVector current = calculateElectricCurrentDensityVector(iElem);
+			float jz = static_cast<float>(real(current.Z));
 			fout.write( (char*) &jz, sizeof( float ) );
 		}
 		fout.close();
@@ -2512,7 +2302,6 @@ void Forward3DNonConformingHexaElement0thOrder::outputResultToBinary( const int 
 
 	if( pAnalysisControl->doesOutputToVTK( AnalysisControl::OUTPUT_CURRENT_DENSITY ) ){
 		// Output imaginary part of corrent density
-		const ResistivityBlock* const pResistivityBlock = ResistivityBlock::getInstance();
 		std::ostringstream oss;
 		oss << "Imj_Freq" << iFreq << "_" << stringPolarization << ".iter" << pAnalysisControl->getIterationNumCurrent();
 		std::ofstream fout;
@@ -2529,18 +2318,18 @@ void Forward3DNonConformingHexaElement0thOrder::outputResultToBinary( const int 
 		strcpy( line, "hexa8" );
 		fout.write( line, 80 );
 		for( int iElem = 0 ; iElem < nElem; ++iElem ){
-			const double sigma = pResistivityBlock->getConductivityValuesFromElemID(iElem);
-			float jx = static_cast<float>( sigma * imag( calcValueElectricFieldXDirection( iElem, 0.0, 0.0, 0.0 ) ) );
+			CommonParameters::ComplexValuedVector current = calculateElectricCurrentDensityVector(iElem);
+			float jx = static_cast<float>(imag(current.X));
 			fout.write( (char*) &jx, sizeof( float ) );
 		}
 		for( int iElem = 0 ; iElem < nElem; ++iElem ){
-			const double sigma = pResistivityBlock->getConductivityValuesFromElemID(iElem);
-			float jy = static_cast<float>( sigma * imag( calcValueElectricFieldYDirection( iElem, 0.0, 0.0, 0.0 ) ) );
+			CommonParameters::ComplexValuedVector current = calculateElectricCurrentDensityVector(iElem);
+			float jy = static_cast<float>(imag(current.Y));
 			fout.write( (char*) &jy, sizeof( float ) );
 		}
 		for( int iElem = 0 ; iElem < nElem; ++iElem ){
-			const double sigma = pResistivityBlock->getConductivityValuesFromElemID(iElem);
-			float jz = static_cast<float>( sigma * imag( calcValueElectricFieldZDirection( iElem, 0.0, 0.0, 0.0 ) ) );
+			CommonParameters::ComplexValuedVector current = calculateElectricCurrentDensityVector(iElem);
+			float jz = static_cast<float>(imag(current.Z));
 			fout.write( (char*) &jz, sizeof( float ) );
 		}
 		fout.close();
@@ -2559,91 +2348,3 @@ void Forward3DNonConformingHexaElement0thOrder::addValuesToRhsVectorsByConsideri
 	}
 
 }
-
-//// Make pair of master dof and factor for a slave dof
-//void Forward3DNonConformingHexaElement0thOrder::makePairOfMasterDofAndFactorForASlaveDof( const int slaveDofAfterDegenerated, std::vector< std::pair<int,double> >& masterDofAndFactorsAfterDegenerated ) const{
-//
-//	std::map< int, std::vector< std::pair<int,double> > > masterDofBeforeDegeneratedAndFactorsAll;
-//
-//	const int slaveDofBeforeDegenerated = getDofBeforeDegenerationFromDofAfterDegeneration(slaveDofAfterDegenerated);
-//
-//	std::vector< std::pair<int,double> >& masterDofBeforeDegeneratedAndFactors = masterDofBeforeDegeneratedAndFactorsAll[slaveDofBeforeDegenerated];
-//	if( static_cast<int>( masterDofBeforeDegeneratedAndFactors.size() ) == 0 ){
-//		// This dof is master 
-//		masterDofAndFactorsAfterDegenerated.push_back( std::make_pair(slaveDofAfterDegenerated, 1.0) );
-//		return;
-//	}
-//
-//	// This dof depends on some master dofs
-//	std::vector< std::pair<int,double> > masterDofAndFactorsBeforeDegenerated;
-//	//for( std::vector< std::pair<int,double> >::const_iterator itr = masterDofBeforeDegeneratedAndFactors.begin(); itr != masterDofBeforeDegeneratedAndFactors.end(); ++itr ){
-//	//	const int masterDofBeforeDegenerated = itr->first;
-//	//	const double factor = itr->second;
-//	//	masterDofAndFactorsBeforeDegenerated.push_back( std::make_pair(masterDofBeforeDegenerated, factor) );
-//	//}
-//	masterDofAndFactorsBeforeDegenerated.push_back( std::make_pair(slaveDofBeforeDegenerated, 1.0) );
-//
-//	bool found(true);
-//	while (found){
-//		found = false;		
-//		for( std::vector< std::pair<int,double> >::iterator itr = masterDofAndFactorsBeforeDegenerated.begin(); itr != masterDofAndFactorsBeforeDegenerated.end(); ++itr ){
-//			const int masterDofBeforeDegeneratedOrg = itr->first;
-//			std::vector< std::pair<int,double> > masterDofAndFactorsBeforeDegeneratedAux;
-//			makePairOfMasterDofAndFactorForASlaveDofAux( masterDofBeforeDegeneratedOrg, masterDofAndFactorsBeforeDegeneratedAux );
-//			if( static_cast<int>( masterDofAndFactorsBeforeDegeneratedAux.size() ) == 0 ){
-//				// The dof does not has masters
-//				continue;
-//			}
-//			// The dofhas masters
-//			found = true;
-//			const double factorOrg = itr->second;
-//			std::vector< std::pair<int,double> >::const_iterator itrSub = masterDofAndFactorsBeforeDegeneratedAux.begin();
-//			itr->first = itrSub->first;// Replace dof
-//			itr->second = factorOrg * itrSub->second;// Replace factor
-//			for( ; itrSub != masterDofAndFactorsBeforeDegeneratedAux.end(); ++itrSub ){
-//				const int masterDofBeforeDegenerated = itrSub->first;
-//				const double factor = factorOrg * itrSub->second;
-//				masterDofAndFactorsBeforeDegenerated.push_back( std::make_pair(masterDofBeforeDegenerated, factor) );
-//			}
-//		}
-//	}
-//
-//	const int iPol = CommonParameters::EX_POLARIZATION;// Constraint matrix does not depend on the type of polarization
-//	for( std::vector< std::pair<int,double> >::const_iterator itr = masterDofAndFactorsBeforeDegenerated.begin(); itr != masterDofAndFactorsBeforeDegenerated.end(); ++itr ){
-//		const int dofBeforeDegenerated = itr->first;
-//		const double factor = itr->second;
-//		//std::map<int,int>::const_iterator itrBeforeToAfter = arrayDofBeforeDegeneratedToAfterDegenerated.find(dofBeforeDegenerated);
-//		//if( itrBeforeToAfter == arrayDofBeforeDegeneratedToAfterDegenerated.end() ){
-//		//	OutputFiles::m_logFile << "Error : Key " << dofBeforeDegenerated << " is not found in arrayDofBeforeDegeneratedToAfterDegenerated." << std::endl;
-//		//	exit(1);
-//		//}
-//		//masterDofAndFactorsAfterDegenerated.push_back( std::make_pair( itrBeforeToAfter->second, factor ) );
-//		const int dofAfterDegenerated = m_IDsGlobal2AfterDegenerated[iPol][dofBeforeDegenerated];
-//		masterDofAndFactorsAfterDegenerated.push_back( std::make_pair( dofAfterDegenerated, factor ) );
-//	}
-//
-//}
-//
-//void Forward3DNonConformingHexaElement0thOrder::makePairOfMasterDofAndFactorForASlaveDofAux( const int slaveDofBeforeDegenerated, std::vector< std::pair<int,double> >& masterDofAndFactorsBeforeDegenerated ) const{
-//
-//	std::map< int, std::vector< std::pair<int,double> > > masterDofBeforeDegeneratedAndFactorsAll;
-//
-//	std::vector< std::pair<int,double> >& masterDofBeforeDegeneratedAndFactors = masterDofBeforeDegeneratedAndFactorsAll[slaveDofBeforeDegenerated];
-//	if( static_cast<int>( masterDofBeforeDegeneratedAndFactors.size() ) == 0 ){
-//		return;
-//	}
-//
-//	// This dof depends on some master dofs
-//	for( std::vector< std::pair<int,double> >::const_iterator itr = masterDofBeforeDegeneratedAndFactors.begin(); itr != masterDofBeforeDegeneratedAndFactors.end(); ++itr ){
-//		const int masterDofBeforeDegenerated = itr->first;
-//		const double factor = itr->second;
-//		masterDofAndFactorsBeforeDegenerated.push_back( std::make_pair(masterDofBeforeDegenerated, factor) );
-//	}
-//
-//}
-//
-//// Get dof before degeneration from the after degeneration
-//int Forward3DNonConformingHexaElement0thOrder::getDofBeforeDegenerationFromDofAfterDegeneration( const int dofAfterDegeneration ) const{
-//
-//
-//}

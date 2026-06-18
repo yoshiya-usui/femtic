@@ -29,6 +29,7 @@
 #include <iomanip>
 
 #include "ObservedDataStationVTF.h"
+#include "AnalysisControl.h"
 #include "OutputFiles.h"
 #include "CommonParameters.h"
 #include "ResistivityBlock.h"
@@ -226,24 +227,27 @@ void ObservedDataStationVTF::calculateVTF( const double freq, const ObservedData
 	m_TzxCalculated[freqIDThisPEInSta] = ( m_HzCalculated[0]*HyCalculated[1] - m_HzCalculated[1]*HyCalculated[0] ) / det;
 	m_TzyCalculated[freqIDThisPEInSta] = ( m_HzCalculated[1]*HxCalculated[0] - m_HzCalculated[0]*HxCalculated[1] ) / det;
 
-	m_TzxResidual[freqIDThisPEInSta].realPart = ( m_TzxObserved[freqIDGlobalInSta].real() - m_TzxCalculated[freqIDThisPEInSta].real() ) / m_TzxSD[freqIDGlobalInSta].realPart;
-	m_TzxResidual[freqIDThisPEInSta].imagPart = ( m_TzxObserved[freqIDGlobalInSta].imag() - m_TzxCalculated[freqIDThisPEInSta].imag() ) / m_TzxSD[freqIDGlobalInSta].imagPart;
-	m_TzyResidual[freqIDThisPEInSta].realPart = ( m_TzyObserved[freqIDGlobalInSta].real() - m_TzyCalculated[freqIDThisPEInSta].real() ) / m_TzySD[freqIDGlobalInSta].realPart;
-	m_TzyResidual[freqIDThisPEInSta].imagPart = ( m_TzyObserved[freqIDGlobalInSta].imag() - m_TzyCalculated[freqIDThisPEInSta].imag() ) / m_TzySD[freqIDGlobalInSta].imagPart;
+	if (m_TzxSD[freqIDGlobalInSta].realPart > 0.0){
+		m_TzxResidual[freqIDThisPEInSta].realPart = (m_TzxObserved[freqIDGlobalInSta].real() - m_TzxCalculated[freqIDThisPEInSta].real()) / m_TzxSD[freqIDGlobalInSta].realPart;
+		m_dataIDOfTzx[freqIDThisPEInSta].realPart = icount++;
+	}
+	if (m_TzxSD[freqIDGlobalInSta].imagPart > 0.0) {
+		m_TzxResidual[freqIDThisPEInSta].imagPart = (m_TzxObserved[freqIDGlobalInSta].imag() - m_TzxCalculated[freqIDThisPEInSta].imag()) / m_TzxSD[freqIDGlobalInSta].imagPart;
+		m_dataIDOfTzx[freqIDThisPEInSta].imagPart = icount++;
+	}
+	if (m_TzySD[freqIDGlobalInSta].realPart > 0.0) {
+		m_TzyResidual[freqIDThisPEInSta].realPart = (m_TzyObserved[freqIDGlobalInSta].real() - m_TzyCalculated[freqIDThisPEInSta].real()) / m_TzySD[freqIDGlobalInSta].realPart;
+		m_dataIDOfTzy[freqIDThisPEInSta].realPart = icount++;
+	}
+	if (m_TzySD[freqIDGlobalInSta].imagPart > 0.0) {
+		m_TzyResidual[freqIDThisPEInSta].imagPart = (m_TzyObserved[freqIDGlobalInSta].imag() - m_TzyCalculated[freqIDThisPEInSta].imag()) / m_TzySD[freqIDGlobalInSta].imagPart;
+		m_dataIDOfTzy[freqIDThisPEInSta].imagPart = icount++;
+	}
 
 #ifdef _DEBUG_WRITE
 	std::cout << "freqIDThisPEInSta Tzx Tzy : " << freqIDThisPEInSta << " " << m_TzxCalculated[freqIDThisPEInSta] << " " << m_TzyCalculated[freqIDThisPEInSta] << std::endl;
 #endif
 
-	// For inversion
-	//ObservedData* const ptrObservedData = ObservedData::getInstance();
-	//m_dataIDOfTzx[freqIDAmongThisPE] = ptrObservedData->incrementNumObservedDataThisPE( ifreq );
-	//m_dataIDOfTzy[freqIDAmongThisPE] = ptrObservedData->incrementNumObservedDataThisPE( ifreq );
-
-	m_dataIDOfTzx[freqIDThisPEInSta].realPart = icount++;
-	m_dataIDOfTzx[freqIDThisPEInSta].imagPart = icount++;
-	m_dataIDOfTzy[freqIDThisPEInSta].realPart = icount++;
-	m_dataIDOfTzy[freqIDThisPEInSta].imagPart = icount++;
 
 }
 
@@ -400,7 +404,7 @@ void ObservedDataStationVTF::calculateSensitivityMatrix( const double freq, cons
 
 	const long long rhsVectorIDOfHx = static_cast<long long>( ptrStationOfMagneticField->getRhsVectorIDOfHx() );
 	const long long rhsVectorIDOfHy = static_cast<long long>( ptrStationOfMagneticField->getRhsVectorIDOfHy() );
-	const long long nBlkNotFixed = static_cast<long long>( ( ResistivityBlock::getInstance() )->getNumResistivityBlockNotFixed() );
+	const long long nBlkNotFixed = static_cast<long long>((AnalysisControl::getInstance()->getPointerOfResistivityBlock())->getNumberOfUnfixedResistivityParameters());
 
 	for( long long imdl = 0; imdl < nBlkNotFixed; ++imdl ){
 
@@ -417,8 +421,12 @@ void ObservedDataStationVTF::calculateSensitivityMatrix( const double freq, cons
 		
 		const std::complex<double> workXX2	= m_HzCalculated[0]*HyCalculated[1]	- m_HzCalculated[1]*HyCalculated[0];
 
-		sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfTzx[freqIDThisPEInSta].realPart) + imdl ] = ( workXX1 * divDet - work1 * workXX2 * divDet2 ).real() / m_TzxSD[freqIDGlobalInSta].realPart;
-		sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfTzx[freqIDThisPEInSta].imagPart) + imdl ] = ( workXX1 * divDet - work1 * workXX2 * divDet2 ).imag() / m_TzxSD[freqIDGlobalInSta].imagPart;
+		if (m_TzxSD[freqIDGlobalInSta].realPart > 0.0) {
+			sensitivityMatrix[static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfTzx[freqIDThisPEInSta].realPart) + imdl] = (workXX1 * divDet - work1 * workXX2 * divDet2).real() / m_TzxSD[freqIDGlobalInSta].realPart;
+		}
+		if (m_TzxSD[freqIDGlobalInSta].imagPart > 0.0) {
+			sensitivityMatrix[static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfTzx[freqIDThisPEInSta].imagPart) + imdl] = (workXX1 * divDet - work1 * workXX2 * divDet2).imag() / m_TzxSD[freqIDGlobalInSta].imagPart;
+		}
 
 		// dTzy/dm
 		const std::complex<double> workXY1	= derivativesOfEMFieldEyPol[ nBlkNotFixed * static_cast<long long>(m_rhsVectorIDOfHz) + imdl ] *   HxCalculated[0]
@@ -428,9 +436,12 @@ void ObservedDataStationVTF::calculateSensitivityMatrix( const double freq, cons
 
 		const std::complex<double> workXY2	= m_HzCalculated[1]*HxCalculated[0]	- m_HzCalculated[0]*HxCalculated[1];
 
-		sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfTzy[freqIDThisPEInSta].realPart) + imdl ] = ( workXY1 * divDet - work1 * workXY2 * divDet2 ).real() / m_TzySD[freqIDGlobalInSta].realPart;
-		sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfTzy[freqIDThisPEInSta].imagPart) + imdl ] = ( workXY1 * divDet - work1 * workXY2 * divDet2 ).imag() / m_TzySD[freqIDGlobalInSta].imagPart;
-
+		if (m_TzySD[freqIDGlobalInSta].realPart > 0.0) {
+			sensitivityMatrix[static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfTzy[freqIDThisPEInSta].realPart) + imdl] = (workXY1 * divDet - work1 * workXY2 * divDet2).real() / m_TzySD[freqIDGlobalInSta].realPart;
+		}
+		if (m_TzySD[freqIDGlobalInSta].imagPart > 0.0) {
+			sensitivityMatrix[static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfTzy[freqIDThisPEInSta].imagPart) + imdl] = (workXY1 * divDet - work1 * workXY2 * divDet2).imag() / m_TzySD[freqIDGlobalInSta].imagPart;
+		}
 	}
 
 }
@@ -443,11 +454,18 @@ void ObservedDataStationVTF::calculateResidualVectorOfDataThisPE( const double f
 	if( freqIDThisPEInSta < 0 ){// Specified frequency is not the ones calculated by this PE in this station 
 		return;
 	}
-
-	vector[ offset + m_dataIDOfTzx[freqIDThisPEInSta].realPart ] = m_TzxResidual[freqIDThisPEInSta].realPart;
-	vector[ offset + m_dataIDOfTzx[freqIDThisPEInSta].imagPart ] = m_TzxResidual[freqIDThisPEInSta].imagPart;
-	vector[ offset + m_dataIDOfTzy[freqIDThisPEInSta].realPart ] = m_TzyResidual[freqIDThisPEInSta].realPart;
-	vector[ offset + m_dataIDOfTzy[freqIDThisPEInSta].imagPart ] = m_TzyResidual[freqIDThisPEInSta].imagPart;
+	if (m_dataIDOfTzx[freqIDThisPEInSta].realPart >= 0) {
+		vector[offset + m_dataIDOfTzx[freqIDThisPEInSta].realPart] = m_TzxResidual[freqIDThisPEInSta].realPart;
+	}
+	if (m_dataIDOfTzx[freqIDThisPEInSta].imagPart >= 0) {
+		vector[offset + m_dataIDOfTzx[freqIDThisPEInSta].imagPart] = m_TzxResidual[freqIDThisPEInSta].imagPart;
+	}
+	if (m_dataIDOfTzy[freqIDThisPEInSta].realPart >= 0) {
+		vector[offset + m_dataIDOfTzy[freqIDThisPEInSta].realPart] = m_TzyResidual[freqIDThisPEInSta].realPart;
+	}
+	if (m_dataIDOfTzy[freqIDThisPEInSta].imagPart >= 0) {
+		vector[offset + m_dataIDOfTzy[freqIDThisPEInSta].imagPart] = m_TzyResidual[freqIDThisPEInSta].imagPart;
+	}
 }
 
 // Calulate L2 norm of misfit
@@ -456,10 +474,18 @@ double ObservedDataStationVTF::calculateErrorSumOfSquaresThisPE() const{
 	double misfit(0.0);
 
 	for( int ifreq = 0; ifreq < m_numOfFreqCalculatedByThisStaAndPE; ++ifreq ){
-		misfit += pow( m_TzxResidual[ifreq].realPart , 2 );
-		misfit += pow( m_TzxResidual[ifreq].imagPart , 2 );
-		misfit += pow( m_TzyResidual[ifreq].realPart , 2 );
-		misfit += pow( m_TzyResidual[ifreq].imagPart , 2 );
+		if (m_dataIDOfTzx[ifreq].realPart >= 0) {
+			misfit += pow(m_TzxResidual[ifreq].realPart, 2);
+		}
+		if (m_dataIDOfTzx[ifreq].imagPart >= 0) {
+			misfit += pow(m_TzxResidual[ifreq].imagPart, 2);
+		}
+		if (m_dataIDOfTzy[ifreq].realPart >= 0) {
+			misfit += pow(m_TzyResidual[ifreq].realPart, 2);
+		}
+		if (m_dataIDOfTzy[ifreq].imagPart >= 0) {
+			misfit += pow(m_TzyResidual[ifreq].imagPart, 2);
+		}
 	}
 
 	return misfit;

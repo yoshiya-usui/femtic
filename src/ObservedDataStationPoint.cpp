@@ -26,7 +26,7 @@
 
 #include "ObservedDataStationPoint.h"
 #include "CommonParameters.h"
-#include "ResistivityBlock.h"
+#include "AnalysisControl.h"
 #include "OutputFiles.h"
 
 // Constructer

@@ -25,7 +25,8 @@
 #include "CommonParameters.h"
 #include "AnalysisControl.h"
 #include "OutputFiles.h"
-#include "ResistivityBlock.h"
+#include "ResistivityBlockIsotropic.h"
+#include "ResistivityBlockAnisotropic.h"
 #include <algorithm>
 #include <assert.h>
 
@@ -358,15 +359,13 @@ void Forward2DNonConformingQuadrilateralElement0thOrderEdgeBased::calcArrayConve
 
 	// Allocate memory to m_IDsLocal2Global ---
 	if( m_IDsLocal2Global != NULL ){
-		const int nElem = sizeof( m_IDsLocal2Global ) / sizeof( m_IDsLocal2Global[0] );
-		for( int iElem = 0; iElem < nElem; ++iElem ){
-			delete [] m_IDsLocal2Global[iElem];
+		for( int i = 0; i < m_sizeOfIDsLocal2Global; ++i ){
+			delete [] m_IDsLocal2Global[i];
 		}
 		delete [] m_IDsLocal2Global;
-		m_IDsLocal2Global = NULL;
 	}
-
-	m_IDsLocal2Global = new int*[nElem]; 
+	m_IDsLocal2Global = new int*[nElem];
+	m_sizeOfIDsLocal2Global = nElem;
 	for( int iElem = 0; iElem < nElem; ++iElem ){
 		m_IDsLocal2Global[iElem] = new int[4];
 	}
@@ -374,14 +373,11 @@ void Forward2DNonConformingQuadrilateralElement0thOrderEdgeBased::calcArrayConve
 
 	// Allocate memory to m_IDsLocal2GlobalDegenerated ---
 	if( m_IDsLocal2GlobalDegenerated != NULL ){
-		const int nElem = sizeof( m_IDsLocal2GlobalDegenerated ) / sizeof( m_IDsLocal2GlobalDegenerated[0] );
-		for( int iElem = 0; iElem < nElem; ++iElem ){
-			delete [] m_IDsLocal2GlobalDegenerated[iElem];
+		for (int i = 0; i < m_sizeOfIDsLocal2Global; ++i) {
+			delete [] m_IDsLocal2GlobalDegenerated[i];
 		}
 		delete [] m_IDsLocal2GlobalDegenerated;
-		m_IDsLocal2GlobalDegenerated = NULL;
 	}
-
 	m_IDsLocal2GlobalDegenerated = new int*[nElem]; 
 	for( int iElem = 0; iElem < nElem; ++iElem ){
 		m_IDsLocal2GlobalDegenerated[iElem] = new int[4];
@@ -599,10 +595,14 @@ void Forward2DNonConformingQuadrilateralElement0thOrderEdgeBased::makeMapSlaveDo
 				}
 				dofSlaves[iNeib] = m_IDsLocal2GlobalDegenerated[iElemNeib][iEdgeNeib];
 			}
-			addMasterDofAndFactorPair( dofSlaves[0], dofMaster, 1.0 );
-			addMasterDofAndFactorPair( dofSlaves[1], dofMaster, 1.0 );
-			m_IDsAfterDegenerated2AfterConstrained[dofSlaves[0]] = Forward2DNonConformingQuadrilateralElement0thOrderEdgeBased::SLAVE_DOFS;
-			m_IDsAfterDegenerated2AfterConstrained[dofSlaves[1]] = Forward2DNonConformingQuadrilateralElement0thOrderEdgeBased::SLAVE_DOFS;
+			addMasterDofAndFactorPair(dofSlaves[1], dofMaster, 1.0);
+			addMasterDofAndFactorPair(dofSlaves[0], dofMaster, 1.0);
+			if (dofSlaves[0] >= 0) {
+				m_IDsAfterDegenerated2AfterConstrained[dofSlaves[0]] = Forward2DNonConformingQuadrilateralElement0thOrderEdgeBased::SLAVE_DOFS;
+			}
+			if (dofSlaves[1] >= 0) {
+				m_IDsAfterDegenerated2AfterConstrained[dofSlaves[1]] = Forward2DNonConformingQuadrilateralElement0thOrderEdgeBased::SLAVE_DOFS;
+			}
 		}
 	}
 
@@ -880,6 +880,10 @@ void Forward2DNonConformingQuadrilateralElement0thOrderEdgeBased::calcInverseOfJ
 // Add master dof and factor pair to m_slaveDofToMasterDofAndFactors
 void Forward2DNonConformingQuadrilateralElement0thOrderEdgeBased::addMasterDofAndFactorPair( const int slaveDof, const int masterDof, const double factor  ){
 
+	if (slaveDof < 0) {
+		return;
+	}
+
 	std::vector< std::pair<int,double> >& vec = m_slaveDofToMasterDofAndFactors[slaveDof];;
 	bool found(false);
 	for( std::vector< std::pair<int,double> >::iterator itrVec = vec.begin(); itrVec != vec.end(); ++itrVec ){
@@ -936,9 +940,21 @@ void Forward2DNonConformingQuadrilateralElement0thOrderEdgeBased::setNonZeroStru
 }
 
 // Set non-zero values of matrix and right-hande side vector for forward calculation
-void Forward2DNonConformingQuadrilateralElement0thOrderEdgeBased::setNonZeroValues( const double freq, const MeshDataNonConformingHexaElement* const pMeshData ){
+void Forward2DNonConformingQuadrilateralElement0thOrderEdgeBased::setNonZeroValues(const double freq, const MeshDataNonConformingHexaElement* const pMeshData) {
 
-	const ResistivityBlock* const pResistivityBlock = ResistivityBlock::getInstance();
+	if ((AnalysisControl::getInstance())->isAnisotropyConsidered()) {
+		setNonZeroValuesForAnisotropicConductivity(freq, pMeshData);
+	}
+	else {
+		setNonZeroValuesForIsotropicConductivity(freq, pMeshData);
+	}
+
+}
+
+// Set non-zero values of matrix and right-hande side vector for isotropic conductity
+void Forward2DNonConformingQuadrilateralElement0thOrderEdgeBased::setNonZeroValuesForIsotropicConductivity(const double freq, const MeshDataNonConformingHexaElement* const pMeshData) {
+
+	const ResistivityBlockIsotropic* const pResistivityBlock = dynamic_cast<const ResistivityBlockIsotropic*>(AnalysisControl::getInstance()->getPointerOfResistivityBlock());
 	const int nElem = pMeshData->getNumElemOnBoundaryPlanes( m_planeID );
 	for( int iElem = 0; iElem < nElem; ++iElem ){
 		//--- Calculate omega * mu * sigma
@@ -996,6 +1012,87 @@ void Forward2DNonConformingQuadrilateralElement0thOrderEdgeBased::setNonZeroValu
 							const std::complex<double> valModMod = valMod * std::complex<double>(itrCol->second, 0.0);
 							if( colMod >= rowMod ){// Store only upper triangle part
 								m_matrix2DAnalysis.addNonZeroValues( rowMod, colMod, valModMod );// Add to matrix
+							}
+						}
+					}
+				}
+			}// iEdge2
+		}// iEdge1		
+	}// iElem
+
+}
+
+// Set non-zero values of matrix and right-hande side vector for anisotropic conductity
+void Forward2DNonConformingQuadrilateralElement0thOrderEdgeBased::setNonZeroValuesForAnisotropicConductivity(const double freq, const MeshDataNonConformingHexaElement* const pMeshData) {
+
+	const ResistivityBlockAnisotropic* const pResistivityBlock = dynamic_cast<const ResistivityBlockAnisotropic*>(AnalysisControl::getInstance()->getPointerOfResistivityBlock());
+	const int nElem = pMeshData->getNumElemOnBoundaryPlanes(m_planeID);
+	for (int iElem = 0; iElem < nElem; ++iElem) {
+		//--- Calculate omega * mu * sigma
+		const int elemID = pMeshData->getElemBoundaryPlanes(m_planeID, iElem);
+		const double omega = 2.0 * CommonParameters::PI * freq;//Angular frequency
+		const std::complex<double> factor = std::complex<double>(0.0, omega * CommonParameters::mu);// exp(-i*omega*t) form
+		const double length[4] = { pMeshData->calcEdgeLengthFromElementAndEdgeBoundaryPlanes(m_planeID, iElem, 0),
+								   pMeshData->calcEdgeLengthFromElementAndEdgeBoundaryPlanes(m_planeID, iElem, 1),
+								   pMeshData->calcEdgeLengthFromElementAndEdgeBoundaryPlanes(m_planeID, iElem, 2),
+								   pMeshData->calcEdgeLengthFromElementAndEdgeBoundaryPlanes(m_planeID, iElem, 3) };
+		double conductivityTensor[3][3] = { {0.0, 0.0, 0.0}, {0.0, 0.0, 0.0}, {0.0, 0.0, 0.0} };
+		pResistivityBlock->calcAnisotropicConductivityTensor(pResistivityBlock->getBlockIDFromElemID(elemID), conductivityTensor);
+		for (int iEdge1 = 0; iEdge1 < 4; ++iEdge1) {
+			const int row = m_IDsLocal2GlobalDegenerated[iElem][iEdge1];
+			if (row < 0) {
+				continue;
+			}
+			for (int iEdge2 = 0; iEdge2 < 4; ++iEdge2) {
+				const int col = m_IDsLocal2GlobalDegenerated[iElem][iEdge2];
+				if (col <= Forward2DNonConformingQuadrilateralElement0thOrderEdgeBased::DIRICHLET_BOUNDARY_ZERO_VALUE) {
+					continue;
+				}
+				double integral1(0.0);
+				double integral2(0.0);
+				for (int ip = 0; ip < m_numIntegralPoints; ++ip) {
+					const double xi = m_integralPointXi[ip];
+					const double eta = m_integralPointEta[ip];
+					Forward2D::Matrix2x2 jacobMat = { 0.0, 0.0, 0.0, 0.0 };
+					const double detJacob = calcJacobianMatrix(pMeshData, iElem, xi, eta, jacobMat);
+					Forward2D::Matrix2x2 invJacobMat;
+					calcInverseOfJacobianMatrix(jacobMat, detJacob, invJacobMat);
+					integral1 += getShapeFuncRotated(xi, eta, iEdge1, invJacobMat) * getShapeFuncRotated(xi, eta, iEdge2, invJacobMat) * detJacob * m_weights[ip];
+					const double Nh = getShapeFuncH(xi, eta, iEdge2, invJacobMat);
+					const double Nv = getShapeFuncV(xi, eta, iEdge2, invJacobMat);
+					if (m_planeID == MeshData::YZMinus || m_planeID == MeshData::YZPlus) {//YZ Plane
+						integral2 += (getShapeFuncH(xi, eta, iEdge1, invJacobMat) * (Nh * conductivityTensor[1][1] + Nv * conductivityTensor[1][2])
+									+ getShapeFuncV(xi, eta, iEdge1, invJacobMat) * (Nh * conductivityTensor[2][1] + Nv * conductivityTensor[2][2])) * detJacob * m_weights[ip];
+					}
+					else {//ZX Plane
+						integral2 += (getShapeFuncH(xi, eta, iEdge1, invJacobMat) * (Nh * conductivityTensor[0][0] + Nv * conductivityTensor[0][2])
+									+ getShapeFuncV(xi, eta, iEdge1, invJacobMat) * (Nh * conductivityTensor[2][0] + Nv * conductivityTensor[2][2])) * detJacob * m_weights[ip];
+					}
+				}
+				integral1 *= length[iEdge1] * length[iEdge2];
+				integral2 *= length[iEdge1] * length[iEdge2];
+				std::complex<double> val = std::complex<double>(integral1, 0.0) - std::complex<double>(integral2, 0.0) * factor;// exp(-i*omega*t) form
+				//if( col == Forward2DNonConformingQuadrilateralElement0thOrderEdgeBased::DIRICHLET_BOUNDARY_NONZERO_VALUE ){
+				//	const std::complex<double> nonZeroValue = m_edgesIDGlobal2NonZeroValues[ m_IDsLocal2Global[iElem][iEdge2] ];
+				//	m_matrix2DAnalysis.addRightHandSideVector( row, -val * nonZeroValue );// Add to right hand side vector
+				//}else if( col >= row ){// Store only upper triangle part
+				//	m_matrix2DAnalysis.addNonZeroValues( row, col, val );// Add to matrix
+				//}
+				const std::vector< std::pair<int, double> >& rowMasters = m_slaveDofToMasterDofAndFactors[row];
+				for (std::vector< std::pair<int, double> >::const_iterator itrRow = rowMasters.begin(); itrRow != rowMasters.end(); ++itrRow) {
+					const int rowMod = m_IDsAfterDegenerated2AfterConstrained[itrRow->first];
+					const std::complex<double> valMod = val * std::complex<double>(itrRow->second, 0.0);
+					if (col == Forward2DNonConformingQuadrilateralElement0thOrderEdgeBased::DIRICHLET_BOUNDARY_NONZERO_VALUE) {
+						const std::complex<double> nonZeroValue = m_edgesIDGlobal2NonZeroValues[m_IDsLocal2Global[iElem][iEdge2]];
+						m_matrix2DAnalysis.addRightHandSideVector(rowMod, -valMod * nonZeroValue);// Add to right hand side vector
+					}
+					else {
+						const std::vector< std::pair<int, double> >& colMasters = m_slaveDofToMasterDofAndFactors[col];
+						for (std::vector< std::pair<int, double> >::const_iterator itrCol = colMasters.begin(); itrCol != colMasters.end(); ++itrCol) {
+							const int colMod = m_IDsAfterDegenerated2AfterConstrained[itrCol->first];
+							const std::complex<double> valModMod = valMod * std::complex<double>(itrCol->second, 0.0);
+							if (colMod >= rowMod) {// Store only upper triangle part
+								m_matrix2DAnalysis.addNonZeroValues(rowMod, colMod, valModMod);// Add to matrix
 							}
 						}
 					}

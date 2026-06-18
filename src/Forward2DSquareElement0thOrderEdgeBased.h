@@ -36,7 +36,7 @@ public:
 	explicit Forward2DSquareElement0thOrderEdgeBased( const int planeID, const int iPol );
 
 	// Destructer
-	~Forward2DSquareElement0thOrderEdgeBased();
+	virtual ~Forward2DSquareElement0thOrderEdgeBased();
 
 	// Calculate EM fields of boundary planes by 2D forward calculcation
 	virtual void calcEMFieldsOfBoundaryPlanes( const double freq, const MeshDataBrickElement* const pMeshDataBrickElement );

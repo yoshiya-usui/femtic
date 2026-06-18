@@ -39,10 +39,10 @@
 
 // Constructer
 MeshDataBrickElement::MeshDataBrickElement():
-	m_numElemX(NULL),
-	m_numElemY(NULL),
-	m_numElemZ(NULL),
-	m_numAirLayer(NULL),
+	m_numElemX(0),
+	m_numElemY(0),
+	m_numElemZ(0L),
+	m_numAirLayer(0),
 	m_edgeLength(NULL)
 {
 	m_numNodeOneElement = 8;
@@ -199,7 +199,7 @@ void MeshDataBrickElement::inputMeshData(){
 	}
 	m_neighborElements = new int[ m_numElemTotal * 6 ];
 
-	if( m_nodesOfElements == NULL ){
+	if (m_nodesOfElements != NULL) {
 		delete[] m_nodesOfElements;
 	}
 	m_nodesOfElements = new int[ m_numElemTotal * 8 ];

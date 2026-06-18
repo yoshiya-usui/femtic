@@ -145,9 +145,6 @@ public:
 	// Set non-zero strucuture of matrix for forward calculation
 	virtual void setNonZeroStrucuture( ComplexSparseSquareSymmetricMatrix& matrix );
 
-	// Set non-zero values of matrix and right-hande side vector for forward calculation
-	virtual void setNonZeroValues( ComplexSparseSquareSymmetricMatrix& matrix );
-
 	//----- DO NOT DELETE FOR FUTURE USE >>>>>
 	//// Set non-zero strucuture of matrix for calculating derivatives
 	//virtual void setNonZeroStrucuture( ComplexSparseSquareSymmetricMatrix& matrix, const int blkID, std::set<int>& nonZeroRowsAndCols );
@@ -155,9 +152,6 @@ public:
 	//// Set non-zero values of matrix and right-hande side vector for calculating derivatives
 	//virtual void setNonZeroValues( ComplexSparseSquareSymmetricMatrix& matrix, const int blkID );
 	//----- DO NOT DELETE FOR FUTURE USE <<<<<
-
-	// Calculate vector x of the reciprocity algorithm of Rodi (1976)
-	virtual void calVectorXOfReciprocityAlgorithm( const std::complex<double>* const vecIn, const int blkID, std::complex<double>* const vecOut, std::vector<int>& nonZeroRows );
 
 	// Call function inputMeshData of the class MeshData
 	virtual void callInputMeshData();
@@ -168,7 +162,7 @@ public:
 	// Get pointer to the class MeshDataTetraElement
 	const MeshDataTetraElement* getPointerToMeshDataTetraElement() const;
 	
-private:
+protected:
 
 	const static int DIRICHLET_BOUNDARY_NONZERO_VALUE = -1;// This must be the same as the ones of other functions !!
 
@@ -193,20 +187,11 @@ private:
 	Forward3DTetraElement0thOrder& operator=(const Forward3DTetraElement0thOrder& rhs);
 
 	// Class of 2D forward calculation using triangle elements
-	//Forward2DTriangleElement* m_Fwd2DTriangleElement[4][2];
 	Forward2DTriangleElement0thOrderEdgeBased* m_Fwd2DTriangleElement[4];
 
 	MeshDataTetraElement m_MeshDataTetraElement;
 
 	bool** m_signInversion;
-
-#ifdef _ANISOTOROPY
-	// Set non-zero values of matrix and right-hande side vector for isotropic medium
-	void setNonZeroValuesIsotropy( ComplexSparseSquareSymmetricMatrix& matrix );
-
-	// Set non-zero values of matrix and right-hande side vector for anisotropic medium
-	void setNonZeroValuesAnisotropy( ComplexSparseSquareSymmetricMatrix& matrix );
-#endif
 
 	// Calculate array converting local IDs to global ones
 	void calcArrayConvertLocalID2Global();
@@ -218,31 +203,31 @@ private:
 	void calcArrayConvertIDGlobal2NonZeroValues();
 
 	// Get shape functions of the 1st direction with respect to the reference element coordinate system
-	inline double getShapeFuncReferenceCoordU( const double uLocal, const double vLocal, const double wLocal, const int num ) const;
+	double getShapeFuncReferenceCoordU(const double uLocal, const double vLocal, const double wLocal, const int num) const;
 
 	// Get shape functions of the 2nd direction with respect to the reference element coordinate system
-	inline double getShapeFuncReferenceCoordV( const double uLocal, const double vLocal, const double wLocal, const int num ) const;
+	double getShapeFuncReferenceCoordV(const double uLocal, const double vLocal, const double wLocal, const int num) const;
 
 	// Get shape functions of the 3rd direction with respect to the reference element coordinate system
-	inline double getShapeFuncReferenceCoordW( const double uLocal, const double vLocal, const double wLocal, const int num ) const;
+	double getShapeFuncReferenceCoordW(const double uLocal, const double vLocal, const double wLocal, const int num) const;
 
 	// Get 2D shape functions of the 1st direction with respect to the reference element coordinate system
-	inline double get2DShapeFuncReferenceCoordU( const double uLocal, const double vLocal, const int num ) const;
+	double get2DShapeFuncReferenceCoordU(const double uLocal, const double vLocal, const int num) const;
 
 	// Get 2D shape functions of the 2nd direction with respect to the reference element coordinate system
-	inline double get2DShapeFuncReferenceCoordV( const double uLocal, const double vLocal, const int num ) const;
+	double get2DShapeFuncReferenceCoordV(const double uLocal, const double vLocal, const int num) const;
 
 	// Get 2D shape functions rotated with respect to the reference element coordinate system
-	inline double get2DShapeFuncRotated() const;
+	double get2DShapeFuncRotated() const;
 
 	// Get shape functions rotated with respect to the reference element coordinate system ( The 1st direction )
-	inline double getShapeFuncRotatedReferenceCoordU( const int num ) const;
+	double getShapeFuncRotatedReferenceCoordU(const int num) const;
 
 	// Get shape functions rotated with respect to the reference element coordinate system ( The 2nd direction )
-	inline double getShapeFuncRotatedReferenceCoordV( const int num ) const;
+	double getShapeFuncRotatedReferenceCoordV(const int num) const;
 
 	// Get shape functions rotated with respect to the reference element coordinate system ( The 3rd direction )
-	inline double getShapeFuncRotatedReferenceCoordW( const int num ) const;
+	double getShapeFuncRotatedReferenceCoordW(const int num) const;
 
 	// Calculate jacobian matrix of the elements
 	void calcJacobianMatrix( const int elemID, Forward3D::Matrix3x3& JacobMat, double& determinant ) const;

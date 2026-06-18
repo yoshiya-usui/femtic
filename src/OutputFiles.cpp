@@ -187,7 +187,19 @@ void OutputFiles::openCnvFile(){
 		exit(1);
 	}
 
-	if( ( AnalysisControl::getInstance() )->getTypeOfDistortion() == AnalysisControl::ESTIMATE_DISTORTION_MATRIX_DIFFERENCE ){
+	if ((AnalysisControl::getInstance())->isAnisotropyConsidered()){
+		writeHeaderToCnvFileAnisotropic();
+	}
+	else {
+		writeHeaderToCnvFileIsotropic();
+	}
+	
+}
+
+// Write heade to cnv file (isotropic case)
+void OutputFiles::writeHeaderToCnvFileIsotropic() {
+
+	if ((AnalysisControl::getInstance())->getTypeOfDistortion() == AnalysisControl::ESTIMATE_DISTORTION_MATRIX_DIFFERENCE) {
 		OutputFiles::m_cnvFile << std::setw(10) << "Iter#" << std::setw(10) << "Retrial#"
 			<< std::setw(15) << "Alpha"
 			<< std::setw(15) << "Beta"
@@ -200,7 +212,7 @@ void OutputFiles::openCnvFile(){
 			<< std::endl;
 
 	}
-	else if( ( AnalysisControl::getInstance() )->getTypeOfDistortion() == AnalysisControl::ESTIMATE_GAINS_AND_ROTATIONS ){	
+	else if ((AnalysisControl::getInstance())->getTypeOfDistortion() == AnalysisControl::ESTIMATE_GAINS_AND_ROTATIONS) {
 
 		OutputFiles::m_cnvFile << std::setw(10) << "Iter#" << std::setw(10) << "Retrial#"
 			<< std::setw(15) << "Alpha"
@@ -216,7 +228,7 @@ void OutputFiles::openCnvFile(){
 			<< std::endl;
 
 	}
-	else if( ( AnalysisControl::getInstance() )->getTypeOfDistortion() == AnalysisControl::ESTIMATE_GAINS_ONLY ){
+	else if ((AnalysisControl::getInstance())->getTypeOfDistortion() == AnalysisControl::ESTIMATE_GAINS_ONLY) {
 		OutputFiles::m_cnvFile << std::setw(10) << "Iter#" << std::setw(10) << "Retrial#"
 			<< std::setw(15) << "Alpha"
 			<< std::setw(15) << "Beta"
@@ -229,7 +241,7 @@ void OutputFiles::openCnvFile(){
 			<< std::endl;
 
 	}
-	else{
+	else {
 
 		OutputFiles::m_cnvFile << std::setw(10) << "Iter#" << std::setw(10) << "Retrial#"
 			<< std::setw(15) << "Alpha"
@@ -240,9 +252,64 @@ void OutputFiles::openCnvFile(){
 			<< std::setw(15) << "ObjFunc"
 			<< std::endl;
 	}
-	
 }
 
+// Write heade to cnv file (anisotropic case)
+void OutputFiles::writeHeaderToCnvFileAnisotropic() {
+
+	OutputFiles::m_cnvFile << std::setw(10) << "Iter#" << std::setw(10) << "Retrial#"
+		<< std::setw(15) << "Alpha1" << std::setw(15) << "Alpha2" << std::setw(15) << "Alpha3";
+
+	if ((AnalysisControl::getInstance())->getTypeOfDistortion() == AnalysisControl::ESTIMATE_DISTORTION_MATRIX_DIFFERENCE) {
+		OutputFiles::m_cnvFile << std::setw(15) << "Beta"
+			<< std::setw(15) << "Damp"
+			<< std::setw(15) << "Roughness"
+			<< std::setw(15) << "Anisotropy"
+			<< std::setw(15) << "CrossProduct"
+			<< std::setw(15) << "Distortion"
+			<< std::setw(15) << "Misfit"
+			<< std::setw(15) << "RMS"
+			<< std::setw(15) << "ObjFunc";
+	}
+	else if ((AnalysisControl::getInstance())->getTypeOfDistortion() == AnalysisControl::ESTIMATE_GAINS_AND_ROTATIONS) {
+		OutputFiles::m_cnvFile << std::setw(15) << "Beta1"
+			<< std::setw(15) << "Beta2"
+			<< std::setw(15) << "Damp"
+			<< std::setw(15) << "Roughness"
+			<< std::setw(15) << "Anisotropy"
+			<< std::setw(15) << "CrossProduct"
+			<< std::setw(15) << "Gain"
+			<< std::setw(15) << "Rotation"
+			<< std::setw(15) << "Misfit"
+			<< std::setw(15) << "RMS"
+			<< std::setw(15) << "ObjFunc";
+	}
+	else if ((AnalysisControl::getInstance())->getTypeOfDistortion() == AnalysisControl::ESTIMATE_GAINS_ONLY) {
+		OutputFiles::m_cnvFile << std::setw(15) << "Beta"
+			<< std::setw(15) << "Damp"
+			<< std::setw(15) << "Roughness"
+			<< std::setw(15) << "Anisotropy"
+			<< std::setw(15) << "CrossProduct"
+			<< std::setw(15) << "Gain"
+			<< std::setw(15) << "Misfit"
+			<< std::setw(15) << "RMS"
+			<< std::setw(15) << "ObjFunc";
+	}
+	else {
+		OutputFiles::m_cnvFile << std::setw(15) << "Damp"
+			<< std::setw(15) << "Roughness"
+			<< std::setw(15) << "Anisotropy"
+			<< std::setw(15) << "CrossProduct"
+			<< std::setw(15) << "Misfit"
+			<< std::setw(15) << "RMS"
+			<< std::setw(15) << "ObjFunc";
+	}
+	if ((AnalysisControl::getInstance())->needsGCVCalculation()) {
+		OutputFiles::m_cnvFile << std::setw(15) << "GCV";
+	}
+	OutputFiles::m_cnvFile << std::endl;
+
+}
 
 // Output case file
 void OutputFiles::outputCaseFile() const{
@@ -262,9 +329,22 @@ void OutputFiles::outputCaseFile() const{
 
 	ofs << "VARIABLE" << std::endl;
 	ofs << "scalar per element:	BlockIDs	BlockIDs" << std::endl;
+	if (ptrAnalysisControl->isAnisotropyConsidered()) {
+		ofs << "scalar per element:	AnisotropyTypes	AnisotropyTypes" << std::endl;
+	}
 
 	if( ptrAnalysisControl->doesOutputToVTK( AnalysisControl::OUTPUT_RESISTIVITY_VALUES_TO_VTK ) ){
-		ofs << "scalar per element:	1	Resistivity[Ohm-m]	Resistivity.iter*" << std::endl;
+		if (ptrAnalysisControl->isAnisotropyConsidered()) {
+			ofs << "scalar per element:	1	RhoXX[Ohm-m]	RhoXX.iter*" << std::endl;
+			ofs << "scalar per element:	1	RhoYY[Ohm-m]	RhoYY.iter*" << std::endl;
+			ofs << "scalar per element:	1	RhoZZ[Ohm-m]	RhoZZ.iter*" << std::endl;
+			ofs << "scalar per element:	1	Strike[Deg.]	Strike.iter*" << std::endl;
+			ofs << "scalar per element:	1	Dip[Deg.]	Dip.iter*" << std::endl;
+			ofs << "scalar per element:	1	Slant[Deg.]	Slant.iter*" << std::endl;
+			ofs << "scalar per element:	1	Anisotropy	Anisotropy.iter*" << std::endl;
+		}else {
+			ofs << "scalar per element:	1	Resistivity[Ohm-m]	Resistivity.iter*" << std::endl;
+		}
 	}
 
 	if( ptrAnalysisControl->doesOutputToVTK( AnalysisControl::OUTPUT_ELECTRIC_FIELD_VECTORS_TO_VTK ) ){

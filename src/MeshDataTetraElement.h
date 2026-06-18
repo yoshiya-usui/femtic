@@ -191,7 +191,7 @@ private:
 	// Array converting from edge ID to node ID
 	int m_edgeID2NodeID[6][2];
 
-	// Function determine if two segments intersect or not
+	// Function determine if then inputed point locate at the left of the segment on the surface of the lower element
 	bool locateLeftOfSegmentOnLandSurface( const CommonParameters::locationXY& point, 
 		const CommonParameters::locationXY& startPointOfSegment, const CommonParameters::locationXY& endPointOfSegment ) const;
 

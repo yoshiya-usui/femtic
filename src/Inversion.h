@@ -78,6 +78,12 @@ public:
 	// Output number of model to log file
 	void outputNumberOfModel() const;
 
+	// Get trace of the hat matrix without the damping factor
+	double getTraceOfHatMatrixWithoutDampingFactor() const;
+
+	// Calculate the sum of squares of the predicted residuals for this PE
+	double calculateSumOfSquaresOfPredictedResidualsThisPE( const double dampingFactor ) const;
+
 protected:
 	// Calculate constraining matrix
 	void calcConstrainingMatrix( DoubleSparseMatrix& constrainingMatrix ) const;
@@ -87,6 +93,19 @@ protected:
 
 	// Multiply model transforming jacobian matrix
 	void multiplyModelTransformingJacobian( const int numData, const int numModel, const double* jacobian, double* matrix ) const;
+
+	// Read sensitivity matrix
+	void readSensitivityMatrix(const std::string& fileName, int& numData, int& numModel, double*& sensitivityMatrix) const;
+
+	// Read sensitivity matrix and  multiplied ot by inverse of constraining matrix
+	void readSensitivityMatrixMod(DoubleSparseSquareSymmetricMatrix& RTRMatrix, const std::string& fileName,
+		int& numData, int& numModel, double*& sensitivityMatrixMod) const;
+
+	// Trace of the hat matrix without the damping factor
+	double m_traceOfHatMatrixWithoutDampingFactor;
+
+	// The predicted vector of observed data for this PE
+	double* m_predictedObservedDataVectorThisPE;
 
 private:
 	// Copy constructer

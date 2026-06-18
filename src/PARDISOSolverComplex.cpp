@@ -64,7 +64,7 @@ void PARDISOSolverComplex::numericalFactorization( long long int* rowIndex, long
 		&idum, &nrhs, m_iparm, &m_msglvl, &ddum, &ddum, &error);
 	if (error != 0)
     {
- 		outputErrorMessages( error );
+ 		outputErrorMessages(static_cast<int>(error) );
     }
 
 	m_solutionStage = PARDISOSolver::FACTORIZED;
@@ -86,7 +86,7 @@ void PARDISOSolverComplex::solve( long long int* rowIndex, long long int* column
 		&idum, &nrhs, m_iparm, &m_msglvl, rhsValues, solution, &error);
 	if (error != 0)
     {
-   		outputErrorMessages( error );
+   		outputErrorMessages( static_cast<int>(error) );
 	}
 
 	m_solutionStage = PARDISOSolver::SOLVED;

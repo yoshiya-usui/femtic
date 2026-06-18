@@ -29,6 +29,7 @@
 #include <iomanip>
 
 #include "ObservedDataStationNMT.h"
+#include "AnalysisControl.h"
 #include "OutputFiles.h"
 #include "CommonParameters.h"
 #include "ResistivityBlock.h"
@@ -218,7 +219,7 @@ void ObservedDataStationNMT::inputObservedData( std::ifstream& inFile ){
 // Find elements including dipole
 void ObservedDataStationNMT::findElementsIncludingDipole(){
 
-	if( ( AnalysisControl::getInstance() )->getTypeOfMesh() == MeshData::TETRA ){// Tetra/Prism mesh
+	if( ( AnalysisControl::getInstance() )->getTypeOfMesh() == MeshData::TETRA ){// Tetra mesh
 
 		const MeshDataTetraElement* const ptrMeshDataTetraElement = ( AnalysisControl::getInstance() )->getPointerOfMeshDataTetraElement();
 
@@ -532,7 +533,7 @@ void ObservedDataStationNMT::calculateSensitivityMatrix( const double freq, cons
 
 	const long long rhsVectorIDOfHx = static_cast<long long>(ptrStationOfMagneticField->getRhsVectorIDOfHx());
 	const long long rhsVectorIDOfHy = static_cast<long long>(ptrStationOfMagneticField->getRhsVectorIDOfHy());
-	const long long nBlkNotFixed = static_cast<long long>(( ResistivityBlock::getInstance() )->getNumResistivityBlockNotFixed());
+	const long long nBlkNotFixed = static_cast<long long>((AnalysisControl::getInstance()->getPointerOfResistivityBlock())->getNumberOfUnfixedResistivityParameters());
 
 	for( long long imdl = 0; imdl < nBlkNotFixed; ++imdl ){
 

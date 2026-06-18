@@ -58,9 +58,7 @@ std::complex<double> Forward2DSquareElementNodeBased::calcEta( const int imode, 
 	std::complex<double> eta(0,0);
 	if( imode == CommonParameters::TM_MODE ){// TM mode
 		//--- Calculate sigma
-		//ResistivityBlock* pResistivityBlock = ResistivityBlock::getInstance();
-		const double sigma = ( ResistivityBlock::getInstance() )->getConductivityValuesFromElemID(elemID);
-
+		const double sigma = (AnalysisControl::getInstance())->getPointerOfResistivityBlockIsotropic()->getConductivityValuesFromElemID(elemID);
 		//--- Calculate eta
 		const double omega = 2.0 * CommonParameters::PI * freq;//Angular frequency
 		eta = std::complex<double>( sigma, -omega * CommonParameters::epsilon );

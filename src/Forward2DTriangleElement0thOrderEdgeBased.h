@@ -35,7 +35,7 @@ public:
 	explicit Forward2DTriangleElement0thOrderEdgeBased( const int planeID, const int iPol );
 
 	// Destructer
-	~Forward2DTriangleElement0thOrderEdgeBased();
+	virtual ~Forward2DTriangleElement0thOrderEdgeBased();
 
 	// Calculate EM fields of boundary planes by 2D forward calculcation with 0tht order edge element
 	virtual void calcEMFieldsOfBoundaryPlanes( const double freq, const MeshDataTetraElement* const pMeshData );
@@ -97,6 +97,15 @@ private:
 
 	// Calculate jacobian matrix of the elements on the Y-Z plane of boundary
 	void calcJacobianMatrixOnYZPlaneOfBoundary( const MeshDataTetraElement* const pMeshDataTetraElement, const int elemID2D, Forward2DTriangleElementEdgeBased::JacobianMatrix& JacobMat, double& determinant ) const;
+
+	// Set non-zero values of matrix and right-hande side vector for forward calculation
+	void setNonZeroValues(const double freq, const MeshDataTetraElement* const pMeshData);
+
+	// Set non-zero values of matrix and right-hande side vector for isotropic conductity
+	void setNonZeroValuesForIsotropicConductivity(const double freq, const MeshDataTetraElement* const pMeshData);
+
+	// Set non-zero values of matrix and right-hande side vector for anisotropic conductity
+	void setNonZeroValuesForAnisotropicConductivity(const double freq, const MeshDataTetraElement* const pMeshData);
 
 };
 

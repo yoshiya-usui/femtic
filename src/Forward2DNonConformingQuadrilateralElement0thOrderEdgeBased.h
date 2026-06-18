@@ -35,7 +35,7 @@ public:
 	explicit Forward2DNonConformingQuadrilateralElement0thOrderEdgeBased( const int planeID, const int iPol );
 
 	// Destructer
-	~Forward2DNonConformingQuadrilateralElement0thOrderEdgeBased();
+	virtual ~Forward2DNonConformingQuadrilateralElement0thOrderEdgeBased();
 
 	// Calculate EM fields of boundary planes by 2D forward calculcation with 0tht order edge element
 	virtual void calcEMFieldsOfBoundaryPlanes( const double freq, const MeshDataNonConformingHexaElement* const pMeshData );
@@ -139,6 +139,12 @@ private:
 
 	// Set non-zero values of matrix and right-hande side vector for forward calculation
 	void setNonZeroValues( const double freq, const MeshDataNonConformingHexaElement* const pMeshData );
+
+	// Set non-zero values of matrix and right-hande side vector for isotropic conductity
+	void setNonZeroValuesForIsotropicConductivity(const double freq, const MeshDataNonConformingHexaElement* const pMeshData);
+
+	// Set non-zero values of matrix and right-hande side vector for anisotropic conductity
+	void setNonZeroValuesForAnisotropicConductivity(const double freq, const MeshDataNonConformingHexaElement* const pMeshData);
 
 	// Get flag specifing whether an 2-D element faces slave element
 	bool faceSlaveElements( const int iElem, const int iEdge, const MeshDataNonConformingHexaElement* const pMeshData ) const;

@@ -356,7 +356,7 @@ void calcImpedanceTensorComponentFromApparentResistivityAndPhase( const double f
 
 }
 
-#ifdef _ANISOTOROPY
+// Coordinate rotation of a tensor
 void rotateTensor( double tensorRotated[3][3], const double rotationTensor[3][3] ){
 
 	double tempTensor[3][3];
@@ -364,7 +364,7 @@ void rotateTensor( double tensorRotated[3][3], const double rotationTensor[3][3]
 		for( int col = 0; col < 3; ++col ){
 			tempTensor[row][col] = 0.0;
 			for( int i = 0; i < 3; ++i ){
-				tempTensor[row][col] += rotationTensor[i][row] * tensorRotated[i][col];
+				tempTensor[row][col] += rotationTensor[row][i] * tensorRotated[i][col];
 			}
 		}
 	}
@@ -373,10 +373,9 @@ void rotateTensor( double tensorRotated[3][3], const double rotationTensor[3][3]
 		for( int col = 0; col < 3; ++col ){
 			tensorRotated[row][col] = 0.0;
 			for( int i = 0; i < 3; ++i ){
-				tensorRotated[row][col] += tempTensor[row][i] * rotationTensor[i][col];
+				tensorRotated[row][col] += tempTensor[row][i] * rotationTensor[col][i];
 			}
 		}
 	}
 
 }
-#endif

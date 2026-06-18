@@ -87,11 +87,9 @@ class ObservedDataStationMT: public ObservedDataStationPoint{
 		void calcInterpolatorVectorOfElectricField( Forward3D* const ptrForward3D );
 
 		// Calulate sensitivity matrix
-		virtual void calculateSensitivityMatrix( const double freq, const int nModel,
-			const ObservedDataStationPoint* const ptrStationOfMagneticField,
-			const std::complex<double>* const derivativesOfEMFieldExPol,
-			const std::complex<double>* const derivativesOfEMFieldEyPol,
-			double* const sensitivityMatrix, const bool forceSDToOne = false ) const;
+		virtual void calculateSensitivityMatrix( const double freq, const int nModel, const ObservedDataStationPoint* const ptrStationOfMagneticField,
+			const std::complex<double>* const derivativesOfEMFieldExPol, const std::complex<double>* const derivativesOfEMFieldEyPol, 
+			double* const sensitivityMatrix) const;
 
 		// Calculate data vector of this PE
 		virtual void calculateResidualVectorOfDataThisPE( const double freq, const int offset, double* vector ) const;
@@ -200,6 +198,15 @@ class ObservedDataStationMT: public ObservedDataStationPoint{
 
 		// Arrays of gains and rotations of distortion matrix
 		GainsAndRotations* m_arrayGainsAndRotations;
+
+		// Auxiliary function for calulating sensitivity matrix with respect to resistivity
+		void calculateSensitivityMatrixAuxResistivity(const double freq, const int imdl, const ObservedDataStationPoint* const ptrStationOfMagneticField,
+			const std::complex<double>* const derivativesOfEMFieldExPol, const std::complex<double>* const derivativesOfEMFieldEyPol,
+			std::complex<double>& dZxx, std::complex<double>& dZxy, std::complex<double>& dZyx, std::complex<double>& dZyy) const;
+
+		// Auxiliary function for calulating sensitivity matrix with respect to distortion parameters
+		void calculateSensitivityMatrixAuxDistortionParameters(const double freq, const ObservedDataStationPoint* const ptrStationOfMagneticField,
+			std::complex<double> dZxx[4], std::complex<double> dZxy[4], std::complex<double> dZyx[4], std::complex<double> dZyy[4]) const;
 
 	private:
 		std::complex<double> m_ExCalculated[2];

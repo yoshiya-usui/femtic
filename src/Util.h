@@ -65,8 +65,7 @@ void calcImpedanceTensorComponentFromApparentResistivityAndPhase( const double f
 																 const double phase, const double phaseError,
 																 std::complex<double>& Z, 	CommonParameters::DoubleComplexValues& ZError );
 
-#ifdef _ANISOTOROPY
+// Coordinate rotation of a tensor
 void rotateTensor( double tensorRotated[3][3], const double rotationTensor[3][3] );
-#endif
 
 #endif

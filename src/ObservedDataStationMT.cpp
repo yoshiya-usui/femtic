@@ -29,6 +29,7 @@
 #include <iomanip>
 
 #include "ObservedDataStationMT.h"
+#include "AnalysisControl.h"
 #include "ObservedDataStationPoint.h"
 #include "OutputFiles.h"
 #include "CommonParameters.h"
@@ -396,59 +397,59 @@ void ObservedDataStationMT::calculateElectricField( const Forward3D* const ptrFo
 }
 
 // Calulate Impedance tensor
-void ObservedDataStationMT::calculateImpedanceTensor( const double freq, const ObservedDataStationPoint* const ptrStationOfMagneticField, int& icount ){
+void ObservedDataStationMT::calculateImpedanceTensor(const double freq, const ObservedDataStationPoint* const ptrStationOfMagneticField, int& icount) {
 
-	const int freqIDThisPEInSta = getFreqIDsAmongThisPE( freq );
+	const int freqIDThisPEInSta = getFreqIDsAmongThisPE(freq);
 
-	if( freqIDThisPEInSta < 0 ){// Specified frequency is not the ones calculated by this PE in this station 
+	if (freqIDThisPEInSta < 0) {// Specified frequency is not the ones calculated by this PE in this station 
 		return;
 	}
 
-	const int freqIDGlobalInSta = m_freqIDsAmongThisStationCalculatedByThisPE[ freqIDThisPEInSta ];
+	const int freqIDGlobalInSta = m_freqIDsAmongThisStationCalculatedByThisPE[freqIDThisPEInSta];
 
-	const std::complex<double> HxCalculated[2] = { ptrStationOfMagneticField->getHxCalculated( 0 ), ptrStationOfMagneticField->getHxCalculated( 1 ) };
-	const std::complex<double> HyCalculated[2] = { ptrStationOfMagneticField->getHyCalculated( 0 ), ptrStationOfMagneticField->getHyCalculated( 1 ) };
+	const std::complex<double> HxCalculated[2] = { ptrStationOfMagneticField->getHxCalculated(0), ptrStationOfMagneticField->getHxCalculated(1) };
+	const std::complex<double> HyCalculated[2] = { ptrStationOfMagneticField->getHyCalculated(0), ptrStationOfMagneticField->getHyCalculated(1) };
 
-	const std::complex<double> det = HxCalculated[0]*HyCalculated[1] - HxCalculated[1]*HyCalculated[0];
+	const std::complex<double> det = HxCalculated[0] * HyCalculated[1] - HxCalculated[1] * HyCalculated[0];
 
-	const std::complex<double> ZxxUndist = ( m_ExCalculated[0]*HyCalculated[1] - m_ExCalculated[1]*HyCalculated[0] ) / det;
-	const std::complex<double> ZxyUndist = ( m_ExCalculated[1]*HxCalculated[0] - m_ExCalculated[0]*HxCalculated[1] ) / det;
-	const std::complex<double> ZyxUndist = ( m_EyCalculated[0]*HyCalculated[1] - m_EyCalculated[1]*HyCalculated[0] ) / det;
-	const std::complex<double> ZyyUndist = ( m_EyCalculated[1]*HxCalculated[0] - m_EyCalculated[0]*HxCalculated[1] ) / det;
+	const std::complex<double> ZxxUndist = (m_ExCalculated[0] * HyCalculated[1] - m_ExCalculated[1] * HyCalculated[0]) / det;
+	const std::complex<double> ZxyUndist = (m_ExCalculated[1] * HxCalculated[0] - m_ExCalculated[0] * HxCalculated[1]) / det;
+	const std::complex<double> ZyxUndist = (m_EyCalculated[0] * HyCalculated[1] - m_EyCalculated[1] * HyCalculated[0]) / det;
+	const std::complex<double> ZyyUndist = (m_EyCalculated[1] * HxCalculated[0] - m_EyCalculated[0] * HxCalculated[1]) / det;
 
-	std::complex<double> cxx( 1.0, 0.0 );
-	std::complex<double> cxy( 0.0, 0.0 );
-	std::complex<double> cyx( 0.0, 0.0 );
-	std::complex<double> cyy( 1.0, 0.0 );
-	const int typeOfDistortion = ( AnalysisControl::getInstance() )->getTypeOfDistortion();
-	if( typeOfDistortion == AnalysisControl::ESTIMATE_DISTORTION_MATRIX_DIFFERENCE ){
-		assert( m_arrayDistortionMatrixDifferences != NULL );
-		cxx = std::complex<double>( m_arrayDistortionMatrixDifferences->distortionMatrixDifference[ObservedDataStationMT::COMPONENT_ID_CXX] + 1.0 , 0.0 );
-		cxy = std::complex<double>( m_arrayDistortionMatrixDifferences->distortionMatrixDifference[ObservedDataStationMT::COMPONENT_ID_CXY]       , 0.0 );
-		cyx = std::complex<double>( m_arrayDistortionMatrixDifferences->distortionMatrixDifference[ObservedDataStationMT::COMPONENT_ID_CYX]       , 0.0 );
-		cyy = std::complex<double>( m_arrayDistortionMatrixDifferences->distortionMatrixDifference[ObservedDataStationMT::COMPONENT_ID_CYY] + 1.0 , 0.0 );
+	std::complex<double> cxx(1.0, 0.0);
+	std::complex<double> cxy(0.0, 0.0);
+	std::complex<double> cyx(0.0, 0.0);
+	std::complex<double> cyy(1.0, 0.0);
+	const int typeOfDistortion = (AnalysisControl::getInstance())->getTypeOfDistortion();
+	if (typeOfDistortion == AnalysisControl::ESTIMATE_DISTORTION_MATRIX_DIFFERENCE) {
+		assert(m_arrayDistortionMatrixDifferences != NULL);
+		cxx = std::complex<double>(m_arrayDistortionMatrixDifferences->distortionMatrixDifference[ObservedDataStationMT::COMPONENT_ID_CXX] + 1.0, 0.0);
+		cxy = std::complex<double>(m_arrayDistortionMatrixDifferences->distortionMatrixDifference[ObservedDataStationMT::COMPONENT_ID_CXY], 0.0);
+		cyx = std::complex<double>(m_arrayDistortionMatrixDifferences->distortionMatrixDifference[ObservedDataStationMT::COMPONENT_ID_CYX], 0.0);
+		cyy = std::complex<double>(m_arrayDistortionMatrixDifferences->distortionMatrixDifference[ObservedDataStationMT::COMPONENT_ID_CYY] + 1.0, 0.0);
 	}
-	else if( typeOfDistortion == AnalysisControl::ESTIMATE_GAINS_AND_ROTATIONS ){
-		assert( m_arrayGainsAndRotations != NULL );
-		const double gX = pow( 10.0, m_arrayGainsAndRotations->gainsAndRotations[ObservedDataStationMT::EX_GAIN] );
-		const double gY = pow( 10.0, m_arrayGainsAndRotations->gainsAndRotations[ObservedDataStationMT::EY_GAIN] );
+	else if (typeOfDistortion == AnalysisControl::ESTIMATE_GAINS_AND_ROTATIONS) {
+		assert(m_arrayGainsAndRotations != NULL);
+		const double gX = pow(10.0, m_arrayGainsAndRotations->gainsAndRotations[ObservedDataStationMT::EX_GAIN]);
+		const double gY = pow(10.0, m_arrayGainsAndRotations->gainsAndRotations[ObservedDataStationMT::EY_GAIN]);
 		const double betaX = m_arrayGainsAndRotations->gainsAndRotations[ObservedDataStationMT::EX_ROTATION];
 		const double betaY = m_arrayGainsAndRotations->gainsAndRotations[ObservedDataStationMT::EY_ROTATION];
 
-		cxx = std::complex<double>(   gX * cos( betaX ), 0.0 );
-		cxy = std::complex<double>( - gY * sin( betaY ), 0.0 );
-		cyx = std::complex<double>(   gX * sin( betaX ), 0.0 );
-		cyy = std::complex<double>(   gY * cos( betaY ), 0.0 );
+		cxx = std::complex<double>(gX * cos(betaX), 0.0);
+		cxy = std::complex<double>(-gY * sin(betaY), 0.0);
+		cyx = std::complex<double>(gX * sin(betaX), 0.0);
+		cyy = std::complex<double>(gY * cos(betaY), 0.0);
 	}
-	else if( typeOfDistortion == AnalysisControl::ESTIMATE_GAINS_ONLY ){
-		assert( m_arrayGainsAndRotations != NULL );
-		const double gX = pow( 10.0, m_arrayGainsAndRotations->gainsAndRotations[ObservedDataStationMT::EX_GAIN] );
-		const double gY = pow( 10.0, m_arrayGainsAndRotations->gainsAndRotations[ObservedDataStationMT::EY_GAIN] );
+	else if (typeOfDistortion == AnalysisControl::ESTIMATE_GAINS_ONLY) {
+		assert(m_arrayGainsAndRotations != NULL);
+		const double gX = pow(10.0, m_arrayGainsAndRotations->gainsAndRotations[ObservedDataStationMT::EX_GAIN]);
+		const double gY = pow(10.0, m_arrayGainsAndRotations->gainsAndRotations[ObservedDataStationMT::EY_GAIN]);
 
-		cxx = std::complex<double>(   gX, 0.0 );
-		cxy = std::complex<double>(  0.0, 0.0 );
-		cyx = std::complex<double>(  0.0, 0.0 );
-		cyy = std::complex<double>(   gY, 0.0 );
+		cxx = std::complex<double>(gX, 0.0);
+		cxy = std::complex<double>(0.0, 0.0);
+		cyx = std::complex<double>(0.0, 0.0);
+		cyy = std::complex<double>(gY, 0.0);
 	}
 
 	m_ZxxCalculated[freqIDThisPEInSta] = cxx * ZxxUndist + cxy * ZyxUndist;
@@ -456,31 +457,42 @@ void ObservedDataStationMT::calculateImpedanceTensor( const double freq, const O
 	m_ZyxCalculated[freqIDThisPEInSta] = cyx * ZxxUndist + cyy * ZyxUndist;
 	m_ZyyCalculated[freqIDThisPEInSta] = cyx * ZxyUndist + cyy * ZyyUndist;
 
-	m_ZxxResidual[freqIDThisPEInSta].realPart = ( m_ZxxObserved[freqIDGlobalInSta].real() - m_ZxxCalculated[freqIDThisPEInSta].real() ) / m_ZxxSD[freqIDGlobalInSta].realPart;
-	m_ZxxResidual[freqIDThisPEInSta].imagPart = ( m_ZxxObserved[freqIDGlobalInSta].imag() - m_ZxxCalculated[freqIDThisPEInSta].imag() ) / m_ZxxSD[freqIDGlobalInSta].imagPart;
-	m_ZxyResidual[freqIDThisPEInSta].realPart = ( m_ZxyObserved[freqIDGlobalInSta].real() - m_ZxyCalculated[freqIDThisPEInSta].real() ) / m_ZxySD[freqIDGlobalInSta].realPart;
-	m_ZxyResidual[freqIDThisPEInSta].imagPart = ( m_ZxyObserved[freqIDGlobalInSta].imag() - m_ZxyCalculated[freqIDThisPEInSta].imag() ) / m_ZxySD[freqIDGlobalInSta].imagPart;
-	m_ZyxResidual[freqIDThisPEInSta].realPart = ( m_ZyxObserved[freqIDGlobalInSta].real() - m_ZyxCalculated[freqIDThisPEInSta].real() ) / m_ZyxSD[freqIDGlobalInSta].realPart;
-	m_ZyxResidual[freqIDThisPEInSta].imagPart = ( m_ZyxObserved[freqIDGlobalInSta].imag() - m_ZyxCalculated[freqIDThisPEInSta].imag() ) / m_ZyxSD[freqIDGlobalInSta].imagPart;
-	m_ZyyResidual[freqIDThisPEInSta].realPart = ( m_ZyyObserved[freqIDGlobalInSta].real() - m_ZyyCalculated[freqIDThisPEInSta].real() ) / m_ZyySD[freqIDGlobalInSta].realPart;
-	m_ZyyResidual[freqIDThisPEInSta].imagPart = ( m_ZyyObserved[freqIDGlobalInSta].imag() - m_ZyyCalculated[freqIDThisPEInSta].imag() ) / m_ZyySD[freqIDGlobalInSta].imagPart;
+	if (m_ZxxSD[freqIDGlobalInSta].realPart > 0.0){
+		m_ZxxResidual[freqIDThisPEInSta].realPart = (m_ZxxObserved[freqIDGlobalInSta].real() - m_ZxxCalculated[freqIDThisPEInSta].real()) / m_ZxxSD[freqIDGlobalInSta].realPart;
+		m_dataIDOfZxx[freqIDThisPEInSta].realPart = icount++;
+	}
+	if (m_ZxxSD[freqIDGlobalInSta].imagPart > 0.0) {
+		m_ZxxResidual[freqIDThisPEInSta].imagPart = (m_ZxxObserved[freqIDGlobalInSta].imag() - m_ZxxCalculated[freqIDThisPEInSta].imag()) / m_ZxxSD[freqIDGlobalInSta].imagPart;
+		m_dataIDOfZxx[freqIDThisPEInSta].imagPart = icount++;
+	}
+	if (m_ZxySD[freqIDGlobalInSta].realPart > 0.0) {
+		m_ZxyResidual[freqIDThisPEInSta].realPart = (m_ZxyObserved[freqIDGlobalInSta].real() - m_ZxyCalculated[freqIDThisPEInSta].real()) / m_ZxySD[freqIDGlobalInSta].realPart;
+		m_dataIDOfZxy[freqIDThisPEInSta].realPart = icount++;
+	}
+	if (m_ZxySD[freqIDGlobalInSta].imagPart > 0.0) {
+		m_ZxyResidual[freqIDThisPEInSta].imagPart = (m_ZxyObserved[freqIDGlobalInSta].imag() - m_ZxyCalculated[freqIDThisPEInSta].imag()) / m_ZxySD[freqIDGlobalInSta].imagPart;
+		m_dataIDOfZxy[freqIDThisPEInSta].imagPart = icount++;
+	}
+	if (m_ZyxSD[freqIDGlobalInSta].realPart > 0.0) {
+		m_ZyxResidual[freqIDThisPEInSta].realPart = (m_ZyxObserved[freqIDGlobalInSta].real() - m_ZyxCalculated[freqIDThisPEInSta].real()) / m_ZyxSD[freqIDGlobalInSta].realPart;
+		m_dataIDOfZyx[freqIDThisPEInSta].realPart = icount++;
+	}
+	if (m_ZyxSD[freqIDGlobalInSta].imagPart > 0.0) {
+		m_ZyxResidual[freqIDThisPEInSta].imagPart = (m_ZyxObserved[freqIDGlobalInSta].imag() - m_ZyxCalculated[freqIDThisPEInSta].imag()) / m_ZyxSD[freqIDGlobalInSta].imagPart;
+		m_dataIDOfZyx[freqIDThisPEInSta].imagPart = icount++;
+	}
+	if (m_ZyySD[freqIDGlobalInSta].realPart > 0.0) {
+		m_ZyyResidual[freqIDThisPEInSta].realPart = (m_ZyyObserved[freqIDGlobalInSta].real() - m_ZyyCalculated[freqIDThisPEInSta].real()) / m_ZyySD[freqIDGlobalInSta].realPart;
+		m_dataIDOfZyy[freqIDThisPEInSta].realPart = icount++;
+	}
+	if (m_ZyySD[freqIDGlobalInSta].imagPart > 0.0) {
+		m_ZyyResidual[freqIDThisPEInSta].imagPart = (m_ZyyObserved[freqIDGlobalInSta].imag() - m_ZyyCalculated[freqIDThisPEInSta].imag()) / m_ZyySD[freqIDGlobalInSta].imagPart;
+		m_dataIDOfZyy[freqIDThisPEInSta].imagPart = icount++;
+	}
 
 #ifdef _DEBUG_WRITE
 	std::cout << "freqIDThisPEInSta Zxx Zxy Zyx Zyy : " << freqIDThisPEInSta << " " << m_ZxxCalculated[freqIDThisPEInSta] << " " << m_ZxyCalculated[freqIDThisPEInSta] << " " << m_ZyxCalculated[freqIDThisPEInSta] << " " << m_ZyyCalculated[freqIDThisPEInSta] << std::endl;
 #endif
-
-	// For inversion
-	m_dataIDOfZxx[freqIDThisPEInSta].realPart = icount++;
-	m_dataIDOfZxx[freqIDThisPEInSta].imagPart = icount++;
-
-	m_dataIDOfZxy[freqIDThisPEInSta].realPart = icount++;
-	m_dataIDOfZxy[freqIDThisPEInSta].imagPart = icount++;
-
-	m_dataIDOfZyx[freqIDThisPEInSta].realPart = icount++;
-	m_dataIDOfZyx[freqIDThisPEInSta].imagPart = icount++;
-
-	m_dataIDOfZyy[freqIDThisPEInSta].realPart = icount++;
-	m_dataIDOfZyy[freqIDThisPEInSta].imagPart = icount++;
 
 #ifdef _DEBUG_WRITE
 	std::cout << "m_dataIDOfZxx[freqIDThisPEInSta].realPart : " << m_dataIDOfZxx[freqIDThisPEInSta].realPart << std::endl;
@@ -700,14 +712,157 @@ void ObservedDataStationMT::calcInterpolatorVectorOfElectricField( Forward3D* co
 }
 
 // Calulate sensitivity matrix of Impedance tensors
-void ObservedDataStationMT::calculateSensitivityMatrix( const double freq, const int nModel,
-	const ObservedDataStationPoint* const ptrStationOfMagneticField,
-	const std::complex<double>* const derivativesOfEMFieldExPol,
-	const std::complex<double>* const derivativesOfEMFieldEyPol,
-	double* const sensitivityMatrix, const bool forceSDToOne ) const{
+void ObservedDataStationMT::calculateSensitivityMatrix(const double freq, const int nModel, const ObservedDataStationPoint* const ptrStationOfMagneticField, 
+	const std::complex<double>* const derivativesOfEMFieldExPol, const std::complex<double>* const derivativesOfEMFieldEyPol, double* const sensitivityMatrix) const {
 
-	//const int freqID = getFreqIDs( freq );
-	//const int freqIDAmongThisStationAndPE = getFreqIDsAmongThisPE( freq );
+	const int freqIDThisPEInSta = getFreqIDsAmongThisPE(freq);
+
+	if (freqIDThisPEInSta < 0) {// Specified frequency is not the ones calculated by this PE in this station 
+		return;
+	}
+
+	const int freqIDGlobalInSta = m_freqIDsAmongThisStationCalculatedByThisPE[freqIDThisPEInSta];
+
+	const long long nBlkNotFixed = static_cast<long long>((AnalysisControl::getInstance()->getPointerOfResistivityBlock())->getNumberOfUnfixedResistivityParameters());
+	for (long long imdl = 0; imdl < nBlkNotFixed; ++imdl) {
+		std::complex<double> dZxx(0.0, 0.0);
+		std::complex<double> dZxy(0.0, 0.0);
+		std::complex<double> dZyx(0.0, 0.0);
+		std::complex<double> dZyy(0.0, 0.0);
+		calculateSensitivityMatrixAuxResistivity(freq, imdl, ptrStationOfMagneticField, derivativesOfEMFieldExPol, derivativesOfEMFieldEyPol, dZxx, dZxy, dZyx, dZyy);
+		if (m_ZxxSD[freqIDGlobalInSta].realPart > 0.0) {
+			sensitivityMatrix[static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfZxx[freqIDThisPEInSta].realPart) + imdl] = dZxx.real() / m_ZxxSD[freqIDGlobalInSta].realPart;
+		}
+		if (m_ZxySD[freqIDGlobalInSta].realPart > 0.0) {
+			sensitivityMatrix[static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfZxy[freqIDThisPEInSta].realPart) + imdl] = dZxy.real() / m_ZxySD[freqIDGlobalInSta].realPart;
+		}
+		if (m_ZyxSD[freqIDGlobalInSta].realPart > 0.0) {
+			sensitivityMatrix[static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfZyx[freqIDThisPEInSta].realPart) + imdl] = dZyx.real() / m_ZyxSD[freqIDGlobalInSta].realPart;
+		}
+		if (m_ZyySD[freqIDGlobalInSta].realPart > 0.0) {
+			sensitivityMatrix[static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfZyy[freqIDThisPEInSta].realPart) + imdl] = dZyy.real() / m_ZyySD[freqIDGlobalInSta].realPart;
+		}
+		if (m_ZxxSD[freqIDGlobalInSta].imagPart > 0.0) {
+			sensitivityMatrix[static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfZxx[freqIDThisPEInSta].imagPart) + imdl] = dZxx.imag() / m_ZxxSD[freqIDGlobalInSta].imagPart;
+		}
+		if (m_ZxySD[freqIDGlobalInSta].imagPart > 0.0) {
+			sensitivityMatrix[static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfZxy[freqIDThisPEInSta].imagPart) + imdl] = dZxy.imag() / m_ZxySD[freqIDGlobalInSta].imagPart;
+		}
+		if (m_ZyxSD[freqIDGlobalInSta].imagPart > 0.0) {
+			sensitivityMatrix[static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfZyx[freqIDThisPEInSta].imagPart) + imdl] = dZyx.imag() / m_ZyxSD[freqIDGlobalInSta].imagPart;
+		}
+		if (m_ZyySD[freqIDGlobalInSta].imagPart > 0.0) {
+			sensitivityMatrix[static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfZyy[freqIDThisPEInSta].imagPart) + imdl] = dZyy.imag() / m_ZyySD[freqIDGlobalInSta].imagPart;
+		}
+	}
+	if (!m_fixDistortionMatrix) { // Distortion matrix is not fixed
+		const std::complex<double> czero(0.0, 0.0);
+		std::complex<double> dZxx[4] = { czero, czero, czero, czero };
+		std::complex<double> dZxy[4] = { czero, czero, czero, czero };
+		std::complex<double> dZyx[4] = { czero, czero, czero, czero };
+		std::complex<double> dZyy[4] = { czero, czero, czero, czero };
+		calculateSensitivityMatrixAuxDistortionParameters(freq, ptrStationOfMagneticField, dZxx, dZxy, dZyx, dZyy);
+		if ((AnalysisControl::getInstance())->getTypeOfDistortion() == AnalysisControl::ESTIMATE_DISTORTION_MATRIX_DIFFERENCE) {
+			for (int index = 0; index < 4; ++index) {
+				const long long ID = static_cast<long long>(m_arrayDistortionMatrixDifferences->IDsOfDistortionMatrixDifference[index]);
+				if (ID >= 0) {
+					if (m_ZxxSD[freqIDGlobalInSta].realPart > 0.0) {
+						sensitivityMatrix[static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfZxx[freqIDThisPEInSta].realPart) + nBlkNotFixed + ID] = dZxx[index].real() / m_ZxxSD[freqIDGlobalInSta].realPart;// For Re(Zxx)
+					}
+					if (m_ZxxSD[freqIDGlobalInSta].imagPart > 0.0) {
+						sensitivityMatrix[static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfZxx[freqIDThisPEInSta].imagPart) + nBlkNotFixed + ID] = dZxx[index].imag() / m_ZxxSD[freqIDGlobalInSta].imagPart;// For Im(Zxx)
+					}
+					if (m_ZxySD[freqIDGlobalInSta].realPart > 0.0) {
+						sensitivityMatrix[static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfZxy[freqIDThisPEInSta].realPart) + nBlkNotFixed + ID] = dZxy[index].real() / m_ZxySD[freqIDGlobalInSta].realPart;// For Re(Zxy)
+					}
+					if (m_ZxySD[freqIDGlobalInSta].imagPart > 0.0) {
+						sensitivityMatrix[static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfZxy[freqIDThisPEInSta].imagPart) + nBlkNotFixed + ID] = dZxy[index].imag() / m_ZxySD[freqIDGlobalInSta].imagPart;// For Im(Zxy)
+					}
+					if (m_ZyxSD[freqIDGlobalInSta].realPart > 0.0) {
+						sensitivityMatrix[static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfZyx[freqIDThisPEInSta].realPart) + nBlkNotFixed + ID] = dZyx[index].real() / m_ZyxSD[freqIDGlobalInSta].realPart;// For Re(Zyx)
+					}
+					if (m_ZyxSD[freqIDGlobalInSta].imagPart > 0.0) {
+						sensitivityMatrix[static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfZyx[freqIDThisPEInSta].imagPart) + nBlkNotFixed + ID] = dZyx[index].imag() / m_ZyxSD[freqIDGlobalInSta].imagPart;// For Im(Zyx)
+					}
+					if (m_ZyySD[freqIDGlobalInSta].realPart > 0.0) {
+						sensitivityMatrix[static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfZyy[freqIDThisPEInSta].realPart) + nBlkNotFixed + ID] = dZyy[index].real() / m_ZyySD[freqIDGlobalInSta].realPart;// For Re(Zyy)
+					}
+					if (m_ZyySD[freqIDGlobalInSta].imagPart > 0.0) {
+						sensitivityMatrix[static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfZyy[freqIDThisPEInSta].imagPart) + nBlkNotFixed + ID] = dZyy[index].imag() / m_ZyySD[freqIDGlobalInSta].imagPart;// For Im(Zyy)
+					}
+				}
+			}
+		}
+		else if ((AnalysisControl::getInstance())->getTypeOfDistortion() == AnalysisControl::ESTIMATE_GAINS_AND_ROTATIONS) {
+			for (int index = 0; index < 4; ++index) {
+				const long long ID = static_cast<long long>(m_arrayGainsAndRotations->IDsOfGainsAndRotations[index]);
+				if (ID >= 0) {
+					if (m_ZxxSD[freqIDGlobalInSta].realPart > 0.0) {
+						sensitivityMatrix[static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfZxx[freqIDThisPEInSta].realPart) + nBlkNotFixed + ID] = dZxx[index].real() / m_ZxxSD[freqIDGlobalInSta].realPart;// For Re(Zxx)
+					}
+					if (m_ZxxSD[freqIDGlobalInSta].imagPart > 0.0) {
+						sensitivityMatrix[static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfZxx[freqIDThisPEInSta].imagPart) + nBlkNotFixed + ID] = dZxx[index].imag() / m_ZxxSD[freqIDGlobalInSta].imagPart;// For Im(Zxx)
+					}
+					if (m_ZxySD[freqIDGlobalInSta].realPart > 0.0) {
+						sensitivityMatrix[static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfZxy[freqIDThisPEInSta].realPart) + nBlkNotFixed + ID] = dZxy[index].real() / m_ZxySD[freqIDGlobalInSta].realPart;// For Re(Zxy)
+					}
+					if (m_ZxySD[freqIDGlobalInSta].imagPart > 0.0) {
+						sensitivityMatrix[static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfZxy[freqIDThisPEInSta].imagPart) + nBlkNotFixed + ID] = dZxy[index].imag() / m_ZxySD[freqIDGlobalInSta].imagPart;// For Im(Zxy)
+					}
+					if (m_ZyxSD[freqIDGlobalInSta].realPart > 0.0) {
+						sensitivityMatrix[static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfZyx[freqIDThisPEInSta].realPart) + nBlkNotFixed + ID] = dZyx[index].real() / m_ZyxSD[freqIDGlobalInSta].realPart;// For Re(Zyx)
+					}
+					if (m_ZyxSD[freqIDGlobalInSta].imagPart > 0.0) {
+						sensitivityMatrix[static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfZyx[freqIDThisPEInSta].imagPart) + nBlkNotFixed + ID] = dZyx[index].imag() / m_ZyxSD[freqIDGlobalInSta].imagPart;// For Im(Zyx)
+					}
+					if (m_ZyySD[freqIDGlobalInSta].realPart > 0.0) {
+						sensitivityMatrix[static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfZyy[freqIDThisPEInSta].realPart) + nBlkNotFixed + ID] = dZyy[index].real() / m_ZyySD[freqIDGlobalInSta].realPart;// For Re(Zyy)
+					}
+					if (m_ZyySD[freqIDGlobalInSta].imagPart > 0.0) {
+						sensitivityMatrix[static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfZyy[freqIDThisPEInSta].imagPart) + nBlkNotFixed + ID] = dZyy[index].imag() / m_ZyySD[freqIDGlobalInSta].imagPart;// For Im(Zyy)
+					}
+				}
+			}
+		}
+		else if ((AnalysisControl::getInstance())->getTypeOfDistortion() == AnalysisControl::ESTIMATE_GAINS_ONLY) {
+			for (int index = 0; index < 2; ++index) {
+				const long long ID = static_cast<long long>(m_arrayGainsAndRotations->IDsOfGainsAndRotations[index]);
+				if (ID >= 0) {
+					if (m_ZxxSD[freqIDGlobalInSta].realPart > 0.0) {
+						sensitivityMatrix[static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfZxx[freqIDThisPEInSta].realPart) + nBlkNotFixed + ID] = dZxx[index].real() / m_ZxxSD[freqIDGlobalInSta].realPart;// For Re(Zxx)
+					}
+					if (m_ZxxSD[freqIDGlobalInSta].imagPart > 0.0) {
+						sensitivityMatrix[static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfZxx[freqIDThisPEInSta].imagPart) + nBlkNotFixed + ID] = dZxx[index].imag() / m_ZxxSD[freqIDGlobalInSta].imagPart;// For Im(Zxx)
+					}
+					if (m_ZxySD[freqIDGlobalInSta].realPart > 0.0) {
+						sensitivityMatrix[static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfZxy[freqIDThisPEInSta].realPart) + nBlkNotFixed + ID] = dZxy[index].real() / m_ZxySD[freqIDGlobalInSta].realPart;// For Re(Zxy)
+					}
+					if (m_ZxySD[freqIDGlobalInSta].imagPart > 0.0) {
+						sensitivityMatrix[static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfZxy[freqIDThisPEInSta].imagPart) + nBlkNotFixed + ID] = dZxy[index].imag() / m_ZxySD[freqIDGlobalInSta].imagPart;// For Im(Zxy)
+					}
+					if (m_ZyxSD[freqIDGlobalInSta].realPart > 0.0) {
+						sensitivityMatrix[static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfZyx[freqIDThisPEInSta].realPart) + nBlkNotFixed + ID] = dZyx[index].real() / m_ZyxSD[freqIDGlobalInSta].realPart;// For Re(Zyx)
+					}
+					if (m_ZyxSD[freqIDGlobalInSta].imagPart > 0.0) {
+						sensitivityMatrix[static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfZyx[freqIDThisPEInSta].imagPart) + nBlkNotFixed + ID] = dZyx[index].imag() / m_ZyxSD[freqIDGlobalInSta].imagPart;// For Im(Zyx)
+					}
+					if (m_ZyySD[freqIDGlobalInSta].realPart > 0.0) {
+						sensitivityMatrix[static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfZyy[freqIDThisPEInSta].realPart) + nBlkNotFixed + ID] = dZyy[index].real() / m_ZyySD[freqIDGlobalInSta].realPart;// For Re(Zyy)
+					}
+					if (m_ZyySD[freqIDGlobalInSta].imagPart > 0.0) {
+						sensitivityMatrix[static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfZyy[freqIDThisPEInSta].imagPart) + nBlkNotFixed + ID] = dZyy[index].imag() / m_ZyySD[freqIDGlobalInSta].imagPart;// For Im(Zyy)
+					}
+				}
+			}
+		}
+	}
+
+}
+
+// Auxiliary function for calulating sensitivity matrix with respect to resistivity
+void ObservedDataStationMT::calculateSensitivityMatrixAuxResistivity(const double freq, const int imdl, const ObservedDataStationPoint* const ptrStationOfMagneticField,
+	const std::complex<double>*const derivativesOfEMFieldExPol, const std::complex<double>*const derivativesOfEMFieldEyPol,
+	std::complex<double>&dZxx, std::complex<double>&dZxy, std::complex<double>&dZyx, std::complex<double>&dZyy) const{
 
 	const int freqIDThisPEInSta = getFreqIDsAmongThisPE( freq );
 
@@ -726,41 +881,7 @@ void ObservedDataStationMT::calculateSensitivityMatrix( const double freq, const
 
 	const long long rhsVectorIDOfHx = static_cast<long long>( ptrStationOfMagneticField->getRhsVectorIDOfHx() );
 	const long long rhsVectorIDOfHy = static_cast<long long>( ptrStationOfMagneticField->getRhsVectorIDOfHy() );
-	const long long nBlkNotFixed = static_cast<long long>( ( ResistivityBlock::getInstance() )->getNumResistivityBlockNotFixed() );
-
-//	//----- debug >>>>>
-//#ifdef _DEBUG_WRITE
-//	std::cout << "divDet " << divDet << std::endl;
-//	for( int imdl = 0; imdl < nBlkNotFixed; ++imdl ){
-//		std::cout << "Ex imdl derivatives[0] " << imdl << " " << derivativesOfEMFieldExPol[ nBlkNotFixed*m_rhsVectorIDOfEx + imdl ] << std::endl;
-//	}
-//	for( int imdl = 0; imdl < nBlkNotFixed; ++imdl ){
-//		std::cout << "Ey imdl derivatives[0] " << imdl << " " << derivativesOfEMFieldExPol[ nBlkNotFixed*m_rhsVectorIDOfEy + imdl ] << std::endl;
-//	}
-//	for( int imdl = 0; imdl < nBlkNotFixed; ++imdl ){
-//		std::cout << "Hx imdl derivatives[0] " << imdl << " " << derivativesOfEMFieldExPol[ nBlkNotFixed*rhsVectorIDOfHx   + imdl ] << std::endl;
-//	}
-//	for( int imdl = 0; imdl < nBlkNotFixed; ++imdl ){
-//		std::cout << "Hy imdl derivatives[0] " << imdl << " " << derivativesOfEMFieldExPol[ nBlkNotFixed*rhsVectorIDOfHy   + imdl ] << std::endl;
-//	}
-//	for( int imdl = 0; imdl < nBlkNotFixed; ++imdl ){
-//		std::cout << "Ex imdl derivatives[1] " << imdl << " " << derivativesOfEMFieldEyPol[ nBlkNotFixed*m_rhsVectorIDOfEx + imdl ] << std::endl;
-//	}
-//	for( int imdl = 0; imdl < nBlkNotFixed; ++imdl ){
-//		std::cout << "Ey imdl derivatives[1] " << imdl << " " << derivativesOfEMFieldEyPol[ nBlkNotFixed*m_rhsVectorIDOfEy + imdl ] << std::endl;
-//	}
-//	for( int imdl = 0; imdl < nBlkNotFixed; ++imdl ){
-//		std::cout << "Hx imdl derivatives[1] " << imdl << " " << derivativesOfEMFieldEyPol[ nBlkNotFixed*rhsVectorIDOfHx   + imdl ] << std::endl;
-//	}
-//	for( int imdl = 0; imdl < nBlkNotFixed; ++imdl ){
-//		std::cout << "Hy imdl derivatives[1] " << imdl << " " << derivativesOfEMFieldEyPol[ nBlkNotFixed*rhsVectorIDOfHy   + imdl ] << std::endl;
-//	}
-//#endif
-//	//----- debug <<<<<
-
-	//const double baseOfStaticShift = ( ObservedData::getInstance() )->getBaseOfStaticShift();
-
-	//const double factor( pow( 10.0, m_staticShiftFactor ) );
+	const long long nBlkNotFixed = static_cast<long long>((AnalysisControl::getInstance()->getPointerOfResistivityBlock())->getNumberOfUnfixedResistivityParameters());
 
 	double cxx = 1.0;
 	double cxy = 0.0;
@@ -797,243 +918,211 @@ void ObservedDataStationMT::calculateSensitivityMatrix( const double freq, const
 		}
 	}
 
-	CommonParameters::DoubleComplexValues ZxxSD = m_ZxxSD[freqIDGlobalInSta];
-	CommonParameters::DoubleComplexValues ZxySD = m_ZxySD[freqIDGlobalInSta];
-	CommonParameters::DoubleComplexValues ZyxSD = m_ZyxSD[freqIDGlobalInSta];
-	CommonParameters::DoubleComplexValues ZyySD = m_ZyySD[freqIDGlobalInSta];
-	if( forceSDToOne ){
-		// force erro to one
-		ZxxSD.realPart = 1.0;
-		ZxySD.realPart = 1.0;
-		ZyxSD.realPart = 1.0;
-		ZyySD.realPart = 1.0;
-		ZxxSD.imagPart = 1.0;
-		ZxySD.imagPart = 1.0;
-		ZyxSD.imagPart = 1.0;
-		ZyySD.imagPart = 1.0;
+	const std::complex<double> work1 = derivativesOfEMFieldExPol[ nBlkNotFixed * rhsVectorIDOfHx   + imdl ] * HyCalculated[1]
+								+ derivativesOfEMFieldEyPol[ nBlkNotFixed * rhsVectorIDOfHy   + imdl ] * HxCalculated[0]
+								- derivativesOfEMFieldEyPol[ nBlkNotFixed * rhsVectorIDOfHx   + imdl ] * HyCalculated[0]
+								- derivativesOfEMFieldExPol[ nBlkNotFixed * rhsVectorIDOfHy   + imdl ] * HxCalculated[1];
+
+	// dZxx/dm
+	const std::complex<double> workXX1	= derivativesOfEMFieldExPol[ nBlkNotFixed * static_cast<long long>(m_rhsVectorIDOfEx) + imdl ] * HyCalculated[1]
+									+ derivativesOfEMFieldEyPol[ nBlkNotFixed * rhsVectorIDOfHy   + imdl ] * m_ExCalculated[0]
+									- derivativesOfEMFieldEyPol[ nBlkNotFixed * static_cast<long long>(m_rhsVectorIDOfEx) + imdl ] * HyCalculated[0]
+									- derivativesOfEMFieldExPol[ nBlkNotFixed * rhsVectorIDOfHy   + imdl ] * m_ExCalculated[1];
+
+	const std::complex<double> workXX2	= m_ExCalculated[0]*HyCalculated[1]	- m_ExCalculated[1]*HyCalculated[0];
+
+	const double dZxxRealUndist = ( workXX1 * divDet - work1 * workXX2 * divDet2 ).real();  
+	const double dZxxImagUndist = ( workXX1 * divDet - work1 * workXX2 * divDet2 ).imag();
+
+	// dZxy/dm
+	const std::complex<double> workXY1	= derivativesOfEMFieldEyPol[ nBlkNotFixed * static_cast<long long>(m_rhsVectorIDOfEx) + imdl ] * HxCalculated[0]
+									+ derivativesOfEMFieldExPol[ nBlkNotFixed * rhsVectorIDOfHx   + imdl ] * m_ExCalculated[1]
+									- derivativesOfEMFieldExPol[ nBlkNotFixed * static_cast<long long>(m_rhsVectorIDOfEx) + imdl ] * HxCalculated[1]
+									- derivativesOfEMFieldEyPol[ nBlkNotFixed * rhsVectorIDOfHx   + imdl ] * m_ExCalculated[0];
+
+	const std::complex<double> workXY2	= m_ExCalculated[1]*HxCalculated[0]	- m_ExCalculated[0]*HxCalculated[1];
+
+	const double dZxyRealUndist = ( workXY1 * divDet - work1 * workXY2 * divDet2 ).real();
+	const double dZxyImagUndist = ( workXY1 * divDet - work1 * workXY2 * divDet2 ).imag();
+
+	// dZyx/dm
+	const std::complex<double> workYX1	= derivativesOfEMFieldExPol[ nBlkNotFixed * static_cast<long long>(m_rhsVectorIDOfEy) + imdl ] *   HyCalculated[1]
+									+ derivativesOfEMFieldEyPol[ nBlkNotFixed * rhsVectorIDOfHy   + imdl ] * m_EyCalculated[0]
+									- derivativesOfEMFieldEyPol[ nBlkNotFixed * static_cast<long long>(m_rhsVectorIDOfEy) + imdl ] *   HyCalculated[0]
+									- derivativesOfEMFieldExPol[ nBlkNotFixed * rhsVectorIDOfHy   + imdl ] * m_EyCalculated[1];
+
+	const std::complex<double> workYX2	= m_EyCalculated[0]*HyCalculated[1]	- m_EyCalculated[1]*HyCalculated[0];
+
+	const double dZyxRealUndist = ( workYX1 * divDet - work1 * workYX2 * divDet2 ).real();
+	const double dZyxImagUndist = ( workYX1 * divDet - work1 * workYX2 * divDet2 ).imag();
+
+	// dZyy/dm
+	const std::complex<double> workYY1	= derivativesOfEMFieldEyPol[ nBlkNotFixed * static_cast<long long>(m_rhsVectorIDOfEy) + imdl ] *   HxCalculated[0]
+									+ derivativesOfEMFieldExPol[ nBlkNotFixed * rhsVectorIDOfHx   + imdl ] * m_EyCalculated[1]
+									- derivativesOfEMFieldExPol[ nBlkNotFixed * static_cast<long long>(m_rhsVectorIDOfEy) + imdl ] *   HxCalculated[1]
+									- derivativesOfEMFieldEyPol[ nBlkNotFixed * rhsVectorIDOfHx   + imdl ] * m_EyCalculated[0];
+
+	const std::complex<double> workYY2	= m_EyCalculated[1]*HxCalculated[0]	- m_EyCalculated[0]*HxCalculated[1];
+
+	const double dZyyRealUndist = ( workYY1 * divDet - work1 * workYY2 * divDet2 ).real();
+	const double dZyyImagUndist = ( workYY1 * divDet - work1 * workYY2 * divDet2 ).imag();
+
+	dZxx = std::complex<double>(cxx * dZxxRealUndist + cxy * dZyxRealUndist, cxx * dZxxImagUndist + cxy * dZyxImagUndist);
+	dZxy = std::complex<double>(cxx * dZxyRealUndist + cxy * dZyyRealUndist, cxx * dZxyImagUndist + cxy * dZyyImagUndist);
+	dZyx = std::complex<double>(cyx * dZxxRealUndist + cyy * dZyxRealUndist, cyx * dZxxImagUndist + cyy * dZyxImagUndist);
+	dZyy = std::complex<double>(cyx * dZxyRealUndist + cyy * dZyyRealUndist, cyx * dZxyImagUndist + cyy * dZyyImagUndist);
+
+}
+
+// Auxiliary function for calulating sensitivity matrix with respect to distortion parameters
+void ObservedDataStationMT::calculateSensitivityMatrixAuxDistortionParameters(const double freq, const ObservedDataStationPoint* const ptrStationOfMagneticField,
+	std::complex<double> dZxx[4], std::complex<double> dZxy[4], std::complex<double> dZyx[4], std::complex<double> dZyy[4]) const {
+
+	if (m_fixDistortionMatrix) {
+		return;
 	}
 
-	for( long long imdl = 0; imdl < nBlkNotFixed; ++imdl ){
+	const int freqIDThisPEInSta = getFreqIDsAmongThisPE(freq);
+	if (freqIDThisPEInSta < 0) {// Specified frequency is not the ones calculated by this PE in this station 
+		return;
+	}
 
-		const std::complex<double> work1 = derivativesOfEMFieldExPol[ nBlkNotFixed * rhsVectorIDOfHx   + imdl ] * HyCalculated[1]
-									+ derivativesOfEMFieldEyPol[ nBlkNotFixed * rhsVectorIDOfHy   + imdl ] * HxCalculated[0]
-									- derivativesOfEMFieldEyPol[ nBlkNotFixed * rhsVectorIDOfHx   + imdl ] * HyCalculated[0]
-									- derivativesOfEMFieldExPol[ nBlkNotFixed * rhsVectorIDOfHy   + imdl ] * HxCalculated[1];
+	const std::complex<double> HxCalculated[2] = { ptrStationOfMagneticField->getHxCalculated(0), ptrStationOfMagneticField->getHxCalculated(1) };
+	const std::complex<double> HyCalculated[2] = { ptrStationOfMagneticField->getHyCalculated(0), ptrStationOfMagneticField->getHyCalculated(1) };
+	const std::complex<double> det = HxCalculated[0] * HyCalculated[1] - HxCalculated[1] * HyCalculated[0];
 
-		// dZxx/dm
-		const std::complex<double> workXX1	= derivativesOfEMFieldExPol[ nBlkNotFixed * static_cast<long long>(m_rhsVectorIDOfEx) + imdl ] * HyCalculated[1]
-										+ derivativesOfEMFieldEyPol[ nBlkNotFixed * rhsVectorIDOfHy   + imdl ] * m_ExCalculated[0]
-										- derivativesOfEMFieldEyPol[ nBlkNotFixed * static_cast<long long>(m_rhsVectorIDOfEx) + imdl ] * HyCalculated[0]
-										- derivativesOfEMFieldExPol[ nBlkNotFixed * rhsVectorIDOfHy   + imdl ] * m_ExCalculated[1];
+	const std::complex<double> ZxxUndist = (m_ExCalculated[0] * HyCalculated[1] - m_ExCalculated[1] * HyCalculated[0]) / det;
+	const std::complex<double> ZxyUndist = (m_ExCalculated[1] * HxCalculated[0] - m_ExCalculated[0] * HxCalculated[1]) / det;
+	const std::complex<double> ZyxUndist = (m_EyCalculated[0] * HyCalculated[1] - m_EyCalculated[1] * HyCalculated[0]) / det;
+	const std::complex<double> ZyyUndist = (m_EyCalculated[1] * HxCalculated[0] - m_EyCalculated[0] * HxCalculated[1]) / det;
 
-		const std::complex<double> workXX2	= m_ExCalculated[0]*HyCalculated[1]	- m_ExCalculated[1]*HyCalculated[0];
+	if ((AnalysisControl::getInstance())->getTypeOfDistortion() == AnalysisControl::ESTIMATE_DISTORTION_MATRIX_DIFFERENCE) {
+		const long long ID_Cxx = static_cast<long long>(m_arrayDistortionMatrixDifferences->IDsOfDistortionMatrixDifference[COMPONENT_ID_CXX]);
+		const long long ID_Cxy = static_cast<long long>(m_arrayDistortionMatrixDifferences->IDsOfDistortionMatrixDifference[COMPONENT_ID_CXY]);
+		const long long ID_Cyx = static_cast<long long>(m_arrayDistortionMatrixDifferences->IDsOfDistortionMatrixDifference[COMPONENT_ID_CYX]);
+		const long long ID_Cyy = static_cast<long long>(m_arrayDistortionMatrixDifferences->IDsOfDistortionMatrixDifference[COMPONENT_ID_CYY]);
+		if (ID_Cxx >= 0) {
+			dZxx[COMPONENT_ID_CXX] = ZxxUndist;
+			dZxy[COMPONENT_ID_CXX] = ZxyUndist;
+			dZyx[COMPONENT_ID_CXX] = std::complex<double>(0.0, 0.0);
+			dZyy[COMPONENT_ID_CXX] = std::complex<double>(0.0, 0.0);
+		}
+		if (ID_Cxy >= 0) {
+			dZxx[COMPONENT_ID_CXY] = ZyxUndist;
+			dZxy[COMPONENT_ID_CXY] = ZyyUndist;
+			dZyx[COMPONENT_ID_CXY] = std::complex<double>(0.0, 0.0);
+			dZyy[COMPONENT_ID_CXY] = std::complex<double>(0.0, 0.0);
+		}
+		if (ID_Cyx >= 0) {
+			dZxx[COMPONENT_ID_CYX] = std::complex<double>(0.0, 0.0);
+			dZxy[COMPONENT_ID_CYX] = std::complex<double>(0.0, 0.0);
+			dZyx[COMPONENT_ID_CYX] = ZxxUndist;
+			dZyy[COMPONENT_ID_CYX] = ZxyUndist;
+		}
+		if (ID_Cyy >= 0) {
+			dZxx[COMPONENT_ID_CYY] = std::complex<double>(0.0, 0.0);
+			dZxy[COMPONENT_ID_CYY] = std::complex<double>(0.0, 0.0);
+			dZyx[COMPONENT_ID_CYY] = ZyxUndist;
+			dZyy[COMPONENT_ID_CYY] = ZyyUndist;
+		}
+	}
+	else if ((AnalysisControl::getInstance())->getTypeOfDistortion() == AnalysisControl::ESTIMATE_GAINS_AND_ROTATIONS) {
 
-		const double dZxxRealUndist = ( workXX1 * divDet - work1 * workXX2 * divDet2 ).real();  
-		const double dZxxImagUndist = ( workXX1 * divDet - work1 * workXX2 * divDet2 ).imag();
+		const double ln10 = log(10.0);
 
-		// dZxy/dm
-		const std::complex<double> workXY1	= derivativesOfEMFieldEyPol[ nBlkNotFixed * static_cast<long long>(m_rhsVectorIDOfEx) + imdl ] * HxCalculated[0]
-										+ derivativesOfEMFieldExPol[ nBlkNotFixed * rhsVectorIDOfHx   + imdl ] * m_ExCalculated[1]
-										- derivativesOfEMFieldExPol[ nBlkNotFixed * static_cast<long long>(m_rhsVectorIDOfEx) + imdl ] * HxCalculated[1]
-										- derivativesOfEMFieldEyPol[ nBlkNotFixed * rhsVectorIDOfHx   + imdl ] * m_ExCalculated[0];
+		const double gX = pow(10.0, m_arrayGainsAndRotations->gainsAndRotations[ObservedDataStationMT::EX_GAIN]);
+		const double gY = pow(10.0, m_arrayGainsAndRotations->gainsAndRotations[ObservedDataStationMT::EY_GAIN]);
+		const double betaX = m_arrayGainsAndRotations->gainsAndRotations[ObservedDataStationMT::EX_ROTATION];
+		const double betaY = m_arrayGainsAndRotations->gainsAndRotations[ObservedDataStationMT::EY_ROTATION];
 
-		const std::complex<double> workXY2	= m_ExCalculated[1]*HxCalculated[0]	- m_ExCalculated[0]*HxCalculated[1];
+		const long long ID_GainX = static_cast<long long>(m_arrayGainsAndRotations->IDsOfGainsAndRotations[EX_GAIN]);
+		const long long ID_GainY = static_cast<long long>(m_arrayGainsAndRotations->IDsOfGainsAndRotations[EY_GAIN]);
+		const long long ID_RotX = static_cast<long long>(m_arrayGainsAndRotations->IDsOfGainsAndRotations[EX_ROTATION]);
+		const long long ID_RotY = static_cast<long long>(m_arrayGainsAndRotations->IDsOfGainsAndRotations[EY_ROTATION]);
 
-		const double dZxyRealUndist = ( workXY1 * divDet - work1 * workXY2 * divDet2 ).real();
-		const double dZxyImagUndist = ( workXY1 * divDet - work1 * workXY2 * divDet2 ).imag();
+		if (ID_GainX >= 0) {
+			dZxx[EX_GAIN] = std::complex<double>(gX * ln10 * cos(betaX) * ZxxUndist.real(), gX * ln10 * cos(betaX) * ZxxUndist.imag());
+			dZxy[EX_GAIN] = std::complex<double>(gX * ln10 * cos(betaX) * ZxyUndist.real(), gX * ln10 * cos(betaX) * ZxyUndist.imag());
+			dZyx[EX_GAIN] = std::complex<double>(gX * ln10 * sin(betaX) * ZxxUndist.real(), gX * ln10 * sin(betaX) * ZxxUndist.imag());
+			dZyy[EX_GAIN] = std::complex<double>(gX * ln10 * sin(betaX) * ZxyUndist.real(), gX * ln10 * sin(betaX) * ZxyUndist.imag());
+		}
+		if (ID_GainY >= 0) {
+			dZxx[EY_GAIN] = std::complex<double>(-gY * ln10 * sin(betaY) * ZyxUndist.real(), -gY * ln10 * sin(betaY) * ZyxUndist.imag());
+			dZxy[EY_GAIN] = std::complex<double>(-gY * ln10 * sin(betaY) * ZyyUndist.real(), -gY * ln10 * sin(betaY) * ZyyUndist.imag());
+			dZyx[EY_GAIN] = std::complex<double>( gY * ln10 * cos(betaY) * ZyxUndist.real(),  gY * ln10 * cos(betaY) * ZyxUndist.imag());
+			dZyy[EY_GAIN] = std::complex<double>( gY * ln10 * cos(betaY) * ZyyUndist.real(),  gY * ln10 * cos(betaY) * ZyyUndist.imag());
+		}
+		if (ID_RotX >= 0) {
+			dZxx[EX_ROTATION] = std::complex<double>(-gX * sin(betaX) * ZxxUndist.real(), -gX * sin(betaX) * ZxxUndist.imag());
+			dZxy[EX_ROTATION] = std::complex<double>(-gX * sin(betaX) * ZxyUndist.real(), -gX * sin(betaX) * ZxyUndist.imag());
+			dZyx[EX_ROTATION] = std::complex<double>( gX * cos(betaX) * ZxxUndist.real(),  gX * cos(betaX) * ZxxUndist.imag());
+			dZyy[EX_ROTATION] = std::complex<double>( gX * cos(betaX) * ZxyUndist.real(),  gX * cos(betaX) * ZxyUndist.imag());
+		}
+		if (ID_RotY >= 0) {
+			dZxx[EY_ROTATION] = std::complex<double>(-gY * cos(betaY) * ZyxUndist.real(), -gY * cos(betaY) * ZyxUndist.imag());
+			dZxy[EY_ROTATION] = std::complex<double>(-gY * cos(betaY) * ZyyUndist.real(), -gY * cos(betaY) * ZyyUndist.imag());
+			dZyx[EY_ROTATION] = std::complex<double>(-gY * sin(betaY) * ZyxUndist.real(), -gY * sin(betaY) * ZyxUndist.imag());
+			dZyy[EY_ROTATION] = std::complex<double>(-gY * sin(betaY) * ZyyUndist.real(), -gY * sin(betaY) * ZyyUndist.imag());
+		}
+	}
+	else if ((AnalysisControl::getInstance())->getTypeOfDistortion() == AnalysisControl::ESTIMATE_GAINS_ONLY) {
 
-		// dZyx/dm
-		const std::complex<double> workYX1	= derivativesOfEMFieldExPol[ nBlkNotFixed * static_cast<long long>(m_rhsVectorIDOfEy) + imdl ] *   HyCalculated[1]
-										+ derivativesOfEMFieldEyPol[ nBlkNotFixed * rhsVectorIDOfHy   + imdl ] * m_EyCalculated[0]
-										- derivativesOfEMFieldEyPol[ nBlkNotFixed * static_cast<long long>(m_rhsVectorIDOfEy) + imdl ] *   HyCalculated[0]
-										- derivativesOfEMFieldExPol[ nBlkNotFixed * rhsVectorIDOfHy   + imdl ] * m_EyCalculated[1];
+		const double ln10 = log(10.0);
 
-		const std::complex<double> workYX2	= m_EyCalculated[0]*HyCalculated[1]	- m_EyCalculated[1]*HyCalculated[0];
+		const double gX = pow(10.0, m_arrayGainsAndRotations->gainsAndRotations[ObservedDataStationMT::EX_GAIN]);
+		const double gY = pow(10.0, m_arrayGainsAndRotations->gainsAndRotations[ObservedDataStationMT::EY_GAIN]);
 
-		const double dZyxRealUndist = ( workYX1 * divDet - work1 * workYX2 * divDet2 ).real();
-		const double dZyxImagUndist = ( workYX1 * divDet - work1 * workYX2 * divDet2 ).imag();
-
-		// dZyy/dm
-		const std::complex<double> workYY1	= derivativesOfEMFieldEyPol[ nBlkNotFixed * static_cast<long long>(m_rhsVectorIDOfEy) + imdl ] *   HxCalculated[0]
-										+ derivativesOfEMFieldExPol[ nBlkNotFixed * rhsVectorIDOfHx   + imdl ] * m_EyCalculated[1]
-										- derivativesOfEMFieldExPol[ nBlkNotFixed * static_cast<long long>(m_rhsVectorIDOfEy) + imdl ] *   HxCalculated[1]
-										- derivativesOfEMFieldEyPol[ nBlkNotFixed * rhsVectorIDOfHx   + imdl ] * m_EyCalculated[0];
-
-		const std::complex<double> workYY2	= m_EyCalculated[1]*HxCalculated[0]	- m_EyCalculated[0]*HxCalculated[1];
-
-		const double dZyyRealUndist = ( workYY1 * divDet - work1 * workYY2 * divDet2 ).real();
-		const double dZyyImagUndist = ( workYY1 * divDet - work1 * workYY2 * divDet2 ).imag();
-
-		sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfZxx[freqIDThisPEInSta].realPart) + imdl ] = ( cxx * dZxxRealUndist + cxy * dZyxRealUndist ) / ZxxSD.realPart;
-		sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfZxy[freqIDThisPEInSta].realPart) + imdl ] = ( cxx * dZxyRealUndist + cxy * dZyyRealUndist ) / ZxySD.realPart;
-		sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfZyx[freqIDThisPEInSta].realPart) + imdl ] = ( cyx * dZxxRealUndist + cyy * dZyxRealUndist ) / ZyxSD.realPart;
-		sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfZyy[freqIDThisPEInSta].realPart) + imdl ] = ( cyx * dZxyRealUndist + cyy * dZyyRealUndist ) / ZyySD.realPart;
-
-		sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfZxx[freqIDThisPEInSta].imagPart) + imdl ] = ( cxx * dZxxImagUndist + cxy * dZyxImagUndist ) / ZxxSD.imagPart;
-		sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfZxy[freqIDThisPEInSta].imagPart) + imdl ] = ( cxx * dZxyImagUndist + cxy * dZyyImagUndist ) / ZxySD.imagPart;
-		sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfZyx[freqIDThisPEInSta].imagPart) + imdl ] = ( cyx * dZxxImagUndist + cyy * dZyxImagUndist ) / ZyxSD.imagPart;
-		sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfZyy[freqIDThisPEInSta].imagPart) + imdl ] = ( cyx * dZxyImagUndist + cyy * dZyyImagUndist ) / ZyySD.imagPart;
-
-		if( !m_fixDistortionMatrix ){ // Distortion matrix is not fixed
-
-			const std::complex<double> ZxxUndist = ( m_ExCalculated[0]*HyCalculated[1] - m_ExCalculated[1]*HyCalculated[0] ) / det;
-			const std::complex<double> ZxyUndist = ( m_ExCalculated[1]*HxCalculated[0] - m_ExCalculated[0]*HxCalculated[1] ) / det;
-			const std::complex<double> ZyxUndist = ( m_EyCalculated[0]*HyCalculated[1] - m_EyCalculated[1]*HyCalculated[0] ) / det;
-			const std::complex<double> ZyyUndist = ( m_EyCalculated[1]*HxCalculated[0] - m_EyCalculated[0]*HxCalculated[1] ) / det;
-
-			if( ( AnalysisControl::getInstance() )->getTypeOfDistortion() == AnalysisControl::ESTIMATE_DISTORTION_MATRIX_DIFFERENCE ){
-				const long long ID_Cxx = static_cast<long long>(m_arrayDistortionMatrixDifferences->IDsOfDistortionMatrixDifference[COMPONENT_ID_CXX]);
-				const long long ID_Cxy = static_cast<long long>(m_arrayDistortionMatrixDifferences->IDsOfDistortionMatrixDifference[COMPONENT_ID_CXY]);
-				const long long ID_Cyx = static_cast<long long>(m_arrayDistortionMatrixDifferences->IDsOfDistortionMatrixDifference[COMPONENT_ID_CYX]);
-				const long long ID_Cyy = static_cast<long long>(m_arrayDistortionMatrixDifferences->IDsOfDistortionMatrixDifference[COMPONENT_ID_CYY]);
-				if( ID_Cxx >= 0 ){
-					sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfZxx[freqIDThisPEInSta].realPart) + nBlkNotFixed + ID_Cxx ] = ZxxUndist.real() / ZxxSD.realPart;// For Re(Zxx)
-					sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfZxx[freqIDThisPEInSta].imagPart) + nBlkNotFixed + ID_Cxx ] = ZxxUndist.imag() / ZxxSD.imagPart;// For Im(Zxx)
-					sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfZxy[freqIDThisPEInSta].realPart) + nBlkNotFixed + ID_Cxx ] = ZxyUndist.real() / ZxySD.realPart;// For Re(Zxy)
-					sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfZxy[freqIDThisPEInSta].imagPart) + nBlkNotFixed + ID_Cxx ] = ZxyUndist.imag() / ZxySD.imagPart;// For Im(Zxy)
-					sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfZyx[freqIDThisPEInSta].realPart) + nBlkNotFixed + ID_Cxx ] = 0.0;// For Re(Zyx)
-					sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfZyx[freqIDThisPEInSta].imagPart) + nBlkNotFixed + ID_Cxx ] = 0.0;// For Im(Zyx)
-					sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfZyy[freqIDThisPEInSta].realPart) + nBlkNotFixed + ID_Cxx ] = 0.0;// For Re(Zyy)
-					sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfZyy[freqIDThisPEInSta].imagPart) + nBlkNotFixed + ID_Cxx ] = 0.0;// For Im(Zyy)
-				}
-				if( ID_Cxy >= 0 ){
-					sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfZxx[freqIDThisPEInSta].realPart) + nBlkNotFixed + ID_Cxy ] = ZyxUndist.real() / ZxxSD.realPart;// For Re(Zxx)
-					sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfZxx[freqIDThisPEInSta].imagPart) + nBlkNotFixed + ID_Cxy ] = ZyxUndist.imag() / ZxxSD.imagPart;// For Im(Zxx)
-					sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfZxy[freqIDThisPEInSta].realPart) + nBlkNotFixed + ID_Cxy ] = ZyyUndist.real() / ZxySD.realPart;// For Re(Zxy)
-					sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfZxy[freqIDThisPEInSta].imagPart) + nBlkNotFixed + ID_Cxy ] = ZyyUndist.imag() / ZxySD.imagPart;// For Im(Zxy)
-					sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfZyx[freqIDThisPEInSta].realPart) + nBlkNotFixed + ID_Cxy ] = 0.0;// For Re(Zyx)
-					sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfZyx[freqIDThisPEInSta].imagPart) + nBlkNotFixed + ID_Cxy ] = 0.0;// For Im(Zyx)
-					sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfZyy[freqIDThisPEInSta].realPart) + nBlkNotFixed + ID_Cxy ] = 0.0;// For Re(Zyy)
-					sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfZyy[freqIDThisPEInSta].imagPart) + nBlkNotFixed + ID_Cxy ] = 0.0;// For Im(Zyy)
-				}
-				if( ID_Cyx >= 0 ){
-					sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfZxx[freqIDThisPEInSta].realPart) + nBlkNotFixed + ID_Cyx ] = 0.0;// For Re(Zxx)
-					sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfZxx[freqIDThisPEInSta].imagPart) + nBlkNotFixed + ID_Cyx ] = 0.0;// For Im(Zxx)
-					sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfZxy[freqIDThisPEInSta].realPart) + nBlkNotFixed + ID_Cyx ] = 0.0;// For Re(Zxy)
-					sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfZxy[freqIDThisPEInSta].imagPart) + nBlkNotFixed + ID_Cyx ] = 0.0;// For Im(Zxy)
-					sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfZyx[freqIDThisPEInSta].realPart) + nBlkNotFixed + ID_Cyx ] = ZxxUndist.real() / ZyxSD.realPart;// For Re(Zyx)
-					sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfZyx[freqIDThisPEInSta].imagPart) + nBlkNotFixed + ID_Cyx ] = ZxxUndist.imag() / ZyxSD.imagPart;// For Im(Zyx)
-					sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfZyy[freqIDThisPEInSta].realPart) + nBlkNotFixed + ID_Cyx ] = ZxyUndist.real() / ZyySD.realPart;// For Re(Zyy)
-					sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfZyy[freqIDThisPEInSta].imagPart) + nBlkNotFixed + ID_Cyx ] = ZxyUndist.imag() / ZyySD.imagPart;// For Im(Zyy)
-				}
-				if( ID_Cyy >= 0 ){
-					sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfZxx[freqIDThisPEInSta].realPart) + nBlkNotFixed + ID_Cyy ] = 0.0;// For Re(Zxx)
-					sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfZxx[freqIDThisPEInSta].imagPart) + nBlkNotFixed + ID_Cyy ] = 0.0;// For Im(Zxx)
-					sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfZxy[freqIDThisPEInSta].realPart) + nBlkNotFixed + ID_Cyy ] = 0.0;// For Re(Zxy)
-					sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfZxy[freqIDThisPEInSta].imagPart) + nBlkNotFixed + ID_Cyy ] = 0.0;// For Im(Zxy)
-					sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfZyx[freqIDThisPEInSta].realPart) + nBlkNotFixed + ID_Cyy ] = ZyxUndist.real() / ZyxSD.realPart;// For Re(Zyx)
-					sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfZyx[freqIDThisPEInSta].imagPart) + nBlkNotFixed + ID_Cyy ] = ZyxUndist.imag() / ZyxSD.imagPart;// For Im(Zyx)
-					sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfZyy[freqIDThisPEInSta].realPart) + nBlkNotFixed + ID_Cyy ] = ZyyUndist.real() / ZyySD.realPart;// For Re(Zyy)
-					sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfZyy[freqIDThisPEInSta].imagPart) + nBlkNotFixed + ID_Cyy ] = ZyyUndist.imag() / ZyySD.imagPart;// For Im(Zyy)
-				}
-			}
-			else if( ( AnalysisControl::getInstance() )->getTypeOfDistortion() == AnalysisControl::ESTIMATE_GAINS_AND_ROTATIONS ){
-
-				const double ln10 = log(10.0);
-
-				const double gX = pow( 10.0, m_arrayGainsAndRotations->gainsAndRotations[ObservedDataStationMT::EX_GAIN] );
-				const double gY = pow( 10.0, m_arrayGainsAndRotations->gainsAndRotations[ObservedDataStationMT::EY_GAIN] );
-				const double betaX = m_arrayGainsAndRotations->gainsAndRotations[ObservedDataStationMT::EX_ROTATION];
-				const double betaY = m_arrayGainsAndRotations->gainsAndRotations[ObservedDataStationMT::EY_ROTATION];
-
-				const long long ID_GainX = static_cast<long long>(m_arrayGainsAndRotations->IDsOfGainsAndRotations[EX_GAIN]);
-				const long long ID_GainY = static_cast<long long>(m_arrayGainsAndRotations->IDsOfGainsAndRotations[EY_GAIN]);
-				const long long ID_RotX  = static_cast<long long>(m_arrayGainsAndRotations->IDsOfGainsAndRotations[EX_ROTATION]);  
-				const long long ID_RotY  = static_cast<long long>(m_arrayGainsAndRotations->IDsOfGainsAndRotations[EY_ROTATION]);
-
-				if( ID_GainX >= 0 ){ 
-					sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfZxx[freqIDThisPEInSta].realPart) + nBlkNotFixed + ID_GainX ] =   gX * ln10 * cos( betaX ) * ZxxUndist.real() / ZxxSD.realPart;// For Re(Zxx)
-					sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfZxx[freqIDThisPEInSta].imagPart) + nBlkNotFixed + ID_GainX ] =   gX * ln10 * cos( betaX ) * ZxxUndist.imag() / ZxxSD.imagPart;// For Im(Zxx)
-					sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfZxy[freqIDThisPEInSta].realPart) + nBlkNotFixed + ID_GainX ] =   gX * ln10 * cos( betaX ) * ZxyUndist.real() / ZxySD.realPart;// For Re(Zxy)
-					sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfZxy[freqIDThisPEInSta].imagPart) + nBlkNotFixed + ID_GainX ] =   gX * ln10 * cos( betaX ) * ZxyUndist.imag() / ZxySD.imagPart;// For Im(Zxy)
-					sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfZyx[freqIDThisPEInSta].realPart) + nBlkNotFixed + ID_GainX ] =   gX * ln10 * sin( betaX ) * ZxxUndist.real() / ZyxSD.realPart;// For Re(Zyx)
-					sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfZyx[freqIDThisPEInSta].imagPart) + nBlkNotFixed + ID_GainX ] =   gX * ln10 * sin( betaX ) * ZxxUndist.imag() / ZyxSD.imagPart;// For Im(Zyx)
-					sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfZyy[freqIDThisPEInSta].realPart) + nBlkNotFixed + ID_GainX ] =   gX * ln10 * sin( betaX ) * ZxyUndist.real() / ZyySD.realPart;// For Re(Zyy)
-					sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfZyy[freqIDThisPEInSta].imagPart) + nBlkNotFixed + ID_GainX ] =   gX * ln10 * sin( betaX ) * ZxyUndist.imag() / ZyySD.imagPart;// For Im(Zyy)
-				}
-				if( ID_GainY >= 0 ){
-					sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfZxx[freqIDThisPEInSta].realPart) + nBlkNotFixed + ID_GainY ] = - gY * ln10 * sin( betaY ) * ZyxUndist.real() / ZxxSD.realPart;// For Re(Zxx)
-					sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfZxx[freqIDThisPEInSta].imagPart) + nBlkNotFixed + ID_GainY ] = - gY * ln10 * sin( betaY ) * ZyxUndist.imag() / ZxxSD.imagPart;// For Im(Zxx)
-					sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfZxy[freqIDThisPEInSta].realPart) + nBlkNotFixed + ID_GainY ] = - gY * ln10 * sin( betaY ) * ZyyUndist.real() / ZxySD.realPart;// For Re(Zxy)
-					sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfZxy[freqIDThisPEInSta].imagPart) + nBlkNotFixed + ID_GainY ] = - gY * ln10 * sin( betaY ) * ZyyUndist.imag() / ZxySD.imagPart;// For Im(Zxy)
-					sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfZyx[freqIDThisPEInSta].realPart) + nBlkNotFixed + ID_GainY ] =   gY * ln10 * cos( betaY ) * ZyxUndist.real() / ZyxSD.realPart;// For Re(Zyx)
-					sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfZyx[freqIDThisPEInSta].imagPart) + nBlkNotFixed + ID_GainY ] =   gY * ln10 * cos( betaY ) * ZyxUndist.imag() / ZyxSD.imagPart;// For Im(Zyx)
-					sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfZyy[freqIDThisPEInSta].realPart) + nBlkNotFixed + ID_GainY ] =   gY * ln10 * cos( betaY ) * ZyyUndist.real() / ZyySD.realPart;// For Re(Zyy)
-					sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfZyy[freqIDThisPEInSta].imagPart) + nBlkNotFixed + ID_GainY ] =   gY * ln10 * cos( betaY ) * ZyyUndist.imag() / ZyySD.imagPart;// For Im(Zyy)
-				}
-				if( ID_RotX >= 0 ){
-					sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfZxx[freqIDThisPEInSta].realPart) + nBlkNotFixed + ID_RotX  ] = - gX *        sin( betaX ) * ZxxUndist.real() / ZxxSD.realPart;// For Re(Zxx)
-					sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfZxx[freqIDThisPEInSta].imagPart) + nBlkNotFixed + ID_RotX  ] = - gX *        sin( betaX ) * ZxxUndist.imag() / ZxxSD.imagPart;// For Im(Zxx)
-					sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfZxy[freqIDThisPEInSta].realPart) + nBlkNotFixed + ID_RotX  ] = - gX *        sin( betaX ) * ZxyUndist.real() / ZxySD.realPart;// For Re(Zxy)
-					sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfZxy[freqIDThisPEInSta].imagPart) + nBlkNotFixed + ID_RotX  ] = - gX *        sin( betaX ) * ZxyUndist.imag() / ZxySD.imagPart;// For Im(Zxy)
-					sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfZyx[freqIDThisPEInSta].realPart) + nBlkNotFixed + ID_RotX  ] =   gX *        cos( betaX ) * ZxxUndist.real() / ZyxSD.realPart;// For Re(Zyx)
-					sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfZyx[freqIDThisPEInSta].imagPart) + nBlkNotFixed + ID_RotX  ] =   gX *        cos( betaX ) * ZxxUndist.imag() / ZyxSD.imagPart;// For Im(Zyx)
-					sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfZyy[freqIDThisPEInSta].realPart) + nBlkNotFixed + ID_RotX  ] =   gX *        cos( betaX ) * ZxyUndist.real() / ZyySD.realPart;// For Re(Zyy)
-					sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfZyy[freqIDThisPEInSta].imagPart) + nBlkNotFixed + ID_RotX  ] =   gX *        cos( betaX ) * ZxyUndist.imag() / ZyySD.imagPart;// For Im(Zyy)
-				}
-				if( ID_RotY >= 0 ){
-					sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfZxx[freqIDThisPEInSta].realPart) + nBlkNotFixed + ID_RotY  ] = - gY *        cos( betaY ) * ZyxUndist.real() / ZxxSD.realPart;// For Re(Zxx)
-					sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfZxx[freqIDThisPEInSta].imagPart) + nBlkNotFixed + ID_RotY  ] = - gY *        cos( betaY ) * ZyxUndist.imag() / ZxxSD.imagPart;// For Im(Zxx)
-					sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfZxy[freqIDThisPEInSta].realPart) + nBlkNotFixed + ID_RotY  ] = - gY *        cos( betaY ) * ZyyUndist.real() / ZxySD.realPart;// For Re(Zxy)
-					sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfZxy[freqIDThisPEInSta].imagPart) + nBlkNotFixed + ID_RotY  ] = - gY *        cos( betaY ) * ZyyUndist.imag() / ZxySD.imagPart;// For Im(Zxy)
-					sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfZyx[freqIDThisPEInSta].realPart) + nBlkNotFixed + ID_RotY  ] = - gY *        sin( betaY ) * ZyxUndist.real() / ZyxSD.realPart;// For Re(Zyx)
-					sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfZyx[freqIDThisPEInSta].imagPart) + nBlkNotFixed + ID_RotY  ] = - gY *        sin( betaY ) * ZyxUndist.imag() / ZyxSD.imagPart;// For Im(Zyx)
-					sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfZyy[freqIDThisPEInSta].realPart) + nBlkNotFixed + ID_RotY  ] = - gY *        sin( betaY ) * ZyyUndist.real() / ZyySD.realPart;// For Re(Zyy)
-					sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfZyy[freqIDThisPEInSta].imagPart) + nBlkNotFixed + ID_RotY  ] = - gY *        sin( betaY ) * ZyyUndist.imag() / ZyySD.imagPart;// For Im(Zyy)
-				}
-			}
-			else if( ( AnalysisControl::getInstance() )->getTypeOfDistortion() == AnalysisControl::ESTIMATE_GAINS_ONLY ){
-
-				const double ln10 = log(10.0);
-
-				const double gX = pow( 10.0, m_arrayGainsAndRotations->gainsAndRotations[ObservedDataStationMT::EX_GAIN] );
-				const double gY = pow( 10.0, m_arrayGainsAndRotations->gainsAndRotations[ObservedDataStationMT::EY_GAIN] );
-
-				const long long ID_GainX = static_cast<long long>(m_arrayGainsAndRotations->IDsOfGainsAndRotations[EX_GAIN]);
-				const long long ID_GainY = static_cast<long long>(m_arrayGainsAndRotations->IDsOfGainsAndRotations[EY_GAIN]);
-				if( ID_GainX >= 0 ){
-					sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfZxx[freqIDThisPEInSta].realPart) + nBlkNotFixed + ID_GainX ] =   gX * ln10 * ZxxUndist.real() / ZxxSD.realPart;// For Re(Zxx)
-					sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfZxx[freqIDThisPEInSta].imagPart) + nBlkNotFixed + ID_GainX ] =   gX * ln10 * ZxxUndist.imag() / ZxxSD.imagPart;// For Im(Zxx)
-					sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfZxy[freqIDThisPEInSta].realPart) + nBlkNotFixed + ID_GainX ] =   gX * ln10 * ZxyUndist.real() / ZxySD.realPart;// For Re(Zxy)
-					sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfZxy[freqIDThisPEInSta].imagPart) + nBlkNotFixed + ID_GainX ] =   gX * ln10 * ZxyUndist.imag() / ZxySD.imagPart;// For Im(Zxy)
-					sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfZyx[freqIDThisPEInSta].realPart) + nBlkNotFixed + ID_GainX ] =   0.0;// For Re(Zyx)
-					sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfZyx[freqIDThisPEInSta].imagPart) + nBlkNotFixed + ID_GainX ] =   0.0;// For Im(Zyx)
-					sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfZyy[freqIDThisPEInSta].realPart) + nBlkNotFixed + ID_GainX ] =   0.0;// For Re(Zyy)
-					sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfZyy[freqIDThisPEInSta].imagPart) + nBlkNotFixed + ID_GainX ] =   0.0;// For Im(Zyy)
-				}
-				if( ID_GainY >= 0 ){
-					sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfZxx[freqIDThisPEInSta].realPart) + nBlkNotFixed + ID_GainY ] =   0.0;// For Re(Zxx)
-					sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfZxx[freqIDThisPEInSta].imagPart) + nBlkNotFixed + ID_GainY ] =   0.0;// For Im(Zxx)
-					sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfZxy[freqIDThisPEInSta].realPart) + nBlkNotFixed + ID_GainY ] =   0.0;// For Re(Zxy)
-					sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfZxy[freqIDThisPEInSta].imagPart) + nBlkNotFixed + ID_GainY ] =   0.0;// For Im(Zxy)
-					sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfZyx[freqIDThisPEInSta].realPart) + nBlkNotFixed + ID_GainY ] =   gY * ln10 * ZyxUndist.real() / ZyxSD.realPart;// For Re(Zyx)
-					sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfZyx[freqIDThisPEInSta].imagPart) + nBlkNotFixed + ID_GainY ] =   gY * ln10 * ZyxUndist.imag() / ZyxSD.imagPart;// For Im(Zyx)
-					sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfZyy[freqIDThisPEInSta].realPart) + nBlkNotFixed + ID_GainY ] =   gY * ln10 * ZyyUndist.real() / ZyySD.realPart;// For Re(Zyy)
-					sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfZyy[freqIDThisPEInSta].imagPart) + nBlkNotFixed + ID_GainY ] =   gY * ln10 * ZyyUndist.imag() / ZyySD.imagPart;// For Im(Zyy)
-				}
-			}
+		const long long ID_GainX = static_cast<long long>(m_arrayGainsAndRotations->IDsOfGainsAndRotations[ObservedDataStationMT::EX_GAIN]);
+		const long long ID_GainY = static_cast<long long>(m_arrayGainsAndRotations->IDsOfGainsAndRotations[ObservedDataStationMT::EY_GAIN]);
+		if (ID_GainX >= 0) {
+			dZxx[EX_GAIN] = gX * ln10 * ZxxUndist;
+			dZxy[EX_GAIN] = gX * ln10 * ZxyUndist;
+			dZyx[EX_GAIN] = std::complex<double>(0.0, 0.0);
+			dZyy[EX_GAIN] = std::complex<double>(0.0, 0.0);
+		}
+		if (ID_GainY >= 0) {
+			dZxx[EY_GAIN] = std::complex<double>(0.0, 0.0);
+			dZxy[EY_GAIN] = std::complex<double>(0.0, 0.0);
+			dZyx[EY_GAIN] = gY * ln10 * ZyxUndist;
+			dZyy[EY_GAIN] = gY * ln10 * ZyyUndist;
 		}
 	}
 
 }
 
 // Calculate data vector of this PE
-void ObservedDataStationMT::calculateResidualVectorOfDataThisPE( const double freq, const int offset, double* vector ) const{
+void ObservedDataStationMT::calculateResidualVectorOfDataThisPE(const double freq, const int offset, double* vector) const {
 
-	const int freqIDThisPEInSta = getFreqIDsAmongThisPE( freq );
+	const int freqIDThisPEInSta = getFreqIDsAmongThisPE(freq);
 
-	if( freqIDThisPEInSta < 0 ){// Specified frequency is not the ones calculated by this PE in this station 
+	if (freqIDThisPEInSta < 0) {// Specified frequency is not the ones calculated by this PE in this station 
 		return;
 	}
 
-	vector[ offset + m_dataIDOfZxx[freqIDThisPEInSta].realPart ] = m_ZxxResidual[freqIDThisPEInSta].realPart;
-	vector[ offset + m_dataIDOfZxx[freqIDThisPEInSta].imagPart ] = m_ZxxResidual[freqIDThisPEInSta].imagPart;
-	vector[ offset + m_dataIDOfZxy[freqIDThisPEInSta].realPart ] = m_ZxyResidual[freqIDThisPEInSta].realPart;
-	vector[ offset + m_dataIDOfZxy[freqIDThisPEInSta].imagPart ] = m_ZxyResidual[freqIDThisPEInSta].imagPart;
-	vector[ offset + m_dataIDOfZyx[freqIDThisPEInSta].realPart ] = m_ZyxResidual[freqIDThisPEInSta].realPart;
-	vector[ offset + m_dataIDOfZyx[freqIDThisPEInSta].imagPart ] = m_ZyxResidual[freqIDThisPEInSta].imagPart;
-	vector[ offset + m_dataIDOfZyy[freqIDThisPEInSta].realPart ] = m_ZyyResidual[freqIDThisPEInSta].realPart;
-	vector[ offset + m_dataIDOfZyy[freqIDThisPEInSta].imagPart ] = m_ZyyResidual[freqIDThisPEInSta].imagPart;
+	if (m_dataIDOfZxx[freqIDThisPEInSta].realPart >= 0){
+		vector[offset + m_dataIDOfZxx[freqIDThisPEInSta].realPart] = m_ZxxResidual[freqIDThisPEInSta].realPart;
+	}
+	if (m_dataIDOfZxx[freqIDThisPEInSta].imagPart >= 0) {
+		vector[offset + m_dataIDOfZxx[freqIDThisPEInSta].imagPart] = m_ZxxResidual[freqIDThisPEInSta].imagPart;
+	}
+	if (m_dataIDOfZxy[freqIDThisPEInSta].realPart >= 0) {
+		vector[offset + m_dataIDOfZxy[freqIDThisPEInSta].realPart] = m_ZxyResidual[freqIDThisPEInSta].realPart;
+	}
+	if (m_dataIDOfZxy[freqIDThisPEInSta].imagPart >= 0) {
+		vector[offset + m_dataIDOfZxy[freqIDThisPEInSta].imagPart] = m_ZxyResidual[freqIDThisPEInSta].imagPart;
+	}
+	if (m_dataIDOfZyx[freqIDThisPEInSta].realPart >= 0) {
+		vector[offset + m_dataIDOfZyx[freqIDThisPEInSta].realPart] = m_ZyxResidual[freqIDThisPEInSta].realPart;
+	}
+	if (m_dataIDOfZyx[freqIDThisPEInSta].imagPart >= 0) {
+		vector[offset + m_dataIDOfZyx[freqIDThisPEInSta].imagPart] = m_ZyxResidual[freqIDThisPEInSta].imagPart;
+	}
+	if (m_dataIDOfZyy[freqIDThisPEInSta].realPart >= 0) {
+		vector[offset + m_dataIDOfZyy[freqIDThisPEInSta].realPart] = m_ZyyResidual[freqIDThisPEInSta].realPart;
+	}
+	if (m_dataIDOfZyy[freqIDThisPEInSta].imagPart >= 0) {
+		vector[offset + m_dataIDOfZyy[freqIDThisPEInSta].imagPart] = m_ZyyResidual[freqIDThisPEInSta].imagPart;
+	}
 }
 
 // Calulate L2 norm of misfit
@@ -1042,14 +1131,30 @@ double ObservedDataStationMT::calculateErrorSumOfSquaresThisPE() const{
 	double misfit(0.0);
 
 	for( int ifreq = 0; ifreq < m_numOfFreqCalculatedByThisStaAndPE; ++ifreq ){
-		misfit += pow( m_ZxxResidual[ifreq].realPart , 2 );
-		misfit += pow( m_ZxxResidual[ifreq].imagPart , 2 );
-		misfit += pow( m_ZxyResidual[ifreq].realPart , 2 );
-		misfit += pow( m_ZxyResidual[ifreq].imagPart , 2 );
-		misfit += pow( m_ZyxResidual[ifreq].realPart , 2 );
-		misfit += pow( m_ZyxResidual[ifreq].imagPart , 2 );
-		misfit += pow( m_ZyyResidual[ifreq].realPart , 2 );
-		misfit += pow( m_ZyyResidual[ifreq].imagPart , 2 );
+		if (m_dataIDOfZxx[ifreq].realPart >= 0) {
+			misfit += pow(m_ZxxResidual[ifreq].realPart, 2);
+		}
+		if (m_dataIDOfZxx[ifreq].imagPart >= 0) {
+			misfit += pow(m_ZxxResidual[ifreq].imagPart, 2);
+		}
+		if (m_dataIDOfZxy[ifreq].realPart >= 0) {
+			misfit += pow(m_ZxyResidual[ifreq].realPart, 2);
+		}
+		if (m_dataIDOfZxy[ifreq].imagPart >= 0) {
+			misfit += pow(m_ZxyResidual[ifreq].imagPart, 2);
+		}
+		if (m_dataIDOfZyx[ifreq].realPart >= 0) {
+			misfit += pow(m_ZyxResidual[ifreq].realPart, 2);
+		}
+		if (m_dataIDOfZyx[ifreq].imagPart >= 0) {
+			misfit += pow(m_ZyxResidual[ifreq].imagPart, 2);
+		}
+		if (m_dataIDOfZyy[ifreq].realPart >= 0) {
+			misfit += pow(m_ZyyResidual[ifreq].realPart, 2);
+		}
+		if (m_dataIDOfZyy[ifreq].imagPart >= 0) {
+			misfit += pow(m_ZyyResidual[ifreq].imagPart, 2);
+		}
 	}
 
 	return misfit;

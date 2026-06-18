@@ -85,6 +85,9 @@ public:
 	// Calculate Z component of magnetic field
 	virtual std::complex<double> calcValueMagneticFieldZDirection( const int iElem, const double xLocal, const double yLocal, const double zLocal ) const = 0;
 
+	// Calculate electric current density vector
+	virtual CommonParameters::ComplexValuedVector calculateElectricCurrentDensityVector(const int iElem) const = 0;
+
 	// Calculate interpolator vector of X component of electric field
 	virtual void calcInterpolatorVectorOfElectricFieldXDirection( const int iElem, const double xLocal, const double yLocal, const double zLocal, const int irhs, const std::complex<double>& factor = std::complex<double>(1.0,0.0) ) = 0;
 
@@ -131,26 +134,6 @@ public:
 	virtual void calcInterpolatorVectorOfVoltageDifference( const int nElem, const int* elememtsIncludingDipole, const int* const facesIncludingDipole, 
 		const CommonParameters::AreaCoords* const areaCoordValStartPoint, const CommonParameters::AreaCoords* const areaCoordValEndPoint, const int irhs ) = 0;
 
-	// Set non-zero strucuture of matrix for forward calculation
-	virtual void setNonZeroStrucuture( ComplexSparseSquareSymmetricMatrix& matrix ) = 0;
-
-	// Set non-zero values of matrix and right-hande side vector for forward calculation
-	virtual void setNonZeroValues( ComplexSparseSquareSymmetricMatrix& matrix ) = 0;
-
-	//----- DO NOT DELETE FOR FUTURE USE >>>>>
-	//// Set non-zero strucuture of matrix for calculating derivatives
-	//virtual void setNonZeroStrucuture( ComplexSparseSquareSymmetricMatrix& matrix, const int blkID, std::set<int>& nonZeroRowsAndCols ) = 0;
-
-	//// Set non-zero values of matrix and right-hande side vector for calculating derivatives
-	//virtual void setNonZeroValues( ComplexSparseSquareSymmetricMatrix& matrix, const int blkID ) = 0;
-	//----- DO NOT DELETE FOR FUTURE USE <<<<<
-
-	// Calculate vector x of the reciprocity algorithm of Rodi (1976)
-	virtual void calVectorXOfReciprocityAlgorithm( const std::complex<double>* const vecIn, const int blkID, std::complex<double>* const vecOut, std::vector<int>& nonZeroRows ) = 0;
-
-	// Copy solution vector degenerated
-	virtual void copySolutionVectorDegenerated( const int iPol, std::complex<double>* solutionVector ) const;
-
 	// Call function inputMeshData of the class MeshData
 	virtual void callInputMeshData() = 0;
 
@@ -181,8 +164,11 @@ public:
 	// Perform solve phase for right-hand sides consisting of interpolator vectors
 	void solvePhaseForRhsConsistingInterpolatorVectors( const int numInterpolatorVectors, std::complex<double>* solutionForInterpolatorVectors );
 
-	// Calculate derivative of EM field
-	void calculateDerivativesOfEMField( const int numInterpolatorVectors, const std::complex<double>* const solutionForInterpolatorVectors, std::complex<double>* const derivatives );
+	// Calculate derivative of EM field for isotropic conductivity
+	void calculateDerivativesOfEMFieldForIsotropicConductivity(const int numInterpolatorVectors, const std::complex<double>* const solutionForInterpolatorVectors, std::complex<double>* const derivatives);
+
+	// Calculate derivative of EM field for anisotropic conductivity
+	void calculateDerivativesOfEMFieldForAnisotropicConductivity(const int numInterpolatorVectors, const std::complex<double>* const solutionForInterpolatorVectors, std::complex<double>* const derivatives);
 
 	// Allocate memory for derivatives of interpolator vectors
 	void allcateMemoryForDerivativeOfInterpolatorVectors( const int numInterpolatorVectors );
@@ -224,6 +210,9 @@ protected:
 
 	// Array converting local edge IDs to global ones
 	int** m_IDsLocal2Global;
+
+	// Size of the array converting local IDs to global ones
+	int m_sizeOfIDsLocal2Global;
 
 	// Whether array converting local edge IDs to global ones has already been set or not
 	bool m_hasSetIDsLocal2Global;
@@ -267,6 +256,12 @@ protected:
 	// Initialize sparse solver
 	void initializeSparseSolver();
 
+	// Set non-zero strucuture of matrix for forward calculation
+	virtual void setNonZeroStrucuture(ComplexSparseSquareSymmetricMatrix& matrix) = 0;
+
+	// Set non-zero values of matrix and right-hande side vector for forward calculation
+	virtual void setNonZeroValues(ComplexSparseSquareSymmetricMatrix& matrix) = 0;
+
 private:
 	// Copy constructer
 	Forward3D(const Forward3D& rhs){
@@ -288,6 +283,21 @@ private:
 
 	// Order of finite element
 	int m_orderOfFiniteElement;
+
+	// Calculate vector x of the reciprocity algorithm of Rodi (1976) for isotropic conductivity
+	virtual void calVectorXOfReciprocityAlgorithmForIsotropicConductivity(const std::complex<double>* const vecIn, const int blkID, std::complex<double>* const vecOut, std::vector<int>& nonZeroRows) = 0;
+
+	// Calculate vector x of the reciprocity algorithm of Rodi (1976) for anisotropic conductivity
+	virtual void calVectorXOfReciprocityAlgorithmForAnisotropicConductivity(const std::complex<double>* const vecIn, const int blkID, const int paramID, 
+		std::complex<double>* const vecOut, std::vector<int>& nonZeroRows) = 0;
+
+	// Copy solution vector degenerated
+	virtual void copySolutionVectorDegenerated(const int iPol, std::complex<double>* solutionVector) const;
+
+	// Auxiliary function for calculating derivative of EM field for anisotropic conductivity
+	void calculateDerivativesOfEMFieldForAnisotropicConductivityAux(const int numInterpolatorVectors, const int numOfEquationFinallySolved, const int iBlk, const int iParam, const int typeOfAnisotrooy,
+		const std::complex<double>* const solutionAfterDegenerated, const std::complex<double>* const solutionForInterpolatorVectors, 
+		std::vector<int>& nonZeroComps, std::complex<double>* nonZeroValues, std::complex<double>* const derivatives);
 
 };
 

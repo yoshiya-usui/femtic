@@ -204,7 +204,7 @@ void MeshDataTetraElement::inputMeshData(){
 	}
 	m_neighborElements = new int[ m_numElemTotal * 4 ];
 
-	if( m_nodesOfElements == NULL ){
+	if (m_nodesOfElements != NULL) {
 		delete[] m_nodesOfElements;
 	}
 	m_nodesOfElements = new int[ m_numElemTotal * m_numNodeOneElement ];
@@ -425,9 +425,9 @@ int MeshDataTetraElement::findElementIncludingPointOnSurface( const double locX,
 #ifdef _DEBUG_WRITE
 		std::cout << "elemID : " << elemID << std::endl;
 		std::cout << "faceID : " << faceID << std::endl;
-		std::cout << "locateLeftOfSegmentOnLandSurface( pointCoord, nodeCoord0, nodeCoord1 ) : " << locateLeftOfSegmentOnLandSurface( pointCoord, nodeCoord0, nodeCoord1 ) << std::endl;
-		std::cout << "locateLeftOfSegmentOnLandSurface( pointCoord, nodeCoord1, nodeCoord2 ) : " << locateLeftOfSegmentOnLandSurface( pointCoord, nodeCoord1, nodeCoord2 ) << std::endl;
-		std::cout << "locateLeftOfSegmentOnLandSurface( pointCoord, nodeCoord2, nodeCoord0 ) : " << locateLeftOfSegmentOnLandSurface( pointCoord, nodeCoord2, nodeCoord0 ) << std::endl;
+		std::cout << nodeCoord0.X << " " << nodeCoord0.Y << " " << getZCoordinatesOfNodes(nodeID0) << std::endl;
+		std::cout << nodeCoord1.X << " " << nodeCoord1.Y << " " << getZCoordinatesOfNodes(nodeID1) << std::endl;
+		std::cout << nodeCoord2.X << " " << nodeCoord2.Y << " " << getZCoordinatesOfNodes(nodeID2) << std::endl;
 #endif
 
 		bool locateInElement(false);
@@ -1385,7 +1385,7 @@ MeshDataTetraElement& MeshDataTetraElement::operator=(const MeshDataTetraElement
 	exit(1);
 }
 
-// Function determine if two segments intersect or not
+// Function determine if then inputed point locate at the left of the surface of the lower element
 bool MeshDataTetraElement::locateLeftOfSegmentOnLandSurface( const CommonParameters::locationXY& point, 
 	const CommonParameters::locationXY& startPointOfSegment, const CommonParameters::locationXY& endPointOfSegment ) const{
 		

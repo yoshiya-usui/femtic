@@ -159,7 +159,7 @@ void DoubleSparseSquareMatrix::solvePhaseMatrixSolverByPCGPointJacobi(const int 
 
 	for (int irow = 0; irow < m_numRows; ++irow)
 	{
-		for (int j = m_rowIndex[irow]; j < m_rowIndex[irow + 1]; ++j)
+		for (long long j = m_rowIndex[irow]; j < m_rowIndex[irow + 1]; ++j)
 		{
 			if (irow == m_columns[j])
 			{
@@ -218,7 +218,7 @@ void DoubleSparseSquareMatrix::solvePhaseMatrixSolverByPCGPointJacobi(const int 
 			for (int irow = 0; irow < m_numRows; ++irow)
 			{
 				workQ[irow] = 0.0;
-				for (int j = m_rowIndex[irow]; j < m_rowIndex[irow + 1]; ++j)
+				for (long long j = m_rowIndex[irow]; j < m_rowIndex[irow + 1]; ++j)
 				{
 					workQ[irow] += m_values[j] * workP[m_columns[j]];
 				}

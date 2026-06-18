@@ -29,6 +29,7 @@
 #include <iomanip>
 
 #include "ObservedDataStationNMT2ApparentResistivityAndPhase.h"
+#include "AnalysisControl.h"
 #include "OutputFiles.h"
 #include "CommonParameters.h"
 #include "ResistivityBlock.h"
@@ -798,9 +799,7 @@ void ObservedDataStationNMT2ApparentResistivityAndPhase::calculateSensitivityMat
 
 	const bool useImpedanceTensorInsteadOfPhase = ( AnalysisControl::getInstance()->getApparentResistivityAndPhaseTreatmentOption() == AnalysisControl::USE_Z_IF_SIGN_OF_RE_Z_DIFFER );
 
-	const double ln10 = log(10.0);
-
-	const long long nBlkNotFixed = static_cast<long long>(( ResistivityBlock::getInstance() )->getNumResistivityBlockNotFixed());
+	const long long nBlkNotFixed = static_cast<long long>((AnalysisControl::getInstance()->getPointerOfResistivityBlock())->getNumberOfUnfixedResistivityParameters());
 	for( long long imdl = 0; imdl < nBlkNotFixed; ++imdl ){
 		const double dZxxRe = sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfZxx[freqIDThisPEInSta].realPart) + imdl ];
 		const double dZxyRe = sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfZxy[freqIDThisPEInSta].realPart) + imdl ];
@@ -827,7 +826,7 @@ void ObservedDataStationNMT2ApparentResistivityAndPhase::calculateSensitivityMat
 				sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfApparentResistivityXX[freqIDThisPEInSta]) + imdl ] = dZxxRe / m_ZxxSD[freqIDGlobalInSta].realPart;
 			}else{
 				sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfApparentResistivityXX[freqIDThisPEInSta]) + imdl ] =
-					2.0 / ln10 / std::max( std::norm(Zxx), eps ) * ( Zxx.real() * dZxxRe + Zxx.imag() * dZxxIm ) / calcLog10ErrorOfApparentResistivity( freqIDGlobalInSta, ObservedDataStationNMT2::XX );
+					2.0 / CommonParameters::ln10 / std::max(std::norm(Zxx), eps) * (Zxx.real() * dZxxRe + Zxx.imag() * dZxxIm) / calcLog10ErrorOfApparentResistivity(freqIDGlobalInSta, ObservedDataStationNMT2::XX);
 			}
 		}
 		if( m_apparentResistivityXYSD[freqIDGlobalInSta] > 0.0 ){
@@ -835,7 +834,7 @@ void ObservedDataStationNMT2ApparentResistivityAndPhase::calculateSensitivityMat
 				sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfApparentResistivityXY[freqIDThisPEInSta]) + imdl ] = dZxyRe / m_ZxySD[freqIDGlobalInSta].realPart;
 			}else{
 				sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfApparentResistivityXY[freqIDThisPEInSta]) + imdl ] = 
-					2.0 / ln10 / std::max( std::norm(Zxy), eps ) * ( Zxy.real() * dZxyRe + Zxy.imag() * dZxyIm ) / calcLog10ErrorOfApparentResistivity( freqIDGlobalInSta, ObservedDataStationNMT2::XY );
+					2.0 / CommonParameters::ln10 / std::max(std::norm(Zxy), eps) * (Zxy.real() * dZxyRe + Zxy.imag() * dZxyIm) / calcLog10ErrorOfApparentResistivity(freqIDGlobalInSta, ObservedDataStationNMT2::XY);
 			}
 		}
 		if( m_apparentResistivityYXSD[freqIDGlobalInSta] > 0.0 ){
@@ -843,7 +842,7 @@ void ObservedDataStationNMT2ApparentResistivityAndPhase::calculateSensitivityMat
 				sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfApparentResistivityYX[freqIDThisPEInSta]) + imdl ] = dZyxRe / m_ZyxSD[freqIDGlobalInSta].realPart;
 			}else{
 				sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfApparentResistivityYX[freqIDThisPEInSta]) + imdl ] = 
-					2.0 / ln10 / std::max( std::norm(Zyx), eps ) * ( Zyx.real() * dZyxRe + Zyx.imag() * dZyxIm ) / calcLog10ErrorOfApparentResistivity( freqIDGlobalInSta, ObservedDataStationNMT2::YX );
+					2.0 / CommonParameters::ln10 / std::max(std::norm(Zyx), eps) * (Zyx.real() * dZyxRe + Zyx.imag() * dZyxIm) / calcLog10ErrorOfApparentResistivity(freqIDGlobalInSta, ObservedDataStationNMT2::YX);
 			}
 		}
 		if( m_apparentResistivityYYSD[freqIDGlobalInSta] > 0.0 ){
@@ -851,7 +850,7 @@ void ObservedDataStationNMT2ApparentResistivityAndPhase::calculateSensitivityMat
 				sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfApparentResistivityYY[freqIDThisPEInSta]) + imdl ] = dZyyRe / m_ZyySD[freqIDGlobalInSta].realPart;
 			}else{
 				sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfApparentResistivityYY[freqIDThisPEInSta]) + imdl ] =
-					2.0 / ln10 / std::max( std::norm(Zyy), eps ) * ( Zyy.real() * dZyyRe + Zyy.imag() * dZyyIm ) / calcLog10ErrorOfApparentResistivity( freqIDGlobalInSta, ObservedDataStationNMT2::YY );
+					2.0 / CommonParameters::ln10 / std::max(std::norm(Zyy), eps) * (Zyy.real() * dZyyRe + Zyy.imag() * dZyyIm) / calcLog10ErrorOfApparentResistivity(freqIDGlobalInSta, ObservedDataStationNMT2::YY);
 			}
 		}
 		if( m_PhaseXXSD[freqIDGlobalInSta] > 0.0 ){

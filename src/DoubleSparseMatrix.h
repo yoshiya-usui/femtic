@@ -25,6 +25,7 @@
 #define DBLDEF_DOUBLE_SPARSE_MATRIX
 
 #include <map>
+#include <vector>
 
 class DoubleSparseMatrix{
 
@@ -117,6 +118,9 @@ public:
 
 	// Calculate matrix-vector product of transposed coefficient matrix and inputted vector
 	void calcMatrixVectorProductUsingTransposedMatrix( const double* invVec, double* outVec ) const;
+
+	// Calculate matrix-vector product of transposed coefficient matrix and inputted vector
+	void calcMatrixVectorProductUsingTransposedMatrix(const std::vector<double>& invVec, double* outVec) const;
 
 protected:
 	//Delete the matrix of triplet ( Coordinate ) format

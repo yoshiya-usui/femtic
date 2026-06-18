@@ -27,31 +27,18 @@
 #include "OutputFiles.h"
 #include <assert.h>
 
-//// Defailt constructer
-//Forward2D::Forward2D():
-//	m_planeID(0),
-//	m_typeOf2DAnalysis(Forward2D::NOT_ASSIGNED)
-//{
-//	m_hasMatrixStructureSetAndAnalyzed = false;
-//	m_solution = NULL;
-//	m_IDsLocal2Global = NULL;
-//	m_IDsLocal2GlobalDegenerated = NULL;
-//	m_hasAlreadySetIDsLocal2Global = false;
-//}
-
 // Constructer
 Forward2D::Forward2D( const int planeID, const int iPol ):
 	m_planeID(planeID),
-	m_polarization(iPol)
+	m_polarization(iPol),
+	m_hasMatrixStructureSetAndAnalyzed(false),
+	m_solution(NULL),
+	m_IDsLocal2Global(NULL),
+	m_IDsLocal2GlobalDegenerated(NULL),
+	m_sizeOfIDsLocal2Global(0),
+	m_hasAlreadySetIDsLocal2Global(false)
 {
-	m_hasMatrixStructureSetAndAnalyzed = false;
-	m_solution = NULL;
-	m_IDsLocal2Global = NULL;
-	m_IDsLocal2GlobalDegenerated = NULL;
-	m_hasAlreadySetIDsLocal2Global = false;
-
 	setPlaneID( planeID );
-
 	initializeMatrixSolver();
 }
 
@@ -66,18 +53,16 @@ Forward2D::~Forward2D(){
 	}
 
 	if( m_IDsLocal2Global != NULL ){
-		const int nElem = sizeof( m_IDsLocal2Global ) / sizeof( m_IDsLocal2Global[0] );
-		for( int iElem = 0; iElem < nElem; ++iElem ){
-			delete [] m_IDsLocal2Global[iElem];
+		for (int i = 0; i < m_sizeOfIDsLocal2Global; ++i) {
+			delete [] m_IDsLocal2Global[i];
 		}
 		delete [] m_IDsLocal2Global;
 		m_IDsLocal2Global = NULL;
 	}
 
 	if( m_IDsLocal2GlobalDegenerated != NULL ){
-		const int nElem = sizeof( m_IDsLocal2GlobalDegenerated ) / sizeof( m_IDsLocal2GlobalDegenerated[0] );
-		for( int iElem = 0; iElem < nElem; ++iElem ){
-			delete [] m_IDsLocal2GlobalDegenerated[iElem];
+		for( int i = 0; i < m_sizeOfIDsLocal2Global; ++i ){
+			delete [] m_IDsLocal2GlobalDegenerated[i];
 		}
 		delete [] m_IDsLocal2GlobalDegenerated;
 		m_IDsLocal2GlobalDegenerated = NULL;
@@ -117,10 +102,6 @@ void Forward2D::initializeMatrixSolver(){
 // Get result of forward analysis
 std::complex<double> Forward2D::getSolutionDirectly( const int freedum ) const {
 
-	//if( m_solution == NULL ){
-	//	OutputFiles::m_logFile << "Error : Result of forward analysis is NULL !!" << std::endl;
-	//	exit(1);
-	//}
 	assert( m_solution != NULL );
 
 	return m_solution[freedum];
@@ -130,13 +111,6 @@ std::complex<double> Forward2D::getSolutionDirectly( const int freedum ) const {
 // Get result of forward analysis from element ID and local node(edge) ID
 std::complex<double> Forward2D::getSolutionFromLocalID( const int iElem, const int localID ) const{
 
-	//if( m_solution == NULL ){
-	//	OutputFiles::m_logFile << "Error : Result of forward analysis is NULL !!" << std::endl;
-	//	exit(1);
-	//}else if( m_IDsLocal2Global[iElem] == NULL ){
-	//	OutputFiles::m_logFile << "Error : m_IDsLocal2Global[iElem] is NULL !! " << std::endl;
-	//	exit(1);
-	//}
 	assert( m_solution != NULL );
 	assert( m_IDsLocal2Global[iElem] != NULL );
 

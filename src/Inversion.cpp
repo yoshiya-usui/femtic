@@ -41,7 +41,9 @@
 Inversion::Inversion():
 	m_numModel(0),
 	m_numData(0),
-	m_sensitivityScalarValues(NULL)
+	m_sensitivityScalarValues(NULL),
+	m_traceOfHatMatrixWithoutDampingFactor(-1.0),
+	m_predictedObservedDataVectorThisPE(NULL)
 {
 	for( int i = 0; i < 2; ++i ){
 		m_derivativesOfEMField[i] = NULL;
@@ -52,7 +54,9 @@ Inversion::Inversion():
 Inversion::Inversion( const int nModel, const int nData ):
 	m_numModel(nModel),
 	m_numData(nData),
-	m_sensitivityScalarValues(NULL)
+	m_sensitivityScalarValues(NULL),
+	m_traceOfHatMatrixWithoutDampingFactor(-1.0),
+	m_predictedObservedDataVectorThisPE(NULL)
 {
 	for( int i = 0; i < 2; ++i ){
 		m_derivativesOfEMField[i] = NULL;
@@ -74,6 +78,11 @@ Inversion::~Inversion(){
 		m_sensitivityScalarValues = NULL;
 	}
 
+	if (m_predictedObservedDataVectorThisPE != NULL) {
+		delete[] m_predictedObservedDataVectorThisPE;
+		m_predictedObservedDataVectorThisPE = NULL;
+	}
+
 }
 
 // Calculate derivatives of EM field
@@ -81,11 +90,9 @@ void Inversion::calculateDerivativesOfEMField( Forward3D* const ptrForward3D, co
 
 	ObservedData* const ptrObservedData = ObservedData::getInstance();
 	const AnalysisControl* const ptrAnalysisControl = AnalysisControl::getInstance();
-	const ResistivityBlock* const ptrResistivityBlock = ResistivityBlock::getInstance();
 
 	const int numEquationFinallySolved = ptrForward3D->getNumOfEquationFinallySolved();;
 	const int numInterpolatorVectors = ptrObservedData->getNumInterpolatorVectors();
-	const int nBlkNotFixed = ptrResistivityBlock->getNumResistivityBlockNotFixed();
 
 	//-------------------------------------------------------------------------
 	// Calulate right-hand sides vectors consisting of interpolator vectors ---
@@ -114,20 +121,25 @@ void Inversion::calculateDerivativesOfEMField( Forward3D* const ptrForward3D, co
 		OutputFiles::m_logFile << "Error : Number of interpolator vectors is less than or equal to zero. numInterpolatorVectors = " << numInterpolatorVectors << std::endl;
 		exit(1);
 	}
-	if( nBlkNotFixed <= 0 ){
-		OutputFiles::m_logFile << "Error : Number of resistivity blocks whose values are not fixed is less than or equal to zero. nBlkNotFixed = " << nBlkNotFixed << std::endl;
+
+	const int numberOfUnfixedResistivityParameters = ptrAnalysisControl->getPointerOfResistivityBlock()->getNumberOfUnfixedResistivityParameters();
+	if (numberOfUnfixedResistivityParameters <= 0) {
+		OutputFiles::m_logFile << "Error : Number of unfixed resistivity parameters (" << numberOfUnfixedResistivityParameters << ") is less than or equal to zero." << std::endl;
 		exit(1);
 	}
-
-	const long long numComps = static_cast<long long>(numInterpolatorVectors) * static_cast<long long>(nBlkNotFixed);
+	const long long numComps = static_cast<long long>(numInterpolatorVectors) * static_cast<long long>(numberOfUnfixedResistivityParameters);
 	m_derivativesOfEMField[iPol] = new std::complex<double>[numComps];
 	for( long long i = 0; i < numComps; ++i ){
 		m_derivativesOfEMField[iPol][i] = std::complex<double>(0.0, 0.0);// Initialize
 	}
 
 	OutputFiles::m_logFile << "# Calculate derivatives of EM field." << ptrAnalysisControl->outputElapsedTime() << std::endl;
-	ptrForward3D->calculateDerivativesOfEMField( numInterpolatorVectors, solutionForInterpolatorVectors, m_derivativesOfEMField[iPol] );
-
+	if (ptrAnalysisControl->isAnisotropyConsidered()) {
+		ptrForward3D->calculateDerivativesOfEMFieldForAnisotropicConductivity(numInterpolatorVectors, solutionForInterpolatorVectors, m_derivativesOfEMField[iPol]);
+	}
+	else {
+		ptrForward3D->calculateDerivativesOfEMFieldForIsotropicConductivity(numInterpolatorVectors, solutionForInterpolatorVectors, m_derivativesOfEMField[iPol]);
+	}
 	delete [] solutionForInterpolatorVectors;
 	
 }
@@ -137,11 +149,9 @@ void Inversion::calculateSensitivityMatrix( const int freqIDAmongThisPE, const d
 
 	const ObservedData* const ptrObservedData = ObservedData::getInstance();
 	const AnalysisControl* const ptrAnalysisControl = AnalysisControl::getInstance();
-	const ResistivityBlock* const ptrResistivityBlock = ResistivityBlock::getInstance();
 
 	const int numDataThisPE = ptrObservedData->getNumObservedDataThisPE(freqIDAmongThisPE);
 	const int freqIDGlobal = ptrObservedData->getIDsOfFrequenciesCalculatedByThisPE(freqIDAmongThisPE);
-	//const int numModel = ptrResistivityBlock->getNumResistivityBlockNotFixed();
 	const int numModel = getNumberOfModel();
 
 	//-------------------------------------------
@@ -213,10 +223,11 @@ void Inversion::calculateSensitivityMatrix( const int freqIDAmongThisPE, const d
 	fclose( fp );
 
 	//---------------------------------------------
-	//--- Calculate scalered sensitivity values ---
+	//--- Calculate scalared sensitivity values ---
 	//---------------------------------------------
-	if( ptrAnalysisControl->doesOutputToVTK( AnalysisControl::OUTPUT_SENSITIVITY) ){// if output sensitivity
-
+	if (!ptrAnalysisControl->isAnisotropyConsidered() && ptrAnalysisControl->doesOutputToVTK(AnalysisControl::OUTPUT_SENSITIVITY)) {
+		// This version does not suppor the calculation scalared sensitivity for each anisotropic resistivity component
+		const ResistivityBlockIsotropic* const ptrResistivityBlock = ptrAnalysisControl->getPointerOfResistivityBlockIsotropic();
 		const int nBlkTotal = ptrResistivityBlock->getNumResistivityBlockTotal();
 		for( int iblk = 0; iblk < nBlkTotal; ++iblk ){
 			if( ptrResistivityBlock->isFixedResistivityValue( iblk ) ){
@@ -228,9 +239,6 @@ void Inversion::calculateSensitivityMatrix( const int freqIDAmongThisPE, const d
 				m_sensitivityScalarValues[imdl] += std::abs( sensitivityMatrix[index] );
 			}
 		}
-
-		//MPI_Allreduce( sensitivityScalarValuesThisPE, m_sensitivityScalarValues, numModel, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD );
-
 	}
 
 	delete [] sensitivityMatrix;
@@ -265,7 +273,6 @@ void Inversion::calculateSensitivityMatrix( const int freqIDAmongThisPE, const d
 // Allocate memory for  sensitivity values
 void Inversion::allocateMemoryForSensitivityScalarValues(){
 
-	//const int numModel = ( ResistivityBlock::getInstance() )->getNumResistivityBlockNotFixed();
 	const int numModel = getNumberOfModel();
 
 	if( m_sensitivityScalarValues != NULL ){
@@ -300,6 +307,9 @@ void Inversion::outputSensitivityScalarValuesToVtk() const{
 		!ptrAnalysisControl->doesOutputToVTK( AnalysisControl::OUTPUT_SENSITIVITY_DENSITY ) ){
 		return;
 	}
+	if (ptrAnalysisControl->isAnisotropyConsidered()) {
+		return;
+	}
 
 	const double criteria = 1.0e-20;
 	const int numModel = getNumberOfModel();
@@ -325,7 +335,7 @@ void Inversion::outputSensitivityScalarValuesToVtk() const{
 
 	const MeshData* const ptrMeshData =ptrAnalysisControl->getPointerOfMeshData();
 	const int nElem = ptrMeshData->getNumElemTotal();
-	const ResistivityBlock* const ptrResistivityBlock = ResistivityBlock::getInstance();
+	const ResistivityBlockIsotropic* const ptrResistivityBlock = ptrAnalysisControl->getPointerOfResistivityBlockIsotropic();
 
 	if( ptrAnalysisControl->doesOutputToVTK( AnalysisControl::OUTPUT_SENSITIVITY ) ){// Output sensitivity
 		OutputFiles::m_vtkFile << "SCALARS Sensitivity float" <<  std::endl;
@@ -434,7 +444,11 @@ void Inversion::outputSensitivityScalarValuesToBinary( const int interNum ) cons
 		return;
 	}
 
-	const double criteria = 1.0e-20;
+	if (ptrAnalysisControl->isAnisotropyConsidered()) {
+		return;
+	}
+
+	const float criteria = 1.0e-20;
 	const int numModel = getNumberOfModel();
 	double* sensitivityScalarValuesForOutput = new double[ numModel ];
 
@@ -446,7 +460,7 @@ void Inversion::outputSensitivityScalarValuesToBinary( const int interNum ) cons
 	}
 
 	const MeshData* const ptrMeshData =ptrAnalysisControl->getPointerOfMeshData();
-	const ResistivityBlock* const ptrResistivityBlock = ResistivityBlock::getInstance();
+	const ResistivityBlockIsotropic* const ptrResistivityBlock = ptrAnalysisControl->getPointerOfResistivityBlockIsotropic();
 	const int nElem = ptrMeshData->getNumElemTotal();
 
 	if( ptrAnalysisControl->doesOutputToVTK( AnalysisControl::OUTPUT_SENSITIVITY ) ){// Output sensitivity
@@ -640,16 +654,16 @@ void Inversion::calcConstrainingMatrix( DoubleSparseMatrix& constrainingMatrix )
 
 	const ObservedData* const ptrObservedData = ObservedData::getInstance();
 	const int numDistortionParamsNotFixed = ptrObservedData->getNumDistortionParamsNotFixed();
-	const int numResistivityBlockNotFixed = ( ResistivityBlock::getInstance() )->getNumResistivityBlockNotFixed();
+	const ResistivityBlockIsotropic* const pResistivityBlock = (AnalysisControl::getInstance())->getPointerOfResistivityBlockIsotropic();
+	const int numResistivityBlockNotFixed = pResistivityBlock->getNumberOfUnfixedResistivityParameters();
 	const int numModel = numResistivityBlockNotFixed + numDistortionParamsNotFixed;
 	constrainingMatrix.setNumRowsAndColumns( numModel, numModel );
 
 	const AnalysisControl* const ptrAnalysisControl = AnalysisControl::getInstance();
 	const double factor1 = ptrAnalysisControl->getTradeOffParameterForResistivityValue();
-	( ResistivityBlock::getInstance() )->calcRougheningMatrixDegeneratedForLaplacianFilter( constrainingMatrix, factor1 );
+	pResistivityBlock->calcRougheningMatrixDegeneratedForLaplacianFilter(constrainingMatrix, factor1);
 
-	const int nBlkNotFixed = ( ResistivityBlock::getInstance() )->getNumResistivityBlockNotFixed();
-	int iMdl = nBlkNotFixed;
+	int iMdl = numResistivityBlockNotFixed;
 
 	if( ptrAnalysisControl->getTypeOfDistortion() == AnalysisControl::ESTIMATE_DISTORTION_MATRIX_DIFFERENCE ){
 		// For distortion matrix components
@@ -691,7 +705,7 @@ void Inversion::calcConstrainingMatrix( DoubleSparseMatrix& constrainingMatrix )
 // Copy model transforming jacobian matrix
 void Inversion::copyModelTransformingJacobian( const int numBlockNotFixed, const int numModel, double* jacobian ) const{
 
-	( ResistivityBlock::getInstance() )->copyDerivativeLog10ResistivityWithRespectToX( jacobian );
+	(AnalysisControl::getInstance())->getPointerOfResistivityBlockIsotropic()->copyDerivativeLog10ResistivityWithRespectToX(jacobian);
 	for( int iMdl = numBlockNotFixed; iMdl < numModel; ++iMdl ){
 		jacobian[iMdl] = 1.0;
 	}
@@ -712,6 +726,65 @@ void Inversion::multiplyModelTransformingJacobian( const int numData, const int 
 		for( iMdl = 0; iMdl < numModel; ++iMdl ){
 			matrix[ iMdl + offset ] *= jacobian[iMdl];
 		}
+	}
+
+}
+
+// Read sensitivity matrix
+void Inversion::readSensitivityMatrix(const std::string& fileName, int& numData, int& numModel, double*& sensitivityMatrix) const {
+
+	FILE* fp = fopen(fileName.c_str(), "rb");
+	if (fp == NULL) {
+		OutputFiles::m_logFile << "File open error !! : " << fileName << std::endl;
+		exit(1);
+	}
+
+	fread(&numData, sizeof(int), 1, fp);
+	fread(&numModel, sizeof(int), 1, fp);
+
+	const long long numComps = static_cast<long long>(numData) * static_cast<long long>(numModel);
+	sensitivityMatrix = new double[numComps];
+	fread(sensitivityMatrix, sizeof(double), numComps, fp);
+	fclose(fp);
+
+}
+
+// Read sensitivity matrix and  multiplied ot by inverse of constraining matrix
+void Inversion::readSensitivityMatrixMod(DoubleSparseSquareSymmetricMatrix& RTRMatrix, const std::string& fileName,
+	int& numData, int& numModel, double*& sensitivityMatrixMod) const {
+
+	double* sensitivityMatrix(NULL);
+	const AnalysisControl* const ptrAnalysisControl = AnalysisControl::getInstance();
+	OutputFiles::m_logFile << "# Read sensitivity matrix from " << fileName << "." << ptrAnalysisControl->outputElapsedTime() << std::endl;
+	readSensitivityMatrix(fileName, numData, numModel, sensitivityMatrix);
+
+	//-------------------------------------------------------------------------------------
+	// sensitivityMatrix : [J]T => inv([R]T[R])*[J]T
+	//-------------------------------------------------------------------------------------
+	int numDivRhs = ptrAnalysisControl->getDivisionNumberOfMultipleRHSInInversion();
+	assert(numDivRhs > 0);
+	if (numDivRhs > numData) {
+		OutputFiles::m_logFile << "Warning : Division number of right-hand sides ( " << numDivRhs << " ) is greater than the total number of right-hand sides ( " << numData << " )." << std::endl;
+		OutputFiles::m_logFile << "          Thus, the division number is set to be the total number of right-hand sides." << std::endl;
+		numDivRhs = numData;
+	}
+
+	const long long numComps = static_cast<long long>(numData) * static_cast<long long>(numModel);
+	sensitivityMatrixMod = new double[numComps];
+
+	const int numRHSDividedWithoutOdds = numData / numDivRhs;
+	const int numAdds = numData % numDivRhs;
+	long long iRhsStart = 0;
+	for (int iDiv = 0; iDiv < numDivRhs; ++iDiv) {
+		const int numRHSDivided = iDiv < numAdds ? numRHSDividedWithoutOdds + 1 : numRHSDividedWithoutOdds;
+		OutputFiles::m_logFile << "# Solve phase is performed simultaneously for " << numRHSDivided << " right-hand sides" << ptrAnalysisControl->outputElapsedTime() << std::endl;
+		const long long index = static_cast<long long>(numModel) * iRhsStart;
+		RTRMatrix.solvePhaseMatrixSolver(numRHSDivided, &sensitivityMatrix[index], &sensitivityMatrixMod[index]);// Solve
+		iRhsStart += numRHSDivided;
+	}
+
+	if (sensitivityMatrix != NULL) {
+		delete[] sensitivityMatrix;
 	}
 
 }
@@ -748,7 +821,7 @@ void Inversion::deleteOutOfCoreFileAll(){
 // Get number of model
 int Inversion::getNumberOfModel() const{
 
-	int numModel = ( ResistivityBlock::getInstance() )->getNumResistivityBlockNotFixed();
+	int numModel = (AnalysisControl::getInstance()->getPointerOfResistivityBlock())->getNumberOfUnfixedResistivityParameters();
 
 	numModel+= ( ObservedData::getInstance() )->getNumDistortionParamsNotFixed();
 
@@ -759,18 +832,41 @@ int Inversion::getNumberOfModel() const{
 // Output number of model to log file
 void Inversion::outputNumberOfModel() const{
 
-	const int numBlockNotFixed = ( ResistivityBlock::getInstance() )->getNumResistivityBlockNotFixed();
+	const int numResistiivtykNotFixed = (AnalysisControl::getInstance()->getPointerOfResistivityBlock())->getNumberOfUnfixedResistivityParameters();
 	const int numDistortionParams = ( ObservedData::getInstance() )->getNumDistortionParamsNotFixed();
 
 	OutputFiles::m_logFile << "#++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++" << std::endl;
 	OutputFiles::m_logFile << "# Total number of model parameter : " << getNumberOfModel() << "." << std::endl;
-	if( numBlockNotFixed > 0 ){
-		OutputFiles::m_logFile << "#  - Number of modifiable resisitivity values : " << numBlockNotFixed << "." << std::endl;
+	if(numResistiivtykNotFixed > 0 ){
+		OutputFiles::m_logFile << "#  - Number of unfixed resisitivity parameters : " << numResistiivtykNotFixed << "." << std::endl;
 	}
 	if( ( AnalysisControl::getInstance() )->estimateDistortionMatrix() ){
-		OutputFiles::m_logFile << "#  - Number of modifiable distortion parameters : " << numDistortionParams << "." << std::endl;
+		OutputFiles::m_logFile << "#  - Number of unfixed distortion parameters : " << numDistortionParams << "." << std::endl;
 	}
 	OutputFiles::m_logFile << "#++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++" << std::endl;
 
+}
+
+// Get trace of the hat matrix without the damping factor
+double Inversion::getTraceOfHatMatrixWithoutDampingFactor() const{
+	return m_traceOfHatMatrixWithoutDampingFactor;
+}
+
+// Calculate the sum of squares of the predicted residuals for this PE
+double Inversion::calculateSumOfSquaresOfPredictedResidualsThisPE(const double dampingFactor) const {
+
+	assert(m_predictedObservedDataVectorThisPE != NULL);
+
+	ObservedData* const ptrObservedData = ObservedData::getInstance();
+	int numDataThisPE = ptrObservedData->getNumObservedDataThisPETotal();
+	double* residualVectorThisPE = new double[numDataThisPE];
+	double sumOfSquares(0.0);
+	for (int i = 0; i < numDataThisPE; ++i ) {
+		const double residual = ptrObservedData->getValueOfResidualVectorComponentPre(i) - dampingFactor * m_predictedObservedDataVectorThisPE[i];
+		sumOfSquares += pow(residual, 2);
+	}
+	delete[] residualVectorThisPE;
+
+	return sumOfSquares;
 
 }

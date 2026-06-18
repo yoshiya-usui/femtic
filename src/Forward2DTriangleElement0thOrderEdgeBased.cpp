@@ -185,7 +185,6 @@ void Forward2DTriangleElement0thOrderEdgeBased::calcEMFieldsOfBoundaryPlanes( co
 	//--- Set values of matrix and right hand side vector ---
 	//-------------------------------------------------------
 	OutputFiles::m_logFile << "# Set values of matrix and right hand side vector. " << pAnalysisControl->outputElapsedTime() << std::endl;
-	const ResistivityBlock* const pResistivityBlock = ResistivityBlock::getInstance();
 
 	//------------------------------------------
 	//--- Components due to stiffness matrix ---
@@ -194,354 +193,7 @@ void Forward2DTriangleElement0thOrderEdgeBased::calcEMFieldsOfBoundaryPlanes( co
 	m_matrix2DAnalysis.zeroClearRightHandSideVector();// Zero clear right hand side vector
 
 	const double sourceValueElectric = CommonParameters::sourceValueElectric;
-
-#ifdef _ANISOTOROPY
-	if( (AnalysisControl::getInstance())->isAnisotropyConsidered() ){
-		// When anisotropic medium is considered
-		for( int iElem = 0; iElem < nElem; ++iElem ){
-			//--- Calculate Jacobian
-			Forward2DTriangleElementEdgeBased::JacobianMatrix jacobMat = { 0.0, 0.0, 0.0, 0.0 };
-			double detJacob(0.0);
-			if( m_planeID == MeshData::YZMinus || m_planeID == MeshData::YZPlus ){//YZ Plane
-				calcJacobianMatrixOnYZPlaneOfBoundary( pMeshDataTetraElement, iElem, jacobMat, detJacob );
-			}else{//ZX Plane
-				calcJacobianMatrixOnZXPlaneOfBoundary( pMeshDataTetraElement, iElem, jacobMat, detJacob );
-			}
-			const double divDetJacob = 1.0 / detJacob;
-
-			//----- debug >>>>>
-#ifdef _DEBUG_WRITE
-			std::cout << "elemID = " << pMeshDataTetraElement->getElemBoundaryPlanes( m_planeID, iElem ) << std::endl;
-			std::cout << "x0 y0 : " << pMeshDataTetraElement->getCoordXFromElementBoundaryPlanes( m_planeID, iElem, 0 ) << " " << pMeshDataTetraElement->getCoordZFromElementBoundaryPlanes( m_planeID, iElem, 0 ) << std::endl;
-			std::cout << "x1 y1 : " << pMeshDataTetraElement->getCoordXFromElementBoundaryPlanes( m_planeID, iElem, 1 ) << " " << pMeshDataTetraElement->getCoordZFromElementBoundaryPlanes( m_planeID, iElem, 1 ) << std::endl;
-			std::cout << "x2 y2 : " << pMeshDataTetraElement->getCoordXFromElementBoundaryPlanes( m_planeID, iElem, 2 ) << " " << pMeshDataTetraElement->getCoordZFromElementBoundaryPlanes( m_planeID, iElem, 2 ) << std::endl;
-			std::cout << "jacob11 = " << jacobMat.jacob11 << std::endl;
-			std::cout << "jacob12 = " << jacobMat.jacob12 << std::endl;
-			std::cout << "jacob21 = " << jacobMat.jacob21 << std::endl;
-			std::cout << "jacob22 = " << jacobMat.jacob22 << std::endl;
-			std::cout << "divDetJacob = " << divDetJacob << std::endl;
-#endif
-			//----- debug <<<<<
-
-			//--- Calculate omega * mu * sigma
-			const int elemID = pMeshDataTetraElement->getElemBoundaryPlanes( m_planeID, iElem );
-			const double omega = 2.0 * CommonParameters::PI * freq;//Angular frequency
-			const double length[3] = { pMeshDataTetraElement->calcEdgeLengthFromElementAndEdgeBoundaryPlanes( m_planeID, iElem, 0 ),
-									   pMeshDataTetraElement->calcEdgeLengthFromElementAndEdgeBoundaryPlanes( m_planeID, iElem, 1 ),
-									   pMeshDataTetraElement->calcEdgeLengthFromElementAndEdgeBoundaryPlanes( m_planeID, iElem, 2 ) };
-			const std::complex<double> factor = std::complex<double>( 0.0, omega * CommonParameters::mu );// exp(-i*omega*t) form
-			//CommonParameters::Vector3D matX = { 0.0, 0.0, 0.0 };
-			//CommonParameters::Vector3D matY = { 0.0, 0.0, 0.0 };
-			//CommonParameters::Vector3D matZ = { 0.0, 0.0, 0.0 };
-			//pResistivityBlock->calcAisotropicConductivityTensor( pResistivityBlock->getBlockIDFromElemID(elemID), matX, matY, matZ );
-			double sigmaTensor[3][3] = { {0.0, 0.0, 0.0}, {0.0, 0.0, 0.0}, {0.0, 0.0, 0.0} };
-			pResistivityBlock->calcAisotropicConductivityTensor( pResistivityBlock->getBlockIDFromElemID(elemID), sigmaTensor );
-			for( int iEdge1 = 0; iEdge1 < 3; ++iEdge1 ){
-				const int row = m_IDsLocal2GlobalDegenerated[iElem][iEdge1];
-				if( row < 0 ){
-					continue;
-				}
-				for( int iEdge2 = 0; iEdge2 < 3; ++iEdge2 ){
-					const int col = m_IDsLocal2GlobalDegenerated[iElem][iEdge2];
-					if( col <= DIRICHLET_BOUNDARY_ZERO_VALUE ){
-						continue;
-					}
-					double integral1(0.0);
-					double integral2(0.0);
-					for( int ip = 0; ip < m_numIntegralPoints; ++ip ){
-						integral1 += getShapeFuncRotated() * getShapeFuncRotated() * m_weight[ip];
-						const double Nh = getShapeFuncReferenceCoordU( m_uCoord[ip], m_vCoord[ip], iEdge2 ) * jacobMat.jacob22
-										- getShapeFuncReferenceCoordV( m_uCoord[ip], m_vCoord[ip], iEdge2 ) * jacobMat.jacob12;
-						const double Nv = getShapeFuncReferenceCoordV( m_uCoord[ip], m_vCoord[ip], iEdge2 ) * jacobMat.jacob11
-										- getShapeFuncReferenceCoordU( m_uCoord[ip], m_vCoord[ip], iEdge2 ) * jacobMat.jacob21;
-						if( m_planeID == MeshData::YZMinus || m_planeID == MeshData::YZPlus ){//YZ Plane
-							integral2 += (   ( getShapeFuncReferenceCoordU( m_uCoord[ip], m_vCoord[ip], iEdge1 ) * jacobMat.jacob22
-											 - getShapeFuncReferenceCoordV( m_uCoord[ip], m_vCoord[ip], iEdge1 ) * jacobMat.jacob12 ) 
-										   * ( Nh * sigmaTensor[1][1] + Nv * sigmaTensor[1][2] )
-										   + ( getShapeFuncReferenceCoordV( m_uCoord[ip], m_vCoord[ip], iEdge1 ) * jacobMat.jacob11
-											 - getShapeFuncReferenceCoordU( m_uCoord[ip], m_vCoord[ip], iEdge1 ) * jacobMat.jacob21 )
-										   * ( Nh * sigmaTensor[2][1] + Nv * sigmaTensor[2][2] ) ) * m_weight[ip];
-						}else{//ZX Plane
-							integral2 += (   ( getShapeFuncReferenceCoordU( m_uCoord[ip], m_vCoord[ip], iEdge1 ) * jacobMat.jacob22
-											 - getShapeFuncReferenceCoordV( m_uCoord[ip], m_vCoord[ip], iEdge1 ) * jacobMat.jacob12 ) 
-										   * ( Nh * sigmaTensor[0][0] + Nv * sigmaTensor[0][2] )
-										   + ( getShapeFuncReferenceCoordV( m_uCoord[ip], m_vCoord[ip], iEdge1 ) * jacobMat.jacob11
-											 - getShapeFuncReferenceCoordU( m_uCoord[ip], m_vCoord[ip], iEdge1 ) * jacobMat.jacob21 )
-										   * ( Nh * sigmaTensor[2][0] + Nv * sigmaTensor[2][2] ) ) * m_weight[ip];
-						}
-					}
-					if( m_signInversion[iElem][iEdge1] != m_signInversion[iElem][iEdge2] ){
-						integral1 *= -divDetJacob * length[iEdge1] * length[iEdge2];
-						integral2 *= -divDetJacob * length[iEdge1] * length[iEdge2];
-					}else{
-						integral1 *= divDetJacob * length[iEdge1] * length[iEdge2];
-						integral2 *= divDetJacob * length[iEdge1] * length[iEdge2];
-					}
-					std::complex<double> val = std::complex<double>( integral1 , 0.0 ) - std::complex<double>( integral2 , 0.0 ) * factor;// exp(-i*omega*t) form
-					if( col == DIRICHLET_BOUNDARY_NONZERO_VALUE ){
-						const std::complex<double> nonZeroValue = m_edgesIDGlobal2NonZeroValues[ m_IDsLocal2Global[iElem][iEdge2] ];
-						m_matrix2DAnalysis.addRightHandSideVector( row, -val * nonZeroValue );// Add to right hand side vector
-					}else if( col >= row ){// Store only upper triangle part
-						m_matrix2DAnalysis.addNonZeroValues( row, col, val );// Add to matrix
-					}
-				}// iEdge2
-			}// iEdge1		
-		}// iElem
-	}else{
-		// Isotropic medium
-		for( int iElem = 0; iElem < nElem; ++iElem ){
-			//--- Calculate Jacobian
-			Forward2DTriangleElementEdgeBased::JacobianMatrix jacobMat = { 0.0, 0.0, 0.0, 0.0 };
-			double detJacob(0.0);
-			if( m_planeID == MeshData::YZMinus || m_planeID == MeshData::YZPlus ){//YZ Plane
-				calcJacobianMatrixOnYZPlaneOfBoundary( pMeshDataTetraElement, iElem, jacobMat, detJacob );
-			}else{//ZX Plane
-				calcJacobianMatrixOnZXPlaneOfBoundary( pMeshDataTetraElement, iElem, jacobMat, detJacob );
-			}
-			const double divDetJacob = 1.0 / detJacob;
-
-			//----- debug >>>>>
-#ifdef _DEBUG_WRITE
-			std::cout << "elemID = " << pMeshDataTetraElement->getElemBoundaryPlanes( m_planeID, iElem ) << std::endl;
-			std::cout << "x0 y0 : " << pMeshDataTetraElement->getCoordXFromElementBoundaryPlanes( m_planeID, iElem, 0 ) << " " << pMeshDataTetraElement->getCoordZFromElementBoundaryPlanes( m_planeID, iElem, 0 ) << std::endl;
-			std::cout << "x1 y1 : " << pMeshDataTetraElement->getCoordXFromElementBoundaryPlanes( m_planeID, iElem, 1 ) << " " << pMeshDataTetraElement->getCoordZFromElementBoundaryPlanes( m_planeID, iElem, 1 ) << std::endl;
-			std::cout << "x2 y2 : " << pMeshDataTetraElement->getCoordXFromElementBoundaryPlanes( m_planeID, iElem, 2 ) << " " << pMeshDataTetraElement->getCoordZFromElementBoundaryPlanes( m_planeID, iElem, 2 ) << std::endl;
-			std::cout << "jacob11 = " << jacobMat.jacob11 << std::endl;
-			std::cout << "jacob12 = " << jacobMat.jacob12 << std::endl;
-			std::cout << "jacob21 = " << jacobMat.jacob21 << std::endl;
-			std::cout << "jacob22 = " << jacobMat.jacob22 << std::endl;
-			std::cout << "divDetJacob = " << divDetJacob << std::endl;
-#endif
-			//----- debug <<<<<
-
-			//--- Calculate omega * mu * sigma
-			const int elemID = pMeshDataTetraElement->getElemBoundaryPlanes( m_planeID, iElem );
-			const double omega = 2.0 * CommonParameters::PI * freq;//Angular frequency
-			const double length[3] = { pMeshDataTetraElement->calcEdgeLengthFromElementAndEdgeBoundaryPlanes( m_planeID, iElem, 0 ),
-									   pMeshDataTetraElement->calcEdgeLengthFromElementAndEdgeBoundaryPlanes( m_planeID, iElem, 1 ),
-									   pMeshDataTetraElement->calcEdgeLengthFromElementAndEdgeBoundaryPlanes( m_planeID, iElem, 2 ) };
-			const double sigma = pResistivityBlock->getConductivityValuesFromElemID(elemID);
-			const std::complex<double> factor = std::complex<double>( 0.0, omega * CommonParameters::mu * sigma );// exp(-i*omega*t) form
-
-			for( int iEdge1 = 0; iEdge1 < 3; ++iEdge1 ){
-				const int row = m_IDsLocal2GlobalDegenerated[iElem][iEdge1];
-				if( row < 0 ){
-					continue;
-				}
-				for( int iEdge2 = 0; iEdge2 < 3; ++iEdge2 ){
-					const int col = m_IDsLocal2GlobalDegenerated[iElem][iEdge2];
-					if( col <= DIRICHLET_BOUNDARY_ZERO_VALUE ){
-						continue;
-					}
-					double integral1(0.0);
-					double integral2(0.0);
-					for( int ip = 0; ip < m_numIntegralPoints; ++ip ){
-						integral1 += getShapeFuncRotated() * getShapeFuncRotated() * m_weight[ip];
-						integral2 += (   ( getShapeFuncReferenceCoordU( m_uCoord[ip], m_vCoord[ip], iEdge1 ) * jacobMat.jacob22
-										 - getShapeFuncReferenceCoordV( m_uCoord[ip], m_vCoord[ip], iEdge1 ) * jacobMat.jacob12 ) 
-									   * ( getShapeFuncReferenceCoordU( m_uCoord[ip], m_vCoord[ip], iEdge2 ) * jacobMat.jacob22 
-										 - getShapeFuncReferenceCoordV( m_uCoord[ip], m_vCoord[ip], iEdge2 ) * jacobMat.jacob12 )
-									   + ( getShapeFuncReferenceCoordV( m_uCoord[ip], m_vCoord[ip], iEdge1 ) * jacobMat.jacob11
-										 - getShapeFuncReferenceCoordU( m_uCoord[ip], m_vCoord[ip], iEdge1 ) * jacobMat.jacob21 )
-									   * ( getShapeFuncReferenceCoordV( m_uCoord[ip], m_vCoord[ip], iEdge2 ) * jacobMat.jacob11
-										 - getShapeFuncReferenceCoordU( m_uCoord[ip], m_vCoord[ip], iEdge2 ) * jacobMat.jacob21 ) ) * m_weight[ip];
-					}
-					if( m_signInversion[iElem][iEdge1] != m_signInversion[iElem][iEdge2] ){
-						integral1 *= -divDetJacob * length[iEdge1] * length[iEdge2];
-						integral2 *= -divDetJacob * length[iEdge1] * length[iEdge2];
-					}else{
-						integral1 *= divDetJacob * length[iEdge1] * length[iEdge2];
-						integral2 *= divDetJacob * length[iEdge1] * length[iEdge2];
-					}
-					std::complex<double> val = std::complex<double>( integral1 , 0.0 ) - std::complex<double>( integral2 , 0.0 ) * factor;// exp(-i*omega*t) form
-					if( col == DIRICHLET_BOUNDARY_NONZERO_VALUE ){
-						const std::complex<double> nonZeroValue = m_edgesIDGlobal2NonZeroValues[ m_IDsLocal2Global[iElem][iEdge2] ];
-						m_matrix2DAnalysis.addRightHandSideVector( row, -val * nonZeroValue );// Add to right hand side vector
-					}else if( col >= row ){// Store only upper triangle part
-						m_matrix2DAnalysis.addNonZeroValues( row, col, val );// Add to matrix
-					}
-				}// iEdge2
-			}// iEdge1		
-		}// iElem
-	}
-#else
-	for( int iElem = 0; iElem < nElem; ++iElem ){
-
-		//--- Calculate Jacobian
-		//const double jacob11 = pMeshDataTetraElement->getCoordXFromElementBoundaryPlanes( m_planeID, iElem, 1 ) - pMeshDataTetraElement->getCoordXFromElementBoundaryPlanes( m_planeID, iElem, 0 );
-		//const double jacob12 = pMeshDataTetraElement->getCoordZFromElementBoundaryPlanes( m_planeID, iElem, 1 ) - pMeshDataTetraElement->getCoordZFromElementBoundaryPlanes( m_planeID, iElem, 0 );
-		//const double jacob21 = pMeshDataTetraElement->getCoordXFromElementBoundaryPlanes( m_planeID, iElem, 2 ) - pMeshDataTetraElement->getCoordXFromElementBoundaryPlanes( m_planeID, iElem, 0 );
-		//const double jacob22 = pMeshDataTetraElement->getCoordZFromElementBoundaryPlanes( m_planeID, iElem, 2 ) - pMeshDataTetraElement->getCoordZFromElementBoundaryPlanes( m_planeID, iElem, 0 );
-		//const double divDetJacob = 1.0 / ( jacob11 * jacob22 - jacob12 * jacob21 );
-		Forward2DTriangleElementEdgeBased::JacobianMatrix jacobMat = { 0.0, 0.0, 0.0, 0.0 };
-		double detJacob(0.0);
-		if( m_planeID == MeshData::YZMinus || m_planeID == MeshData::YZPlus ){//YZ Plane
-			calcJacobianMatrixOnYZPlaneOfBoundary( pMeshDataTetraElement, iElem, jacobMat, detJacob );
-		}else{//ZX Plane
-			calcJacobianMatrixOnZXPlaneOfBoundary( pMeshDataTetraElement, iElem, jacobMat, detJacob );
-		}
-		const double divDetJacob = 1.0 / detJacob;
-
-		//----- debug >>>>>
-#ifdef _DEBUG_WRITE
-		std::cout << "elemID = " << pMeshDataTetraElement->getElemBoundaryPlanes( m_planeID, iElem ) << std::endl;
-		std::cout << "x0 y0 : " << pMeshDataTetraElement->getCoordXFromElementBoundaryPlanes( m_planeID, iElem, 0 ) << " " << pMeshDataTetraElement->getCoordZFromElementBoundaryPlanes( m_planeID, iElem, 0 ) << std::endl;
-		std::cout << "x1 y1 : " << pMeshDataTetraElement->getCoordXFromElementBoundaryPlanes( m_planeID, iElem, 1 ) << " " << pMeshDataTetraElement->getCoordZFromElementBoundaryPlanes( m_planeID, iElem, 1 ) << std::endl;
-		std::cout << "x2 y2 : " << pMeshDataTetraElement->getCoordXFromElementBoundaryPlanes( m_planeID, iElem, 2 ) << " " << pMeshDataTetraElement->getCoordZFromElementBoundaryPlanes( m_planeID, iElem, 2 ) << std::endl;
-		std::cout << "jacob11 = " << jacobMat.jacob11 << std::endl;
-		std::cout << "jacob12 = " << jacobMat.jacob12 << std::endl;
-		std::cout << "jacob21 = " << jacobMat.jacob21 << std::endl;
-		std::cout << "jacob22 = " << jacobMat.jacob22 << std::endl;
-		std::cout << "divDetJacob = " << divDetJacob << std::endl;
-#endif
-		//----- debug <<<<<
-
-//		//----- debug >>>>>
-//#ifdef _DEBUG_WRITE
-//		const double g2[2] = {   jacobMat.jacob22 * divDetJacob, - jacobMat.jacob21 * divDetJacob };
-//		const double g3[2] = { - jacobMat.jacob12 * divDetJacob,   jacobMat.jacob11 * divDetJacob };
-//		const double m22[3][3] = { { 3.0/12.0,  1.0/12.0, -1.0/12.0 }, { 1.0/12.0,  1.0/12.0, -1.0/12.0 }, { -1.0/12.0, -1.0/12.0,  1.0/12.0 } };
-//		const double m23[3][3] = { { 3.0/12.0,  3.0/12.0,  1.0/12.0 }, { 3.0/12.0,  3.0/12.0, -1.0/12.0 }, {  1.0/12.0, -1.0/12.0, -1.0/12.0 } };
-//		const double m33[3][3] = { { 1.0/12.0,  1.0/12.0,  1.0/12.0 }, { 1.0/12.0,  3.0/12.0,  1.0/12.0 }, {  1.0/12.0,  1.0/12.0,  1.0/12.0 } };
-//		const double s00[3][3] = { {      2.0,      -2.0,       2.0 }, {     -2.0,       2.0,      -2.0 }, {       2.0,      -2.0,       2.0 } };
-//
-//		const double const22 = g2[0]*g2[0] + g2[1]*g2[1];
-//		const double const33 = g3[0]*g3[0] + g3[1]*g3[1];
-//		const double const23 = g2[0]*g3[0] + g2[1]*g3[1];
-//
-//		//double matrix1[3][3] = { { 0.0, 0.0, 0.0 }, { 0.0, 0.0, 0.0 }, { 0.0, 0.0, 0.0 } };
-//		//for( int i = 0; i < 3; ++i ){
-//		//	for( int j = 0; j < 3; ++j ){
-//		//		matrix1[i][j] = fabs( divDetJacob ) * s00[i][j];
-//		//	}
-//		//}
-//
-//		//double matrix2[3][3] = { { 0.0, 0.0, 0.0 }, { 0.0, 0.0, 0.0 }, { 0.0, 0.0, 0.0 } };
-//		//for( int i = 0; i < 3; ++i ){
-//		//	for( int j = 0; j < 3; ++j ){
-//		//		matrix2[i][j] = fabs( detJacob ) * ( const22 * m22[i][j] + const23 * m23[i][j] + const33 * m33[i][j] );
-//		//	}
-//		//}
-//
-//		//std::cout << "matrix1" << std::endl;
-//		//for( int i = 0; i < 3; ++i ){
-//		//	std::cout << matrix1[i][0] << " " << matrix1[i][1] << " " << matrix1[i][2] << std::endl;
-//		//}
-//
-//		//std::cout << "matrix2" << std::endl;
-//		//for( int i = 0; i < 3; ++i ){
-//		//	std::cout << matrix2[i][0] << " " << matrix2[i][1] << " " << matrix2[i][2] << std::endl;
-//		//}
-//
-//		double b[3];
-//		b[0] =   jacobMat.jacob11 - jacobMat.jacob21; 
-//		b[1] =   jacobMat.jacob21; 
-//		b[2] = - jacobMat.jacob11; 
-//
-//		double c[3];
-//		c[0] =   jacobMat.jacob22 - jacobMat.jacob12; 
-//		c[1] = - jacobMat.jacob22; 
-//		c[2] =   jacobMat.jacob12; 
-//
-//		double f[3][3]; 
-//		for( int i = 0; i < 3; ++i ){
-//			for( int j = 0; j < 3; ++j ){
-//				f[i][j] = b[i]*b[j] + c[i]*c[j];
-//			}
-//		}
-//
-//		const double divArea =  2.0 * fabs( divDetJacob );  
-//		double matrix3[3][3] = { { 0.0, 0.0, 0.0 }, { 0.0, 0.0, 0.0 }, { 0.0, 0.0, 0.0 } };
-//		matrix3[0][0] = ( f[1][1] - f[0][1] + f[0][0] ) / 24.0 * divArea;
-//		matrix3[1][0] = matrix3[0][1] = ( f[1][2] -       f[1][1] - 2.0 * f[0][2] + f[0][1] ) / 48.0 * divArea;
-//		matrix3[2][0] = matrix3[0][2] = ( f[1][0] - 2.0 * f[1][2] -       f[0][0] + f[0][2] ) / 48.0 * divArea;
-//		matrix3[1][1] = ( f[2][2] - f[1][2] + f[1][1] ) / 24.0 * divArea;
-//		matrix3[2][1] = matrix3[1][2] = ( f[2][0] -       f[2][2] - 2.0 * f[1][0] + f[1][2] ) / 48.0 * divArea;
-//		matrix3[2][2] = ( f[0][0] - f[0][2] + f[2][2] ) / 24.0 * divArea;
-//
-//		std::cout << "matrix3" << std::endl;
-//		for( int i = 0; i < 3; ++i ){
-//			std::cout << matrix3[i][0] << " " << matrix3[i][1] << " " << matrix3[i][2] << std::endl;
-//		}
-//
-//#endif
-//		//----- debug <<<<<
-
-		//--- Calculate omega * mu * sigma
-		const int elemID = pMeshDataTetraElement->getElemBoundaryPlanes( m_planeID, iElem );
-		const double omega = 2.0 * CommonParameters::PI * freq;//Angular frequency
-		const double length[3] = { pMeshDataTetraElement->calcEdgeLengthFromElementAndEdgeBoundaryPlanes( m_planeID, iElem, 0 ),
-								   pMeshDataTetraElement->calcEdgeLengthFromElementAndEdgeBoundaryPlanes( m_planeID, iElem, 1 ),
-								   pMeshDataTetraElement->calcEdgeLengthFromElementAndEdgeBoundaryPlanes( m_planeID, iElem, 2 ) };
-
-		const double sigma = pResistivityBlock->getConductivityValuesFromElemID(elemID);
-#ifdef _ANISOTOROPY
-		const std::complex<double> factor = std::complex<double>( 0.0, omega * CommonParameters::mu * sigma );// exp(-i*omega*t) form
-#else
-		//const std::complex<double> factor = std::complex<double>( omega * omega * CommonParameters::mu * CommonParameters::epsilon, omega * CommonParameters::mu * sigma );// exp(-i*omega*t) form
-		const std::complex<double> factor = std::complex<double>( 0.0, omega * CommonParameters::mu * sigma );// exp(-i*omega*t) form
-#endif
-
-#ifdef _ANISOTOROPY
-		CommonParameters::Vector3D coeffX = { 0.0, 0.0, 0.0 };
-		CommonParameters::Vector3D coeffY = { 0.0, 0.0, 0.0 };
-		CommonParameters::Vector3D coeffZ = { 0.0, 0.0, 0.0 };
-		pResistivityBlock->calcAisotropyCoefficientRotated( pResistivityBlock->getBlockIDFromElemID(iElem), coeffX, coeffY, coeffZ );
-#endif
-
-		for( int iEdge1 = 0; iEdge1 < 3; ++iEdge1 ){
-			const int row = m_IDsLocal2GlobalDegenerated[iElem][iEdge1];
-			if( row < 0 ){
-				continue;
-			}
-			for( int iEdge2 = 0; iEdge2 < 3; ++iEdge2 ){
-				const int col = m_IDsLocal2GlobalDegenerated[iElem][iEdge2];
-				if( col <= DIRICHLET_BOUNDARY_ZERO_VALUE ){
-					continue;
-				}
-				double integral1(0.0);
-				double integral2(0.0);
-				for( int ip = 0; ip < m_numIntegralPoints; ++ip ){
-					integral1 += getShapeFuncRotated() * getShapeFuncRotated() * m_weight[ip];
-#ifdef _ANISOTOROPY
-					const double Nh = getShapeFuncReferenceCoordU( m_uCoord[ip], m_vCoord[ip], iEdge2 ) * jacobMat.jacob22 - getShapeFuncReferenceCoordV( m_uCoord[ip], m_vCoord[ip], iEdge2 ) * jacobMat.jacob12;
-					const double Nv = getShapeFuncReferenceCoordV( m_uCoord[ip], m_vCoord[ip], iEdge2 ) * jacobMat.jacob11 - getShapeFuncReferenceCoordU( m_uCoord[ip], m_vCoord[ip], iEdge2 ) * jacobMat.jacob21;
-					if( m_planeID == MeshData::YZMinus || m_planeID == MeshData::YZPlus ){//YZ Plane
-						integral2 += (   ( getShapeFuncReferenceCoordU( m_uCoord[ip], m_vCoord[ip], iEdge1 ) * jacobMat.jacob22 - getShapeFuncReferenceCoordV( m_uCoord[ip], m_vCoord[ip], iEdge1 ) * jacobMat.jacob12 ) 
-									   * ( Nh * coeffY.Y + Nv * coeffY.Z )
-									   + ( getShapeFuncReferenceCoordV( m_uCoord[ip], m_vCoord[ip], iEdge1 ) * jacobMat.jacob11 - getShapeFuncReferenceCoordU( m_uCoord[ip], m_vCoord[ip], iEdge1 ) * jacobMat.jacob21 )
-									   * ( Nh * coeffZ.Y + Nv * coeffZ.Z ) ) * m_weight[ip];
-					}else{//ZX Plane
-						integral2 += (   ( getShapeFuncReferenceCoordU( m_uCoord[ip], m_vCoord[ip], iEdge1 ) * jacobMat.jacob22 - getShapeFuncReferenceCoordV( m_uCoord[ip], m_vCoord[ip], iEdge1 ) * jacobMat.jacob12 ) 
-									   * ( Nh * coeffX.X + Nv * coeffX.Z )
-									   + ( getShapeFuncReferenceCoordV( m_uCoord[ip], m_vCoord[ip], iEdge1 ) * jacobMat.jacob11 - getShapeFuncReferenceCoordU( m_uCoord[ip], m_vCoord[ip], iEdge1 ) * jacobMat.jacob21 )
-									   * ( Nh * coeffZ.X + Nv * coeffZ.Z ) ) * m_weight[ip];
-					}
-#else
-					integral2 += (   ( getShapeFuncReferenceCoordU( m_uCoord[ip], m_vCoord[ip], iEdge1 ) * jacobMat.jacob22 - getShapeFuncReferenceCoordV( m_uCoord[ip], m_vCoord[ip], iEdge1 ) * jacobMat.jacob12 ) 
-						           * ( getShapeFuncReferenceCoordU( m_uCoord[ip], m_vCoord[ip], iEdge2 ) * jacobMat.jacob22 - getShapeFuncReferenceCoordV( m_uCoord[ip], m_vCoord[ip], iEdge2 ) * jacobMat.jacob12 )
-						           + ( getShapeFuncReferenceCoordV( m_uCoord[ip], m_vCoord[ip], iEdge1 ) * jacobMat.jacob11 - getShapeFuncReferenceCoordU( m_uCoord[ip], m_vCoord[ip], iEdge1 ) * jacobMat.jacob21 )
-						           * ( getShapeFuncReferenceCoordV( m_uCoord[ip], m_vCoord[ip], iEdge2 ) * jacobMat.jacob11 - getShapeFuncReferenceCoordU( m_uCoord[ip], m_vCoord[ip], iEdge2 ) * jacobMat.jacob21 ) ) * m_weight[ip];
-#endif
-				}
-				if( m_signInversion[iElem][iEdge1] != m_signInversion[iElem][iEdge2] ){
-					integral1 *= -divDetJacob * length[iEdge1] * length[iEdge2];
-					integral2 *= -divDetJacob * length[iEdge1] * length[iEdge2];
-				}else{
-					integral1 *= divDetJacob * length[iEdge1] * length[iEdge2];
-					integral2 *= divDetJacob * length[iEdge1] * length[iEdge2];
-				}
-				std::complex<double> val = std::complex<double>( integral1 , 0.0 ) - std::complex<double>( integral2 , 0.0 ) * factor;// exp(-i*omega*t) form
-				if( col == DIRICHLET_BOUNDARY_NONZERO_VALUE ){
-					const std::complex<double> nonZeroValue = m_edgesIDGlobal2NonZeroValues[ m_IDsLocal2Global[iElem][iEdge2] ];
-					m_matrix2DAnalysis.addRightHandSideVector( row, -val * nonZeroValue );// Add to right hand side vector
-				}else if( col >= row ){// Store only upper triangle part
-					m_matrix2DAnalysis.addNonZeroValues( row, col, val );// Add to matrix
-				}
-			}// iEdge2
-		}// iEdge1		
-	}// iElem
-#endif
+	setNonZeroValues(freq, pMeshDataTetraElement);
 
 	//----- debug >>>>>
 #ifdef _DEBUG_WRITE
@@ -657,15 +309,13 @@ void Forward2DTriangleElement0thOrderEdgeBased::calcArrayConvertLocalID2Global( 
 
 	// Allocate memory to m_IDsLocal2Global ---
 	if( m_IDsLocal2Global != NULL ){
-		const int nElem = sizeof( m_IDsLocal2Global ) / sizeof( m_IDsLocal2Global[0] );
-		for( int iElem = 0; iElem < nElem; ++iElem ){
-			delete [] m_IDsLocal2Global[iElem];
+		for( int i = 0; i < m_sizeOfIDsLocal2Global; ++i ){
+			delete [] m_IDsLocal2Global[i];
 		}
 		delete [] m_IDsLocal2Global;
-		m_IDsLocal2Global = NULL;
 	}
-
 	m_IDsLocal2Global = new int*[nElem]; 
+	m_sizeOfIDsLocal2Global = nElem;
 	for( int iElem = 0; iElem < nElem; ++iElem ){
 		m_IDsLocal2Global[iElem] = new int[3];
 	}
@@ -673,14 +323,11 @@ void Forward2DTriangleElement0thOrderEdgeBased::calcArrayConvertLocalID2Global( 
 
 	// Allocate memory to m_IDsLocal2GlobalDegenerated ---
 	if( m_IDsLocal2GlobalDegenerated != NULL ){
-		const int nElem = sizeof( m_IDsLocal2GlobalDegenerated ) / sizeof( m_IDsLocal2GlobalDegenerated[0] );
-		for( int iElem = 0; iElem < nElem; ++iElem ){
-			delete [] m_IDsLocal2GlobalDegenerated[iElem];
+		for (int i = 0; i < m_sizeOfIDsLocal2Global; ++i) {
+			delete [] m_IDsLocal2GlobalDegenerated[i];
 		}
 		delete [] m_IDsLocal2GlobalDegenerated;
-		m_IDsLocal2GlobalDegenerated = NULL;
 	}
-
 	m_IDsLocal2GlobalDegenerated = new int*[nElem]; 
 	for( int iElem = 0; iElem < nElem; ++iElem ){
 		m_IDsLocal2GlobalDegenerated[iElem] = new int[3];
@@ -689,14 +336,11 @@ void Forward2DTriangleElement0thOrderEdgeBased::calcArrayConvertLocalID2Global( 
 
 	// Allocate memory to m_signInversion ---
 	if( m_signInversion != NULL ){
-		const int nElem = sizeof( m_signInversion ) / sizeof( m_signInversion[0] );
 		for( int iElem = 0; iElem < nElem; ++iElem ){
 			delete [] m_signInversion[iElem];
 		}
 		delete [] m_signInversion;
-		m_signInversion = NULL;
 	}
-
 	m_signInversion = new bool*[nElem]; 
 	for( int iElem = 0; iElem < nElem; ++iElem ){
 		m_signInversion[iElem] = new bool[3];
@@ -1106,4 +750,168 @@ void Forward2DTriangleElement0thOrderEdgeBased::calcJacobianMatrixOnYZPlaneOfBou
 	determinant = JacobMat.jacob11 * JacobMat.jacob22 - JacobMat.jacob12 * JacobMat.jacob21;
 
 }
+
+// Set non-zero values of matrix and right-hande side vector for forward calculation
+void Forward2DTriangleElement0thOrderEdgeBased::setNonZeroValues(const double freq, const MeshDataTetraElement* const pMeshData){
+
+	if ((AnalysisControl::getInstance())->isAnisotropyConsidered()) {
+		setNonZeroValuesForAnisotropicConductivity(freq, pMeshData);
+	}
+	else {
+		setNonZeroValuesForIsotropicConductivity(freq, pMeshData);
+	}
+
+}
+
+// Set non-zero values of matrix and right-hande side vector for isotropic conductity
+void Forward2DTriangleElement0thOrderEdgeBased::setNonZeroValuesForIsotropicConductivity(const double freq, const MeshDataTetraElement* const pMeshData) {
+
+	const ResistivityBlockIsotropic* const pResistivityBlock = (AnalysisControl::getInstance())->getPointerOfResistivityBlockIsotropic();
+	const int nElem = pMeshData->getNumElemOnBoundaryPlanes(m_planeID);
+	for (int iElem = 0; iElem < nElem; ++iElem) {
+		//--- Calculate Jacobian
+		Forward2DTriangleElementEdgeBased::JacobianMatrix jacobMat = { 0.0, 0.0, 0.0, 0.0 };
+		double detJacob(0.0);
+		if (m_planeID == MeshData::YZMinus || m_planeID == MeshData::YZPlus) {//YZ Plane
+			calcJacobianMatrixOnYZPlaneOfBoundary(pMeshData, iElem, jacobMat, detJacob);
+		}
+		else {//ZX Plane
+			calcJacobianMatrixOnZXPlaneOfBoundary(pMeshData, iElem, jacobMat, detJacob);
+		}
+		const double divDetJacob = 1.0 / detJacob;
+
+		//--- Calculate omega * mu * sigma
+		const int elemID = pMeshData->getElemBoundaryPlanes(m_planeID, iElem);
+		const double omega = 2.0 * CommonParameters::PI * freq;//Angular frequency
+		const double length[3] = { pMeshData->calcEdgeLengthFromElementAndEdgeBoundaryPlanes(m_planeID, iElem, 0),
+								   pMeshData->calcEdgeLengthFromElementAndEdgeBoundaryPlanes(m_planeID, iElem, 1),
+								   pMeshData->calcEdgeLengthFromElementAndEdgeBoundaryPlanes(m_planeID, iElem, 2) };
+		const double sigma = pResistivityBlock->getConductivityValuesFromElemID(elemID);
+		const std::complex<double> factor = std::complex<double>(0.0, omega * CommonParameters::mu * sigma);// exp(-i*omega*t) form
+
+		for (int iEdge1 = 0; iEdge1 < 3; ++iEdge1) {
+			const int row = m_IDsLocal2GlobalDegenerated[iElem][iEdge1];
+			if (row < 0) {
+				continue;
+			}
+			for (int iEdge2 = 0; iEdge2 < 3; ++iEdge2) {
+				const int col = m_IDsLocal2GlobalDegenerated[iElem][iEdge2];
+				if (col <= DIRICHLET_BOUNDARY_ZERO_VALUE) {
+					continue;
+				}
+				double integral1(0.0);
+				double integral2(0.0);
+				for (int ip = 0; ip < m_numIntegralPoints; ++ip) {
+					integral1 += getShapeFuncRotated() * getShapeFuncRotated() * m_weight[ip];
+					integral2 += ((getShapeFuncReferenceCoordU(m_uCoord[ip], m_vCoord[ip], iEdge1) * jacobMat.jacob22
+								- getShapeFuncReferenceCoordV(m_uCoord[ip], m_vCoord[ip], iEdge1) * jacobMat.jacob12)
+								* (getShapeFuncReferenceCoordU(m_uCoord[ip], m_vCoord[ip], iEdge2) * jacobMat.jacob22
+								- getShapeFuncReferenceCoordV(m_uCoord[ip], m_vCoord[ip], iEdge2) * jacobMat.jacob12)
+								+ (getShapeFuncReferenceCoordV(m_uCoord[ip], m_vCoord[ip], iEdge1) * jacobMat.jacob11
+								- getShapeFuncReferenceCoordU(m_uCoord[ip], m_vCoord[ip], iEdge1) * jacobMat.jacob21)
+								* (getShapeFuncReferenceCoordV(m_uCoord[ip], m_vCoord[ip], iEdge2) * jacobMat.jacob11
+								- getShapeFuncReferenceCoordU(m_uCoord[ip], m_vCoord[ip], iEdge2) * jacobMat.jacob21)) * m_weight[ip];
+				}
+				if (m_signInversion[iElem][iEdge1] != m_signInversion[iElem][iEdge2]) {
+					integral1 *= -divDetJacob * length[iEdge1] * length[iEdge2];
+					integral2 *= -divDetJacob * length[iEdge1] * length[iEdge2];
+				}
+				else {
+					integral1 *= divDetJacob * length[iEdge1] * length[iEdge2];
+					integral2 *= divDetJacob * length[iEdge1] * length[iEdge2];
+				}
+				std::complex<double> val = std::complex<double>(integral1, 0.0) - std::complex<double>(integral2, 0.0) * factor;// exp(-i*omega*t) form
+				if (col == DIRICHLET_BOUNDARY_NONZERO_VALUE) {
+					const std::complex<double> nonZeroValue = m_edgesIDGlobal2NonZeroValues[m_IDsLocal2Global[iElem][iEdge2]];
+					m_matrix2DAnalysis.addRightHandSideVector(row, -val * nonZeroValue);// Add to right hand side vector
+				}
+				else if (col >= row) {// Store only upper triangle part
+					m_matrix2DAnalysis.addNonZeroValues(row, col, val);// Add to matrix
+				}
+			}// iEdge2
+		}// iEdge1		
+	}// iElem
+}
+
+// Set non-zero values of matrix and right-hande side vector for anisotropic conductity
+void Forward2DTriangleElement0thOrderEdgeBased::setNonZeroValuesForAnisotropicConductivity(const double freq, const MeshDataTetraElement* const pMeshData) {
+
+	const ResistivityBlockAnisotropic* const pResistivityBlock = (AnalysisControl::getInstance())->getPointerOfResistivityBlockAnisotropic();
+	const int nElem = pMeshData->getNumElemOnBoundaryPlanes(m_planeID);
+	for (int iElem = 0; iElem < nElem; ++iElem) {
+		Forward2DTriangleElementEdgeBased::JacobianMatrix jacobMat = { 0.0, 0.0, 0.0, 0.0 };
+		double detJacob(0.0);
+		if (m_planeID == MeshData::YZMinus || m_planeID == MeshData::YZPlus) {//YZ Plane
+			calcJacobianMatrixOnYZPlaneOfBoundary(pMeshData, iElem, jacobMat, detJacob);
+		}
+		else {//ZX Plane
+			calcJacobianMatrixOnZXPlaneOfBoundary(pMeshData, iElem, jacobMat, detJacob);
+		}
+		const double divDetJacob = 1.0 / detJacob;
+		//--- Calculate omega * mu * sigma
+		const int elemID = pMeshData->getElemBoundaryPlanes(m_planeID, iElem);
+		const double omega = 2.0 * CommonParameters::PI * freq;//Angular frequency
+		const double length[3] = { pMeshData->calcEdgeLengthFromElementAndEdgeBoundaryPlanes(m_planeID, iElem, 0),
+								   pMeshData->calcEdgeLengthFromElementAndEdgeBoundaryPlanes(m_planeID, iElem, 1),
+								   pMeshData->calcEdgeLengthFromElementAndEdgeBoundaryPlanes(m_planeID, iElem, 2) };
+		const std::complex<double> factor = std::complex<double>(0.0, omega * CommonParameters::mu);// exp(-i*omega*t) form
+		double conductivityTensor[3][3] = { {0.0, 0.0, 0.0}, {0.0, 0.0, 0.0}, {0.0, 0.0, 0.0} };
+		pResistivityBlock->calcAnisotropicConductivityTensor(pResistivityBlock->getBlockIDFromElemID(elemID), conductivityTensor);
+		for (int iEdge1 = 0; iEdge1 < 3; ++iEdge1) {
+			const int row = m_IDsLocal2GlobalDegenerated[iElem][iEdge1];
+			if (row < 0) {
+				continue;
+			}
+			for (int iEdge2 = 0; iEdge2 < 3; ++iEdge2) {
+				const int col = m_IDsLocal2GlobalDegenerated[iElem][iEdge2];
+				if (col <= DIRICHLET_BOUNDARY_ZERO_VALUE) {
+					continue;
+				}
+				double integral1(0.0);
+				double integral2(0.0);
+				for (int ip = 0; ip < m_numIntegralPoints; ++ip) {
+					integral1 += getShapeFuncRotated() * getShapeFuncRotated() * m_weight[ip];
+					const double Nh = getShapeFuncReferenceCoordU(m_uCoord[ip], m_vCoord[ip], iEdge2) * jacobMat.jacob22
+									- getShapeFuncReferenceCoordV(m_uCoord[ip], m_vCoord[ip], iEdge2) * jacobMat.jacob12;
+					const double Nv = getShapeFuncReferenceCoordV(m_uCoord[ip], m_vCoord[ip], iEdge2) * jacobMat.jacob11
+									- getShapeFuncReferenceCoordU(m_uCoord[ip], m_vCoord[ip], iEdge2) * jacobMat.jacob21;
+					if (m_planeID == MeshData::YZMinus || m_planeID == MeshData::YZPlus) {//YZ Plane
+						integral2 += ((getShapeFuncReferenceCoordU(m_uCoord[ip], m_vCoord[ip], iEdge1) * jacobMat.jacob22
+									- getShapeFuncReferenceCoordV(m_uCoord[ip], m_vCoord[ip], iEdge1) * jacobMat.jacob12)
+									* (Nh * conductivityTensor[1][1] + Nv * conductivityTensor[1][2])
+									+ (getShapeFuncReferenceCoordV(m_uCoord[ip], m_vCoord[ip], iEdge1) * jacobMat.jacob11
+									- getShapeFuncReferenceCoordU(m_uCoord[ip], m_vCoord[ip], iEdge1) * jacobMat.jacob21)
+									* (Nh * conductivityTensor[2][1] + Nv * conductivityTensor[2][2])) * m_weight[ip];
+					}
+					else {//ZX Plane
+						integral2 += ((getShapeFuncReferenceCoordU(m_uCoord[ip], m_vCoord[ip], iEdge1) * jacobMat.jacob22
+									- getShapeFuncReferenceCoordV(m_uCoord[ip], m_vCoord[ip], iEdge1) * jacobMat.jacob12)
+									* (Nh * conductivityTensor[0][0] + Nv * conductivityTensor[0][2])
+									+ (getShapeFuncReferenceCoordV(m_uCoord[ip], m_vCoord[ip], iEdge1) * jacobMat.jacob11
+									- getShapeFuncReferenceCoordU(m_uCoord[ip], m_vCoord[ip], iEdge1) * jacobMat.jacob21)
+									* (Nh * conductivityTensor[2][0] + Nv * conductivityTensor[2][2])) * m_weight[ip];
+					}
+				}
+				if (m_signInversion[iElem][iEdge1] != m_signInversion[iElem][iEdge2]) {
+					integral1 *= -divDetJacob * length[iEdge1] * length[iEdge2];
+					integral2 *= -divDetJacob * length[iEdge1] * length[iEdge2];
+				}
+				else {
+					integral1 *= divDetJacob * length[iEdge1] * length[iEdge2];
+					integral2 *= divDetJacob * length[iEdge1] * length[iEdge2];
+				}
+				std::complex<double> val = std::complex<double>(integral1, 0.0) - std::complex<double>(integral2, 0.0) * factor;// exp(-i*omega*t) form
+				if (col == DIRICHLET_BOUNDARY_NONZERO_VALUE) {
+					const std::complex<double> nonZeroValue = m_edgesIDGlobal2NonZeroValues[m_IDsLocal2Global[iElem][iEdge2]];
+					m_matrix2DAnalysis.addRightHandSideVector(row, -val * nonZeroValue);// Add to right hand side vector
+				}
+				else if (col >= row) {// Store only upper triangle part
+					m_matrix2DAnalysis.addNonZeroValues(row, col, val);// Add to matrix
+				}
+			}// iEdge2
+		}// iEdge1		
+	}// iElem
+
+}
+
 

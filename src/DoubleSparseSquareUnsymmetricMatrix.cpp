@@ -56,10 +56,10 @@ void DoubleSparseSquareUnsymmetricMatrix::makeTansposedMatrix( DoubleSparseSquar
 
 	for( int iRow = 0; iRow < m_numRows; ++iRow ){
 		const int row = iRow;
-		for( int iCol = m_rowIndex[iRow]; iCol < m_rowIndex[iRow+1]; ++iCol ){
-			const int col = m_columns[iCol];
+		for( long long iCol = m_rowIndex[iRow]; iCol < m_rowIndex[iRow+1]; ++iCol ){
+			const long long col = m_columns[iCol];
 			const double value = m_values[iCol];
-			tansposedMatrix.setStructureAndAddValueByTripletFormat(col, row, value);
+			tansposedMatrix.setStructureAndAddValueByTripletFormat(static_cast<int>(col), row, value);
 		}
 	}
 

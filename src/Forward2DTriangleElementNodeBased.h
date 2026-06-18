@@ -35,7 +35,7 @@ public:
 	explicit Forward2DTriangleElementNodeBased( const int planeID, const int iPol );
 
 	// Destructer
-	~Forward2DTriangleElementNodeBased();
+	virtual ~Forward2DTriangleElementNodeBased();
 
 	// Calculate EM fields of boundary planes by 2D forward calculcation
 	virtual void calcEMFieldsOfBoundaryPlanes( const double freq, const MeshDataTetraElement* const pMeshDataTetraElement ) = 0;

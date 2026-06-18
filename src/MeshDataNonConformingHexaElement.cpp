@@ -306,7 +306,7 @@ void MeshDataNonConformingHexaElement::inputMeshData(){
 		exit(1);
 	}
 
-	if( m_nodesOfElements == NULL ){
+	if (m_nodesOfElements != NULL) {
 		delete[] m_nodesOfElements;
 	}
 	m_nodesOfElements = new int[ m_numElemTotal * m_numNodeOneElement ];
@@ -514,7 +514,7 @@ int MeshDataNonConformingHexaElement::findElementIncludingPointOnSurface( const 
 
 }
 
-// Find element including a point on the Y-Z plane and return element ID of 2D mesh
+// Find elements including dipole on the surface of the earth
 void MeshDataNonConformingHexaElement::findElementsIncludingDipoleOnSurface( const double locXStart, const double locYStart, const double locXEnd, const double locYEnd,
 	std::vector<int>& elements, std::vector<double>& localCoordXStartPoint, std::vector<double>& localCoordYStartPoint,
 	std::vector<double>& localCoordXEndPoint, std::vector<double>& localCoordYEndPoint ) const{
@@ -1323,7 +1323,7 @@ double MeshDataNonConformingHexaElement::calcEdgeLengthFromElementAndEdgeBoundar
 
 }
 
-// Get face index of neighbor element
+// Get length of the edges parallel to X coordinate
 double MeshDataNonConformingHexaElement::getEdgeLengthX( const int iElem ) const{
 
 	const int node0 = getNodesOfElements( iElem, 0 );
@@ -1423,6 +1423,360 @@ double MeshDataNonConformingHexaElement::calcAreaOfFaceAtBottomOfMesh( const int
 	const int elemID = getElemBoundaryPlanes(MeshData::XYPlus, iElem);
 	const int iFace = getFaceIDLocalFromElementBoundaryPlanes(MeshData::XYPlus, iElem);
 	return calcAreaOfFace(elemID, iFace);
+}
+
+// Make data mesh from side boundary elements for the pseudo 2D forward calculation
+void MeshDataNonConformingHexaElement::makeMeshDataFromSideBoundaryElements(const int planeID, const MeshDataNonConformingHexaElement* const pMeshData) {
+
+	assert(this != pMeshData);
+
+	m_numElemTotal = pMeshData->getNumElemOnBoundaryPlanes(planeID);
+	if (m_numElemTotal <= 0) {
+		OutputFiles::m_logFile << "Total number of elements of a side boundary is less than or equal to zero ! : " << m_numElemTotal << std::endl;
+		exit(1);
+	}
+
+	if (m_nodesOfElements != NULL) {
+		delete[] m_nodesOfElements;
+	}
+	m_nodesOfElements = new int[m_numElemTotal * m_numNodeOneElement];
+
+	if (m_neighborElementsForNonConformingHexa != NULL) {
+		delete[] m_neighborElementsForNonConformingHexa;
+	}
+	m_neighborElementsForNonConformingHexa = new std::vector<int>[m_numElemTotal * 6];
+
+	int nodeIDMax(0);
+	std::vector<int> nodeIDsBondary;
+	for (int iElem = 0; iElem < m_numElemTotal; ++iElem) {
+		for (int iNode = 0; iNode < 4; ++iNode) {
+			const int nodeID = pMeshData->getNodeIDGlobalFromElementBoundaryPlanes(planeID, iElem, iNode);
+			nodeIDsBondary.push_back(nodeID);
+			if (nodeID > nodeIDMax) {
+				nodeIDMax = nodeID;
+			}
+		}
+	}
+	std::sort(nodeIDsBondary.begin(), nodeIDsBondary.end());
+	nodeIDsBondary.erase(std::unique(nodeIDsBondary.begin(), nodeIDsBondary.end()), nodeIDsBondary.end());
+	const int numNodesOnBoundary = static_cast<int>(nodeIDsBondary.size());
+	m_numNodeTotal = 2 * numNodesOnBoundary;
+	if (m_numNodeTotal <= 0) {
+		OutputFiles::m_logFile << "Total number of nodes  of a side boundary is less than or equal to zero ! : " << m_numNodeTotal << std::endl;
+		exit(1);
+	}
+	if (m_xCoordinatesOfNodes != NULL) {
+		delete[] m_xCoordinatesOfNodes;
+	}
+	m_xCoordinatesOfNodes = new double[m_numNodeTotal];
+	if (m_yCoordinatesOfNodes != NULL) {
+		delete[] m_yCoordinatesOfNodes;
+	}
+	m_yCoordinatesOfNodes = new double[m_numNodeTotal];
+	if (m_zCoordinatesOfNodes != NULL) {
+		delete[] m_zCoordinatesOfNodes;
+	}
+	m_zCoordinatesOfNodes = new double[m_numNodeTotal];
+
+	std::map<int, int> mapNodeIDsFromGlobalToLocal;
+	int nodeIndex(0);
+	for (std::vector<int>::const_iterator itr = nodeIDsBondary.begin(); itr != nodeIDsBondary.end(); ++itr, ++nodeIndex)
+	{
+		m_xCoordinatesOfNodes[nodeIndex] = pMeshData->getXCoordinatesOfNodes(*itr);
+		m_yCoordinatesOfNodes[nodeIndex] = pMeshData->getYCoordinatesOfNodes(*itr);
+		m_zCoordinatesOfNodes[nodeIndex] = pMeshData->getZCoordinatesOfNodes(*itr);
+		mapNodeIDsFromGlobalToLocal.insert(std::make_pair(*itr, nodeIndex));
+	}
+	assert(nodeIndex == numNodesOnBoundary);
+	const double widthOfPeudo2DMesh = 1000.0;
+	if (planeID == MeshData::YZMinus || planeID == MeshData::YZPlus) {//Y-Z Plane
+		for (std::vector<int>::const_iterator itr = nodeIDsBondary.begin(); itr != nodeIDsBondary.end(); ++itr, ++nodeIndex)
+		{
+			m_xCoordinatesOfNodes[nodeIndex] = pMeshData->getXCoordinatesOfNodes(*itr) + widthOfPeudo2DMesh;
+			m_yCoordinatesOfNodes[nodeIndex] = pMeshData->getYCoordinatesOfNodes(*itr);
+			m_zCoordinatesOfNodes[nodeIndex] = pMeshData->getZCoordinatesOfNodes(*itr);
+		}
+	}
+	else if (planeID == MeshData::ZXMinus || planeID == MeshData::ZXPlus) {//Z-X Plane
+		for (std::vector<int>::const_iterator itr = nodeIDsBondary.begin(); itr != nodeIDsBondary.end(); ++itr, ++nodeIndex)
+		{
+			m_xCoordinatesOfNodes[nodeIndex] = pMeshData->getXCoordinatesOfNodes(*itr);
+			m_yCoordinatesOfNodes[nodeIndex] = pMeshData->getYCoordinatesOfNodes(*itr) + widthOfPeudo2DMesh;
+			m_zCoordinatesOfNodes[nodeIndex] = pMeshData->getZCoordinatesOfNodes(*itr);
+		}
+	}
+
+	std::map<int, int> mapElemIDsFromGlobalToLocal;
+	for (int iElem = 0; iElem < m_numElemTotal; ++iElem) {
+		int nodeIDsOrg[4] = { -1, -1, -1, -1 };
+		for (int iNode = 0; iNode < 4; ++iNode) {
+			nodeIDsOrg[iNode] = pMeshData->getNodeIDGlobalFromElementBoundaryPlanes(planeID, iElem, iNode);
+		}
+		int nodeIDs[8] = { -1, -1, -1, -1, -1, -1, -1, -1 };
+		if (planeID == MeshData::YZMinus || planeID == MeshData::YZPlus) {//Y-Z Plane
+			nodeIDs[0] = mapNodeIDsFromGlobalToLocal[nodeIDsOrg[0]];
+			nodeIDs[3] = mapNodeIDsFromGlobalToLocal[nodeIDsOrg[1]];
+			nodeIDs[7] = mapNodeIDsFromGlobalToLocal[nodeIDsOrg[2]];
+			nodeIDs[4] = mapNodeIDsFromGlobalToLocal[nodeIDsOrg[3]];
+			nodeIDs[1] = mapNodeIDsFromGlobalToLocal[nodeIDsOrg[0]] + numNodesOnBoundary;
+			nodeIDs[2] = mapNodeIDsFromGlobalToLocal[nodeIDsOrg[1]] + numNodesOnBoundary;
+			nodeIDs[6] = mapNodeIDsFromGlobalToLocal[nodeIDsOrg[2]] + numNodesOnBoundary;
+			nodeIDs[5] = mapNodeIDsFromGlobalToLocal[nodeIDsOrg[3]] + numNodesOnBoundary;
+		}
+		else if (planeID == MeshData::ZXMinus || planeID == MeshData::ZXPlus) {//Z-X Plane
+			nodeIDs[0] = mapNodeIDsFromGlobalToLocal[nodeIDsOrg[0]];
+			nodeIDs[1] = mapNodeIDsFromGlobalToLocal[nodeIDsOrg[1]];
+			nodeIDs[5] = mapNodeIDsFromGlobalToLocal[nodeIDsOrg[2]];
+			nodeIDs[4] = mapNodeIDsFromGlobalToLocal[nodeIDsOrg[3]];
+			nodeIDs[3] = mapNodeIDsFromGlobalToLocal[nodeIDsOrg[0]] + numNodesOnBoundary;
+			nodeIDs[2] = mapNodeIDsFromGlobalToLocal[nodeIDsOrg[1]] + numNodesOnBoundary;
+			nodeIDs[6] = mapNodeIDsFromGlobalToLocal[nodeIDsOrg[2]] + numNodesOnBoundary;
+			nodeIDs[7] = mapNodeIDsFromGlobalToLocal[nodeIDsOrg[3]] + numNodesOnBoundary;
+		}
+		// Nodes of the element
+		for (int i = 0; i < 8; ++i) {
+			m_nodesOfElements[iElem * 8 + i] = nodeIDs[i];
+		}
+		const int elemID = pMeshData->getElemBoundaryPlanes(planeID, iElem);
+		mapElemIDsFromGlobalToLocal.insert(std::make_pair(elemID, iElem));
+	}
+
+	for (int iElem = 0; iElem < m_numElemTotal; ++iElem) {
+		for (int iFace = 0; iFace < 6; ++iFace) {
+			if ((planeID == MeshData::YZMinus || planeID == MeshData::YZPlus) && (iFace == 0 || iFace == 1)) {
+				// Y-Z Plane
+				m_neighborElementsForNonConformingHexa[iElem * 6 + iFace].push_back(-1);
+			}
+			else if ((planeID == MeshData::ZXMinus || planeID == MeshData::ZXPlus) && (iFace == 2 || iFace == 3)) {
+				// Z-X Plane
+				m_neighborElementsForNonConformingHexa[iElem * 6 + iFace].push_back(-1);
+			}
+			else {
+				const int elemID = pMeshData->getElemBoundaryPlanes(planeID, iElem);
+				const int numNeibElements = pMeshData->getNumNeighborElement(elemID, iFace);
+				if (numNeibElements > 1) {
+					OutputFiles::m_logFile << "Non-conforming elements cannot be used in side boudaries when 2D pseudo forward calculation is performed." << std::endl;
+					exit(1);
+				}
+				for (int iNeib = 0; iNeib < numNeibElements; ++iNeib) {
+					const int elemIDNeibOrg = pMeshData->getIDOfNeighborElement(elemID, iFace, iNeib);
+					assert(elemIDNeibOrg >= 0);
+					if (mapElemIDsFromGlobalToLocal.find(elemIDNeibOrg) != mapElemIDsFromGlobalToLocal.end()) {
+						const int elemIDNeib = mapElemIDsFromGlobalToLocal[elemIDNeibOrg];
+						m_neighborElementsForNonConformingHexa[iElem * 6 + iFace].push_back(elemIDNeib);
+					}
+					else {
+						OutputFiles::m_logFile << "Element " << elemIDNeibOrg << " cannot be found in a map of element IDs !" << std::endl;
+						exit(1);
+					}
+				}
+			}
+		}
+	}
+
+	for (int iElem = 0; iElem < m_numElemTotal; ++iElem) {
+		for (int iFace = 0; iFace < 6; ++iFace) {
+			if (getNumNeighborElement(iElem, iFace) > 1) {
+				OutputFiles::m_logFile << "Non-conforming elements cannot be used in side boudaries when 2D pseudo forward calculation is performed." << std::endl;
+				exit(1);
+			}
+		}
+	}
+
+	for (int iPlane = 0; iPlane < 6; ++iPlane) {
+		if (m_elemBoundaryPlanes[iPlane] != NULL) {
+			delete[] m_elemBoundaryPlanes[iPlane];
+		}
+		if (m_facesOfElementsBoundaryPlanes[iPlane] != NULL) {
+			delete[] m_facesOfElementsBoundaryPlanes[iPlane];
+		}
+	}
+	for (int iPlane = 0; iPlane < 6; ++iPlane) {// Loop of boundary planes
+		if ((planeID == MeshData::YZMinus || planeID == MeshData::YZPlus) && (iPlane == MeshData::YZMinus || iPlane == MeshData::YZPlus)) {
+			m_numElemOnBoundaryPlanes[iPlane] = m_numElemTotal;
+			m_elemBoundaryPlanes[iPlane] = new int[m_numElemTotal];
+			m_facesOfElementsBoundaryPlanes[iPlane] = new int[m_numElemTotal];
+			const int faceID = iPlane == MeshData::YZMinus ? 0 : 1;
+			for (int iElem = 0; iElem < m_numElemTotal; ++iElem) {
+				m_elemBoundaryPlanes[iPlane][iElem] = iElem;
+				m_facesOfElementsBoundaryPlanes[iPlane][iElem] = faceID;
+			}
+		}
+		else if((planeID == MeshData::ZXMinus || planeID == MeshData::ZXPlus) && (iPlane == MeshData::ZXMinus || iPlane == MeshData::ZXPlus)){
+			m_numElemOnBoundaryPlanes[iPlane] = m_numElemTotal;
+			m_elemBoundaryPlanes[iPlane] = new int[m_numElemTotal];
+			m_facesOfElementsBoundaryPlanes[iPlane] = new int[m_numElemTotal];
+			const int faceID = iPlane == MeshData::ZXMinus ? 2 : 3;
+			for (int iElem = 0; iElem < m_numElemTotal; ++iElem) {
+				m_elemBoundaryPlanes[iPlane][iElem] = iElem;
+				m_facesOfElementsBoundaryPlanes[iPlane][iElem] = faceID;
+			}
+		}
+		else {
+			std::vector< std::pair<int, int> > elemFacePair;
+			for (int iElem = 0; iElem < pMeshData->getNumElemOnBoundaryPlanes(iPlane); ++iElem) {
+				const int elemID = pMeshData->getElemBoundaryPlanes(iPlane, iElem);
+				if (mapElemIDsFromGlobalToLocal.find(elemID) != mapElemIDsFromGlobalToLocal.end()) {
+					const int faceID = pMeshData->getFaceIDLocalFromElementBoundaryPlanes(iPlane, iElem);
+					elemFacePair.push_back(std::make_pair(mapElemIDsFromGlobalToLocal[elemID], faceID));
+				}
+			}
+			const int numElemFaces = static_cast<int>(elemFacePair.size());
+			m_numElemOnBoundaryPlanes[iPlane] = numElemFaces;
+			m_elemBoundaryPlanes[iPlane] = new int[numElemFaces];
+			m_facesOfElementsBoundaryPlanes[iPlane] = new int[numElemFaces];
+			int icount(0);
+			for (std::vector< std::pair<int, int> >::const_iterator itr = elemFacePair.begin(); itr != elemFacePair.end(); ++itr, ++icount) {
+				m_elemBoundaryPlanes[iPlane][icount] = itr->first;
+				m_facesOfElementsBoundaryPlanes[iPlane][icount] = itr->second;
+			}
+		}
+	}
+
+	std::vector< std::pair<int, int> > elemFacePair;
+	for (int iElem = 0; iElem < pMeshData->getNumElemOnOnLandSurface(); ++iElem) {
+		const int elemID = pMeshData->getElemOnLandSurface(iElem);
+		if (mapElemIDsFromGlobalToLocal.find(elemID) != mapElemIDsFromGlobalToLocal.end()) {
+			const int faceID = pMeshData->getFaceLandSurface(iElem);
+			elemFacePair.push_back(std::make_pair(mapElemIDsFromGlobalToLocal[elemID], faceID));
+		}
+	}
+	const int numElemFaces = static_cast<int>(elemFacePair.size());
+	m_numElemOnLandSurface = numElemFaces;
+	if (m_elemOnLandSurface != NULL) {
+		delete[] m_elemOnLandSurface;
+	}
+	m_elemOnLandSurface = new int[m_numElemOnLandSurface];
+	if (m_faceLandSurface != NULL) {
+		delete[] m_faceLandSurface;
+	}
+	m_faceLandSurface = new int[m_numElemOnLandSurface];
+	int icount(0);
+	for (std::vector< std::pair<int, int> >::const_iterator itr = elemFacePair.begin(); itr != elemFacePair.end(); ++itr, ++icount) {
+		m_faceLandSurface[icount] = itr->first;
+		m_elemOnLandSurface[icount] = itr->second;
+	}
+
+#ifdef _DEBUG_WRITE
+	std::ostringstream oss;
+	oss << "pseudo_2d_plane_" << planeID << ".vtk";
+	std::ofstream ofs;
+	ofs.open(oss.str());
+	ofs << "# vtk DataFile Version 2.0" << std::endl;
+	ofs << "pseudo_2D_mesh" << std::endl;
+	ofs << "ASCII" << std::endl;
+	ofs << "DATASET UNSTRUCTURED_GRID" << std::endl;
+	ofs << "POINTS " << m_numNodeTotal << " float" << std::endl;
+	for (int iNode = 0; iNode < m_numNodeTotal; ++iNode) {
+		ofs << m_xCoordinatesOfNodes[iNode] << " "
+			<< m_yCoordinatesOfNodes[iNode] << " "
+			<< m_zCoordinatesOfNodes[iNode] << std::endl;
+	}
+	ofs << "CELLS " << m_numElemTotal << " " << m_numElemTotal * 9 << std::endl;
+	for (int iElem = 0; iElem < m_numElemTotal; ++iElem) {
+		ofs << 8 << " "
+			<< m_nodesOfElements[iElem * 8] << " "
+			<< m_nodesOfElements[iElem * 8 + 1] << " "
+			<< m_nodesOfElements[iElem * 8 + 2] << " "
+			<< m_nodesOfElements[iElem * 8 + 3] << " "
+			<< m_nodesOfElements[iElem * 8 + 4] << " "
+			<< m_nodesOfElements[iElem * 8 + 5] << " "
+			<< m_nodesOfElements[iElem * 8 + 6] << " "
+			<< m_nodesOfElements[iElem * 8 + 7] << std::endl;
+	}
+	ofs << "CELL_TYPES " << m_numElemTotal << std::endl;
+	for (int iElem = 0; iElem < m_numElemTotal; ++iElem) {
+		ofs << "12" << std::endl;
+	}
+	ofs << "CELL_DATA " << m_numElemTotal << std::endl;
+	ofs << "SCALARS Cell_ID int" << std::endl;
+	ofs << "LOOKUP_TABLE default" << std::endl;
+	for (int iElem = 0; iElem < m_numElemTotal; ++iElem) {
+		ofs << iElem << std::endl;
+	}
+	ofs << "POINT_DATA " << m_numNodeTotal << std::endl;
+	ofs << "SCALARS Node_ID int" << std::endl;
+	ofs << "LOOKUP_TABLE default" << std::endl;
+	for (int iNode = 0; iNode < m_numNodeTotal; ++iNode) {
+		ofs << iNode << std::endl;
+	}
+	ofs.close();
+
+	std::cout << "--- Generated from the plane ";
+	switch (planeID) {
+	case MeshData::YZMinus:
+		std::cout << "YZ-Minus" << std::endl;
+		break;
+	case MeshData::YZPlus:
+		std::cout << "YZ-Plus" << std::endl;
+		break;
+	case MeshData::ZXMinus:
+		std::cout << "ZX-Minus" << std::endl;
+		break;
+	case MeshData::ZXPlus:
+		std::cout << "ZX-Plus" << std::endl;
+		break;
+	case MeshData::XYMinus:
+		std::cout << "XY-Minus" << std::endl;
+		break;
+	case MeshData::XYPlus:
+		std::cout << "XY-Plus" << std::endl;
+		break;
+	default:
+		std::cout << "Unknown" << std::endl;
+		break;
+	}
+	for (int iPlane = 0; iPlane < 6; ++iPlane) {
+		switch(iPlane) {
+			case MeshData::YZMinus:
+				std::cout << "YZ-Minus" << std::endl;
+				break;
+			case MeshData::YZPlus:
+				std::cout << "YZ-Plus" << std::endl;
+				break;
+			case MeshData::ZXMinus:
+				std::cout << "ZX-Minus" << std::endl;
+				break;
+			case MeshData::ZXPlus:
+				std::cout << "ZX-Plus" << std::endl;
+				break;
+			case MeshData::XYMinus:
+				std::cout << "XY-Minus" << std::endl;
+				break;
+			case MeshData::XYPlus:
+				std::cout << "XY-Plus" << std::endl;
+				break;
+			default:
+				std::cout << "Unknown" << std::endl;
+				break;
+		}
+		const int nElemOnPlane = getNumElemOnBoundaryPlanes(iPlane);
+		std::cout << "nElem: " <<nElemOnPlane << std::endl;
+		for (int iElem = 0; iElem < nElemOnPlane; ++iElem) {
+			std::cout << "elem, face: " << getElemBoundaryPlanes(iPlane, iElem) << " " << getFaceIDLocalFromElementBoundaryPlanes(iPlane, iElem) << std::endl;
+		}
+	}
+#endif
+
+}
+
+// Get total number of elements belonging to the Earth's surface
+int MeshDataNonConformingHexaElement::getNumElemOnOnLandSurface() const {
+	return m_numElemOnLandSurface;
+}
+
+// Get ID of the element belonging to the Earth's surface
+int MeshDataNonConformingHexaElement::getElemOnLandSurface(const int iElem) const {
+	assert(iElem >= 0);
+	assert(iElem < m_numElemOnLandSurface);
+	return m_elemOnLandSurface[iElem];
+}
+
+// Get face ID of the element belonging to the Earth's surface
+int MeshDataNonConformingHexaElement::getFaceLandSurface(const int iElem) const {
+	assert(iElem >= 0);
+	assert(iElem < m_numElemOnLandSurface);
+	return m_faceLandSurface[iElem];
 }
 
 // Check whether side element-faces are parallel to Z-X or Y-Z plane

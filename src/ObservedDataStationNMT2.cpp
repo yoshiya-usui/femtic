@@ -29,6 +29,7 @@
 #include <iomanip>
 
 #include "ObservedDataStationNMT2.h"
+#include "AnalysisControl.h"
 #include "OutputFiles.h"
 #include "CommonParameters.h"
 #include "ResistivityBlock.h"
@@ -800,7 +801,7 @@ void ObservedDataStationNMT2::calculateSensitivityMatrix( const double freq, con
 		ZyySD.imagPart = 1.0;
 	}
 
-	const long long nBlkNotFixed = static_cast<long long>( ( ResistivityBlock::getInstance() )->getNumResistivityBlockNotFixed() );
+	const long long nBlkNotFixed = static_cast<long long>((AnalysisControl::getInstance()->getPointerOfResistivityBlock())->getNumberOfUnfixedResistivityParameters());
 	for( long long imdl = 0; imdl < nBlkNotFixed; ++imdl ){
 
 		const std::complex<double> dEdmDipole1[2] = {

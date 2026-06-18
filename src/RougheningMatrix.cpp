@@ -72,12 +72,12 @@ void RougheningMatrix::makeRTRMatrix( DoubleSparseSquareSymmetricMatrix& RTRMatr
 	RTRMatrix.setDegreeOfEquation(m_numColumns);
 
 	for( int iRow = 0; iRow < m_numRows; ++iRow ){
-		for( int iColRight = m_rowIndex[iRow]; iColRight < m_rowIndex[iRow+1]; ++iColRight ){
-			const int col = m_columns[iColRight];
-			for( int iColLeft = m_rowIndex[iRow]; iColLeft <= iColRight; ++iColLeft ){
-				const int row = m_columns[iColLeft];
+		for( long long iColRight = m_rowIndex[iRow]; iColRight < m_rowIndex[iRow+1]; ++iColRight ){
+			const long long  col = m_columns[iColRight];
+			for(long long  iColLeft = m_rowIndex[iRow]; iColLeft <= iColRight; ++iColLeft ){
+				const long long  row = m_columns[iColLeft];
 				const double value = m_values[iColRight] * m_values[iColLeft];
-				RTRMatrix.setStructureAndAddValueByTripletFormat(row, col, value);
+				RTRMatrix.setStructureAndAddValueByTripletFormat(static_cast<int>(row), static_cast<int>(col), value);
 			}
 		}
 	}
@@ -98,7 +98,7 @@ double RougheningMatrix::calcModelRoughness( const double* modelVec ) const{
 	double modelRoughness(0.0);
 	for( int i = 0; i < m_numRows; ++i ){
 		double work(0.0);
-		for( int j = m_rowIndex[i]; j < m_rowIndex[i+1]; ++j ){		
+		for(long long j = m_rowIndex[i]; j < m_rowIndex[i+1]; ++j ){
 			 work += m_values[j] * modelVec[ m_columns[j] ];
 #ifdef _DEBUG_WRITE
 			 std::cout << "i m_rowIndex m_values modelVec: " << i << " " << m_rowIndex[i] << " " << m_values[j] << " " << modelVec[ m_columns[j] ] << std::endl;
@@ -113,15 +113,14 @@ double RougheningMatrix::calcModelRoughness( const double* modelVec ) const{
 	
 }
 
-// Calculate vector of model roughness
-void RougheningMatrix::calcVectorOfModelRoughness( const double* modelVec, double* roughnessVec ) const{
+// Calculate residual vector
+void RougheningMatrix::calcResidualVector(const double* modelVec, double* residualVec) const {
 
 	assert(!m_matrixTripletFormat);
 
-	calcMatrixVectorProduct(modelVec, roughnessVec);
-
-	for( int i = 0; i < m_numRows; ++i ){
-		roughnessVec[i] = m_rightHandSideVector[i] - roughnessVec[i];
+	calcMatrixVectorProduct(modelVec, residualVec);
+	for (int i = 0; i < m_numRows; ++i) {
+		residualVec[i] = m_rightHandSideVector[i] - residualVec[i];
 	}
 
 }
@@ -132,7 +131,7 @@ void RougheningMatrix::postmultiplyDiagonalMatrix( const double* diagMatrix ){
 	assert(!m_matrixTripletFormat);
 
 	for( int i = 0; i < m_numRows; ++i ){
-		for( int j = m_rowIndex[i]; j < m_rowIndex[i+1]; ++j ){		
+		for(long long j = m_rowIndex[i]; j < m_rowIndex[i+1]; ++j ){
 			 m_values[j] *= diagMatrix[ m_columns[j] ];
 		}
 	}

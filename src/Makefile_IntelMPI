@@ -30,22 +30,22 @@ OBJS          = AnalysisControl.o \
                 Forward2DSquareElement.o \
                 Forward2DSquareElement0thOrderEdgeBased.o \
                 Forward2DSquareElement1stOrderEdgeBased.o \
-                Forward2DSquareElement1stOrderNodeBased.o \
-                Forward2DSquareElement2ndOrderNodeBased.o \
                 Forward2DSquareElementEdgeBased.o \
-                Forward2DSquareElementNodeBased.o \
                 Forward2DTriangleElement.o \
                 Forward2DTriangleElement0thOrderEdgeBased.o \
-                Forward2DTriangleElement1stOrderNodeBased.o \
                 Forward2DTriangleElementEdgeBased.o \
-                Forward2DTriangleElementNodeBased.o \
                 Forward3D.o \
                 Forward3DBrickElement0thOrder.o \
                 Forward3DNonConformingHexaElement0thOrder.o \
+                Forward3DNonConformingHexaElement0thOrderAnisotropic.o \
+                Forward3DNonConformingHexaElement0thOrderIsotropic.o \
                 Forward3DTetraElement0thOrder.o \
+                Forward3DTetraElement0thOrderAnisotropic.o \
+                Forward3DTetraElement0thOrderIsotropic.o \
                 Inversion.o \
                 InversionGaussNewtonModelSpace.o \
-                InversionGaussNewtonDataSpace.o \
+                InversionGaussNewtonDataSpaceIsotropic.o \
+                InversionGaussNewtonDataSpaceAnisotropic.o \
                 main.o \
                 MeshData.o \
                 MeshDataBrickElement.o \
@@ -68,6 +68,8 @@ OBJS          = AnalysisControl.o \
                 PARDISOSolverComplex.o \
                 PARDISOSolverDouble.o \
                 ResistivityBlock.o \
+                ResistivityBlockIsotropic.o \
+                ResistivityBlockAnisotropic.o \
                 RougheningMatrix.o \
                 RougheningSquareMatrix.o \
                 Util.o

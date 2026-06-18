@@ -29,6 +29,7 @@
 #include <iomanip>
 
 #include "ObservedDataStationPT.h"
+#include "AnalysisControl.h"
 #include "OutputFiles.h"
 #include "CommonParameters.h"
 #include "ResistivityBlock.h"
@@ -367,20 +368,28 @@ void ObservedDataStationPT::calculatePhaseTensor( const double freq, const Obser
 	m_PTyxCalculated[freqIDThisPEInSta] = ( Zxx.real()*Zyx.imag() - Zyx.real()*Zxx.imag() )/ det;
 	m_PTyyCalculated[freqIDThisPEInSta] = ( Zxx.real()*Zyy.imag() - Zyx.real()*Zxy.imag() )/ det;
 
-	m_PTxxResidual[freqIDThisPEInSta] = ( m_PTxxObserved[freqIDGlobalInSta] - m_PTxxCalculated[freqIDThisPEInSta] ) / m_PTxxSD[freqIDGlobalInSta];
-	m_PTxyResidual[freqIDThisPEInSta] = ( m_PTxyObserved[freqIDGlobalInSta] - m_PTxyCalculated[freqIDThisPEInSta] ) / m_PTxySD[freqIDGlobalInSta];
-	m_PTyxResidual[freqIDThisPEInSta] = ( m_PTyxObserved[freqIDGlobalInSta] - m_PTyxCalculated[freqIDThisPEInSta] ) / m_PTyxSD[freqIDGlobalInSta];
-	m_PTyyResidual[freqIDThisPEInSta] = ( m_PTyyObserved[freqIDGlobalInSta] - m_PTyyCalculated[freqIDThisPEInSta] ) / m_PTyySD[freqIDGlobalInSta];
+	if (m_PTxxSD[freqIDGlobalInSta] > 0.0) {
+		m_PTxxResidual[freqIDThisPEInSta] = (m_PTxxObserved[freqIDGlobalInSta] - m_PTxxCalculated[freqIDThisPEInSta]) / m_PTxxSD[freqIDGlobalInSta];
+		m_dataIDOfPTxx[freqIDThisPEInSta] = icount++;
+	}
+	if (m_PTxySD[freqIDGlobalInSta] > 0.0) {
+		m_PTxyResidual[freqIDThisPEInSta] = (m_PTxyObserved[freqIDGlobalInSta] - m_PTxyCalculated[freqIDThisPEInSta]) / m_PTxySD[freqIDGlobalInSta];
+		m_dataIDOfPTxy[freqIDThisPEInSta] = icount++;
+	}
+	if (m_PTyxSD[freqIDGlobalInSta] > 0.0) {
+		m_PTyxResidual[freqIDThisPEInSta] = (m_PTyxObserved[freqIDGlobalInSta] - m_PTyxCalculated[freqIDThisPEInSta]) / m_PTyxSD[freqIDGlobalInSta];
+		m_dataIDOfPTyx[freqIDThisPEInSta] = icount++;
+	}
+	if (m_PTyySD[freqIDGlobalInSta] > 0.0) {
+		m_PTyyResidual[freqIDThisPEInSta] = (m_PTyyObserved[freqIDGlobalInSta] - m_PTyyCalculated[freqIDThisPEInSta]) / m_PTyySD[freqIDGlobalInSta];
+		m_dataIDOfPTyy[freqIDThisPEInSta] = icount++;
+	}
 
 #ifdef _DEBUG_WRITE
 	std::cout << "ifreq Pxx Pxy Pyx Pyy: " << freqIDThisPEInSta << " " << m_PTxxCalculated[freqIDThisPEInSta] << " " << m_PTxyCalculated[freqIDThisPEInSta]<< " " << m_PTyxCalculated[freqIDThisPEInSta] << " " << m_PTyyCalculated[freqIDThisPEInSta] << std::endl;
 	std::cout << "obs cal sd res: " << m_PTxxObserved[freqIDGlobalInSta] << " " << m_PTxxCalculated[freqIDThisPEInSta] << " " << m_PTxxSD[freqIDGlobalInSta] << " " << m_PTxxResidual[freqIDThisPEInSta] << std::endl;
 #endif
 
-	m_dataIDOfPTxx[freqIDThisPEInSta] = icount++;
-	m_dataIDOfPTxy[freqIDThisPEInSta] = icount++;
-	m_dataIDOfPTyx[freqIDThisPEInSta] = icount++;
-	m_dataIDOfPTyy[freqIDThisPEInSta] = icount++;
 }
 
 // Initialize electric field
@@ -612,7 +621,7 @@ void ObservedDataStationPT::calculateSensitivityMatrix( const double freq, const
 
 	const long long rhsVectorIDOfHx = static_cast<long long>(ptrStationOfMagneticField->getRhsVectorIDOfHx());
 	const long long rhsVectorIDOfHy = static_cast<long long>(ptrStationOfMagneticField->getRhsVectorIDOfHy());
-	const long long nBlkNotFixed = static_cast<long long>(( ResistivityBlock::getInstance() )->getNumResistivityBlockNotFixed());
+	const long long nBlkNotFixed = static_cast<long long>((AnalysisControl::getInstance()->getPointerOfResistivityBlock())->getNumberOfUnfixedResistivityParameters());
 
 	const double factor = 1.0 / ( Zxx.real()*Zyy.real() - Zxy.real()*Zyx.real() );
 
@@ -677,29 +686,37 @@ void ObservedDataStationPT::calculateSensitivityMatrix( const double freq, const
 
 		const double factor2 = factor * factor * ( dZxxdm.realPart * Zyy.real() + Zxx.real() * dZyydm.realPart - dZxydm.realPart * Zyx.real() - Zxy.real() * dZyxdm.realPart );
 
-		// dPTxx/dm
-		sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfPTxx[freqIDThisPEInSta]) + imdl ] =
-			  ( dZyydm.realPart * Zxx.imag() + Zyy.real() * dZxxdm.imagPart - dZxydm.realPart * Zyx.imag() - Zxy.real() * dZyxdm.imagPart ) * factor
-			- ( Zyy.real() * Zxx.imag() - Zxy.real() * Zyx.imag() ) * factor2; 
-		sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfPTxx[freqIDThisPEInSta]) + imdl ] /= m_PTxxSD[freqIDGlobalInSta];
+		if (m_PTxxSD[freqIDGlobalInSta] > 0.0) {
+			// dPTxx/dm
+			sensitivityMatrix[static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfPTxx[freqIDThisPEInSta]) + imdl] =
+				(dZyydm.realPart * Zxx.imag() + Zyy.real() * dZxxdm.imagPart - dZxydm.realPart * Zyx.imag() - Zxy.real() * dZyxdm.imagPart) * factor
+				- (Zyy.real() * Zxx.imag() - Zxy.real() * Zyx.imag()) * factor2;
+			sensitivityMatrix[static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfPTxx[freqIDThisPEInSta]) + imdl] /= m_PTxxSD[freqIDGlobalInSta];
+		}
 
-		// dPTxy/dm
-		sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfPTxy[freqIDThisPEInSta]) + imdl ] =
-			  ( dZyydm.realPart * Zxy.imag() + Zyy.real() * dZxydm.imagPart - dZxydm.realPart * Zyy.imag() - Zxy.real() * dZyydm.imagPart ) * factor
-			- ( Zyy.real() * Zxy.imag() - Zxy.real() * Zyy.imag() ) * factor2; 
-		sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfPTxy[freqIDThisPEInSta]) + imdl ] /= m_PTxySD[freqIDGlobalInSta];
+		if (m_PTxySD[freqIDGlobalInSta] > 0.0) {
+			// dPTxy/dm
+			sensitivityMatrix[static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfPTxy[freqIDThisPEInSta]) + imdl] =
+				(dZyydm.realPart * Zxy.imag() + Zyy.real() * dZxydm.imagPart - dZxydm.realPart * Zyy.imag() - Zxy.real() * dZyydm.imagPart) * factor
+				- (Zyy.real() * Zxy.imag() - Zxy.real() * Zyy.imag()) * factor2;
+			sensitivityMatrix[static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfPTxy[freqIDThisPEInSta]) + imdl] /= m_PTxySD[freqIDGlobalInSta];
+		}
 
-		// dPTyx/dm
-		sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfPTyx[freqIDThisPEInSta]) + imdl ] =
-			  ( dZxxdm.realPart * Zyx.imag() + Zxx.real() * dZyxdm.imagPart - dZyxdm.realPart * Zxx.imag() - Zyx.real() * dZxxdm.imagPart ) * factor
-			- ( Zxx.real() * Zyx.imag() - Zyx.real() * Zxx.imag() ) * factor2; 
-		sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfPTyx[freqIDThisPEInSta]) + imdl ] /= m_PTyxSD[freqIDGlobalInSta];
+		if (m_PTyxSD[freqIDGlobalInSta] > 0.0) {
+			// dPTyx/dm
+			sensitivityMatrix[static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfPTyx[freqIDThisPEInSta]) + imdl] =
+				(dZxxdm.realPart * Zyx.imag() + Zxx.real() * dZyxdm.imagPart - dZyxdm.realPart * Zxx.imag() - Zyx.real() * dZxxdm.imagPart) * factor
+				- (Zxx.real() * Zyx.imag() - Zyx.real() * Zxx.imag()) * factor2;
+			sensitivityMatrix[static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfPTyx[freqIDThisPEInSta]) + imdl] /= m_PTyxSD[freqIDGlobalInSta];
+		}
 
-		// dPTyy/dm
-		sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfPTyy[freqIDThisPEInSta]) + imdl ] =
-			  ( dZxxdm.realPart * Zyy.imag() + Zxx.real() * dZyydm.imagPart - dZyxdm.realPart * Zxy.imag() - Zyx.real() * dZxydm.imagPart ) * factor
-			- ( Zxx.real() * Zyy.imag() - Zyx.real() * Zxy.imag() ) * factor2; 
-		sensitivityMatrix[ static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfPTyy[freqIDThisPEInSta]) + imdl ] /= m_PTyySD[freqIDGlobalInSta];
+		if (m_PTyySD[freqIDGlobalInSta] > 0.0) {
+			// dPTyy/dm
+			sensitivityMatrix[static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfPTyy[freqIDThisPEInSta]) + imdl] =
+				(dZxxdm.realPart * Zyy.imag() + Zxx.real() * dZyydm.imagPart - dZyxdm.realPart * Zxy.imag() - Zyx.real() * dZxydm.imagPart) * factor
+				- (Zxx.real() * Zyy.imag() - Zyx.real() * Zxy.imag()) * factor2;
+			sensitivityMatrix[static_cast<long long>(nModel) * static_cast<long long>(m_dataIDOfPTyy[freqIDThisPEInSta]) + imdl] /= m_PTyySD[freqIDGlobalInSta];
+		}
 
 #ifdef _DEBUG_WRITE
 		std::cout << "senseMat: "
@@ -722,10 +739,18 @@ void ObservedDataStationPT::calculateResidualVectorOfDataThisPE( const double fr
 		return;
 	}
 
-	vector[ offset + m_dataIDOfPTxx[freqIDThisPEInSta] ] = m_PTxxResidual[freqIDThisPEInSta];
-	vector[ offset + m_dataIDOfPTxy[freqIDThisPEInSta] ] = m_PTxyResidual[freqIDThisPEInSta];
-	vector[ offset + m_dataIDOfPTyx[freqIDThisPEInSta] ] = m_PTyxResidual[freqIDThisPEInSta];
-	vector[ offset + m_dataIDOfPTyy[freqIDThisPEInSta] ] = m_PTyyResidual[freqIDThisPEInSta];
+	if (m_dataIDOfPTxx[freqIDThisPEInSta] >= 0) {
+		vector[offset + m_dataIDOfPTxx[freqIDThisPEInSta]] = m_PTxxResidual[freqIDThisPEInSta];
+	}
+	if (m_dataIDOfPTxy[freqIDThisPEInSta] >= 0) {
+		vector[offset + m_dataIDOfPTxy[freqIDThisPEInSta]] = m_PTxyResidual[freqIDThisPEInSta];
+	}
+	if (m_dataIDOfPTyx[freqIDThisPEInSta] >= 0) {
+		vector[offset + m_dataIDOfPTyx[freqIDThisPEInSta]] = m_PTyxResidual[freqIDThisPEInSta];
+	}
+	if (m_dataIDOfPTyy[freqIDThisPEInSta] >= 0) {
+		vector[offset + m_dataIDOfPTyy[freqIDThisPEInSta]] = m_PTyyResidual[freqIDThisPEInSta];
+	}
 }
 
 // Calulate error sum of squares
@@ -734,10 +759,18 @@ double ObservedDataStationPT::calculateErrorSumOfSquaresThisPE() const{
 	double misfit(0.0);
 
 	for( int ifreq = 0; ifreq < m_numOfFreqCalculatedByThisStaAndPE; ++ifreq ){
-		misfit += pow( m_PTxxResidual[ifreq], 2 );
-		misfit += pow( m_PTxyResidual[ifreq], 2 );
-		misfit += pow( m_PTyxResidual[ifreq], 2 );
-		misfit += pow( m_PTyyResidual[ifreq], 2 );
+		if (m_dataIDOfPTxx[ifreq] >= 0) {
+			misfit += pow(m_PTxxResidual[ifreq], 2);
+		}
+		if (m_dataIDOfPTxy[ifreq] >= 0) {
+			misfit += pow(m_PTxyResidual[ifreq], 2);
+		}
+		if (m_dataIDOfPTyx[ifreq] >= 0) {
+			misfit += pow(m_PTyxResidual[ifreq], 2);
+		}
+		if (m_dataIDOfPTyy[ifreq] >= 0) {
+			misfit += pow(m_PTyyResidual[ifreq], 2);
+		}
 	}
 
 	return misfit;

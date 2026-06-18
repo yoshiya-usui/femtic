@@ -24,7 +24,7 @@
 #ifndef DBLDEF_FORWARD_3D_BRICK_ELEMENT_0TH_ORDER
 #define DBLDEF_FORWARD_3D_BRICK_ELEMENT_0TH_ORDER
 
-#include "Forward2DSquareElement.h"
+#include "Forward2DSquareElement0thOrderEdgeBased.h"
 #include "Forward3D.h"
 #include "MeshDataBrickElement.h"
 #include <set>
@@ -89,6 +89,9 @@ public:
 	virtual std::complex<double> calcVoltageDifference( const int nElem, const int* const elememtsIncludingDipole, const int* const facesIncludingDipole, 
 		const CommonParameters::AreaCoords* const areaCoordValStartPoint, const CommonParameters::AreaCoords* const areaCoordValEndPoint ) const;
 
+	// Calculate electric current density vector
+	virtual CommonParameters::ComplexValuedVector calculateElectricCurrentDensityVector(const int iElem) const;
+
 	// Calculate interpolator vector of X component of electric field
 	virtual void calcInterpolatorVectorOfElectricFieldXDirection( const int iElem, const double xLocal, const double yLocal, const double zLocal, const int irhs, const std::complex<double>& factor = std::complex<double>(1.0,0.0) );
 
@@ -149,8 +152,11 @@ public:
 	//virtual void setNonZeroValues( ComplexSparseSquareSymmetricMatrix& matrix, const int blkID );
 	//----- DO NOT DELETE FOR FUTURE USE >>>>>
 
-	// Calculate vector x of the reciprocity algorithm of Rodi (1976)
-	virtual void calVectorXOfReciprocityAlgorithm( const std::complex<double>* const vecIn, const int blkID, std::complex<double>* const vecOut, std::vector<int>& nonZeroRows );
+	// Calculate vector x of the reciprocity algorithm of Rodi (1976) for isotropic conductivity
+	virtual void calVectorXOfReciprocityAlgorithmForIsotropicConductivity(const std::complex<double>* const vecIn, const int blkID, std::complex<double>* const vecOut, std::vector<int>& nonZeroRows);
+
+	// Calculate vector x of the reciprocity algorithm of Rodi (1976) for anisotropic conductivity
+	virtual void calVectorXOfReciprocityAlgorithmForAnisotropicConductivity(const std::complex<double>* const vecIn, const int blkID, const int paramID, std::complex<double>* const vecOut, std::vector<int>& nonZeroRows);
 
 	// Call function inputMeshData of the class MeshData
 	virtual void callInputMeshData();
@@ -189,8 +195,7 @@ private:
 	Forward3DBrickElement0thOrder& operator=(const Forward3DBrickElement0thOrder& rhs);
 
 	// Class of 2D forward calculation using square elements
-	//Forward2DSquareElement* m_Fwd2DSquareElement[4][2];
-	Forward2DSquareElement* m_Fwd2DSquareElement[4];
+	Forward2DSquareElement0thOrderEdgeBased* m_Fwd2DSquareElement[4];
 
 	// Get X component of shape function for 0th order edge-based elements
 	inline double getShapeFuncX( const double xLocal, const double yLocal, const double zLocal, const int num ) const;

@@ -101,10 +101,9 @@ void InversionGaussNewtonModelSpace::inversionCalculation(){
 
 	// Calculate residual vector of this PE
 	double* dataVectorThisPE = new double[numDataThisPE];
-	for( int i = 0; i < numDataThisPE; ++i ){
-		dataVectorThisPE[i] = 0.0; //Initialize
+	for (int i = 0; i < numDataThisPE; ++i) {
+		dataVectorThisPE[i] = ptrObservedData->getValueOfResidualVectorComponentPre(i);
 	}
-	ptrObservedData->calculateResidualVectorOfDataThisPE( dataVectorThisPE );
 
 #ifdef _DEBUG_WRITE
 	std::cout << "Residual vector of data of this PE" << std::endl;
@@ -132,8 +131,8 @@ void InversionGaussNewtonModelSpace::inversionCalculation(){
 	delete [] displacements;
 	delete [] dataVectorThisPE;
 
-	ResistivityBlock* const ptrResistivityBlock = ResistivityBlock::getInstance();
-	const int nBlkNotFixed = ptrResistivityBlock->getNumResistivityBlockNotFixed();
+	ResistivityBlockIsotropic* const ptrResistivityBlock = (AnalysisControl::getInstance())->getPointerOfResistivityBlockIsotropic();
+	const int nBlkNotFixed = ptrResistivityBlock->getNumberOfUnfixedResistivityParameters();
 	const int numModel = getNumberOfModel();
 
 	double* rhsVector = new double[ numModel ];
@@ -335,8 +334,7 @@ void InversionGaussNewtonModelSpace::inversionCalculation(){
 		//----------------------------------------------------------------------------------------
 		// Calculate matrix vector product of constraining matrix and vector of model roughness 
 		//----------------------------------------------------------------------------------------
-
-		ptrResistivityBlock->copyResistivityValuesNotFixedToVectorLog10( rhsVector );
+		ptrResistivityBlock->copyUnfixedResistivityParametersPreToVector(rhsVector);
 		ptrObservedData->copyDistortionParamsNotFixedToVector( &rhsVector[nBlkNotFixed] );
 
 #ifdef _DEBUG_WRITE
@@ -346,7 +344,7 @@ void InversionGaussNewtonModelSpace::inversionCalculation(){
 		std::cout << "---" << std::endl;
 #endif
 		double* workVector = new double[numModel];
-		constrainingMatrix.calcVectorOfModelRoughness( rhsVector, workVector );
+		constrainingMatrix.calcResidualVector(rhsVector, workVector);
 #ifdef _DEBUG_WRITE
 		for( int i = 0; i < numModel; ++i ){
 			std::cout << workVector[i] << std::endl;
@@ -477,7 +475,7 @@ void InversionGaussNewtonModelSpace::inversionCalculation(){
 	//=================================================================
 	// Update resistivity values
 	//=================================================================
-	ptrResistivityBlock->calctResistivityUpdatedFullFromLog10ResistivityIncres( rhsVector );
+	ptrResistivityBlock->calcResistivityUpdatedFullFromLog10ResistivityIncres( rhsVector );
 	ptrResistivityBlock->updateResistivityValues();
 
 	//=================================================================

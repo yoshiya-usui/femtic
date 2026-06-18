@@ -27,6 +27,7 @@
 #include "CommonParameters.h"
 #include "MeshDataBrickElement.h"
 #include "ResistivityBlock.h"
+
 #include <assert.h>
 #include <algorithm>
 
@@ -38,6 +39,7 @@ Forward3D::Forward3D():
 	m_numOfEquation(0),
 	m_numOfEquationDegenerated(0),
 	m_IDsLocal2Global(NULL),
+	m_sizeOfIDsLocal2Global(0),
 	m_hasSetIDsLocal2Global(false),
 	m_hasMatrixStructureSetAndAnalyzed(false),
 	m_matrix3DAnalysis(),
@@ -57,13 +59,11 @@ Forward3D::Forward3D():
 //Destructer
 Forward3D::~Forward3D(){
 
-	if( m_IDsLocal2Global != NULL ){
-		const int num = sizeof( m_IDsLocal2Global ) / sizeof( m_IDsLocal2Global[0] );
-		for( int i = 0; i < num; ++i ){
-			delete [] m_IDsLocal2Global[i];
-			m_IDsLocal2Global[i] = NULL;
+	if (m_IDsLocal2Global != NULL) {
+		for (int i = 0; i < m_sizeOfIDsLocal2Global; ++i) {
+			delete[] m_IDsLocal2Global[i];
 		}
-		delete [] m_IDsLocal2Global;
+		delete[] m_IDsLocal2Global;
 		m_IDsLocal2Global = NULL;
 	}
 
@@ -214,9 +214,11 @@ void Forward3D::solvePhaseForRhsConsistingInterpolatorVectors( const int numInte
 
 }
 
-// Calculate  derivative of EM field
-void Forward3D::calculateDerivativesOfEMField( const int numInterpolatorVectors,
-	const std::complex<double>* const solutionForInterpolatorVectors, std::complex<double>* const derivatives ){
+// Calculate  derivative of EM field for isotropic conductivity
+void Forward3D::calculateDerivativesOfEMFieldForIsotropicConductivity(const int numInterpolatorVectors,
+	const std::complex<double>* const solutionForInterpolatorVectors, std::complex<double>* const derivatives) {
+
+	assert(!(AnalysisControl::getInstance())->isAnisotropyConsidered());
 
 	const int numOfEquationFinallySolved = getNumOfEquationFinallySolved();
 
@@ -235,8 +237,8 @@ void Forward3D::calculateDerivativesOfEMField( const int numInterpolatorVectors,
 #endif
 	//----- debug <<<<<
 
-	const ResistivityBlock* const ptrResistivityBlock = ResistivityBlock::getInstance();
-	const int nBlkNotFixed = ptrResistivityBlock->getNumResistivityBlockNotFixed();
+	const ResistivityBlockIsotropic* const ptrResistivityBlock = (AnalysisControl::getInstance())->getPointerOfResistivityBlockIsotropic();
+	const int nBlkNotFixed = ptrResistivityBlock->getNumberOfUnfixedResistivityParameters();
 	const int nBlkTotal = ptrResistivityBlock->getNumResistivityBlockTotal();
 
 	int numThreads = 1;
@@ -276,9 +278,7 @@ void Forward3D::calculateDerivativesOfEMField( const int numInterpolatorVectors,
 	{ 
 
 #ifdef _USE_OMP
-	//--------------------- Start of omp for >>>>>
 	iThread = omp_get_thread_num();
-
 	#pragma omp single
 	{
 		if( numThreads != omp_get_num_threads() ){
@@ -286,7 +286,7 @@ void Forward3D::calculateDerivativesOfEMField( const int numInterpolatorVectors,
 			exit(1);
 		}
 	}
-
+	//--------------------- Start of omp for >>>>>
 	#pragma omp for
 #endif
 	for( iblk = 0; iblk < nBlkTotal; ++iblk ){
@@ -304,16 +304,7 @@ void Forward3D::calculateDerivativesOfEMField( const int numInterpolatorVectors,
 		}
 		//----------------------
 
-		calVectorXOfReciprocityAlgorithm( solutionAfterDegenerated, iblk, nonZeroValues[iThread], nonZeroComps[iThread] );
-
-//#ifdef _DEBUG_WRITE
-//		for( i = 0; i < numOfEquationFinallySolved; ++i ){
-//			std::cout << "iThread iblk i nonZeroValues " << iThread << " " << iblk << " " << i << " " << nonZeroValues[iThread][i] << std::endl;
-//		}
-//		for( itr = nonZeroComps[iThread].begin(); itr != nonZeroComps[iThread].end(); ++itr ){// Inner product
-//			std::cout << "iThread iblk nonZeroComps " << iThread << " " << iblk << " " << *itr << std::endl;
-//		}
-//#endif
+		calVectorXOfReciprocityAlgorithmForIsotropicConductivity(solutionAfterDegenerated, iblk, nonZeroValues[iThread], nonZeroComps[iThread]);
 
 		imdl = ptrResistivityBlock->getModelIDFromBlockID(iblk);
 		for( ivec = 0; ivec < numInterpolatorVectors; ++ivec ){
@@ -354,40 +345,158 @@ void Forward3D::calculateDerivativesOfEMField( const int numInterpolatorVectors,
 
 }
 
-//// Allocate memory for derivatives of interpolator vectors
-//void Forward3D::allcateMemoryForDerivativeOfInterpolatorVectors( const int numInterpolatorVectors ){
-//
-//	if( m_derivativeOfInterpolatorVectors != NULL ){
-//		delete [] m_derivativeOfInterpolatorVectors;
-//		m_derivativeOfInterpolatorVectors = NULL;
-//	}
-//
-//	m_derivativeOfInterpolatorVectors = new ComplexSparseSquareMatrix( numInterpolatorVectors * m_numOfEquationDegenerated );
-//
-//}
+// Calculate derivative of EM field for anisotropic conductivity
+void Forward3D::calculateDerivativesOfEMFieldForAnisotropicConductivity(const int numInterpolatorVectors,
+	const std::complex<double>* const solutionForInterpolatorVectors, std::complex<double>* const derivatives){
 
-//// Release memory of right-hand sides matrix consisting of interpolator vectors
-//void Forward3D::releaseMemoryOfRhsVectors(){
-//
-//	//m_numColumnsRhsMatrixConsistingOfInterpolatorVectors = 0;
-//	//m_counterOfColumnsNumberRhsMatrixConsistingOfInterpolatorVectors = 0;
-//
-//	if( m_rhsMatrixConsistingOfInterpolatorVectors != NULL ){
-//		delete [] m_rhsMatrixConsistingOfInterpolatorVectors;
-//		m_rhsMatrixConsistingOfInterpolatorVectors = NULL;
-//	}
-//
-//}
+	assert((AnalysisControl::getInstance())->isAnisotropyConsidered());
 
-//// Check number of columns of right-hand sides matrix consisting of interpolator vectors
-//void Forward3D::checkNumberOfColumnsRhsMatrixConsistingOfInterpolatorVectors(){
-//
-//	if( m_counterOfColumnsNumberRhsMatrixConsistingOfInterpolatorVectors != m_numColumnsRhsMatrixConsistingOfInterpolatorVectors ){
-//		OutputFiles::m_logFile << "Error : Number of counter does not match the number of columns !! m_counterOfColumnsNumberRhsMatrixConsistingOfInterpolatorVectors = " << m_counterOfColumnsNumberRhsMatrixConsistingOfInterpolatorVectors << " , m_numColumnsRhsMatrixConsistingOfInterpolatorVectors = " << m_numColumnsRhsMatrixConsistingOfInterpolatorVectors << m_numOfEquationDegenerated << std::endl;
-//		exit(1);
-//	}
-//
-//}
+	const int numOfEquationFinallySolved = getNumOfEquationFinallySolved();
+	const int iPol = getPolarizationCurrent();
+	std::complex<double>* solutionAfterDegenerated = new std::complex<double>[numOfEquationFinallySolved];
+	copySolutionVectorDegenerated(iPol, solutionAfterDegenerated);
+
+	const ResistivityBlockAnisotropic* const ptrResistivityBlock = (AnalysisControl::getInstance())->getPointerOfResistivityBlockAnisotropic();
+	const int nBlkTotal = ptrResistivityBlock->getNumResistivityBlockTotal();
+
+	int numThreads = 1;
+#ifdef _USE_OMP
+#pragma omp parallel
+	{
+		numThreads = omp_get_num_threads();
+	}
+#endif
+
+	//--------------------------------------
+	// Allocate variables for each thread
+	//--------------------------------------
+	std::complex<double>** nonZeroValues = new std::complex<double>*[numThreads];
+	for (int i = 0; i < numThreads; ++i) {
+		nonZeroValues[i] = new std::complex<double>[numOfEquationFinallySolved];
+	}
+	std::vector<int>* nonZeroComps = new std::vector<int>[numThreads];
+	//--------------------
+	// Private variables
+	//--------------------
+	int iThread = 0;
+	int iblk = 0;
+#ifdef _USE_OMP
+	//--------------------- Start of omp parallel >>>>>
+#pragma omp parallel private( iThread, iblk )
+#endif
+	{
+
+#ifdef _USE_OMP
+		iThread = omp_get_thread_num();
+#pragma omp single
+		{
+			if (numThreads != omp_get_num_threads()) {
+				OutputFiles::m_logFile << "Error : Number of threads is different from the one obtained previously." << std::endl;
+				exit(1);
+			}
+		}
+		//--------------------- Start of omp for >>>>>
+#pragma omp for
+#endif
+		for (iblk = 0; iblk < nBlkTotal; ++iblk) {
+			switch (ptrResistivityBlock->getTypeOfAnisotropy(iblk)) {
+			case ResistivityBlockAnisotropic::ISOTROPY:
+				if (!ptrResistivityBlock->isFixedAnisotropicResistivityParameters(iblk, ResistivityBlockAnisotropic::RHO_XX)) {
+					calculateDerivativesOfEMFieldForAnisotropicConductivityAux(numInterpolatorVectors, numOfEquationFinallySolved, iblk, ResistivityBlockAnisotropic::RHO_XX,
+						ResistivityBlockAnisotropic::ISOTROPY, solutionAfterDegenerated, solutionForInterpolatorVectors, nonZeroComps[iThread], nonZeroValues[iThread], derivatives);
+				}
+				break;
+			case ResistivityBlockAnisotropic::TRANSVERSE_ISOTROPY:
+				if (!ptrResistivityBlock->isFixedAnisotropicResistivityParameters(iblk, ResistivityBlockAnisotropic::RHO_XX)) {
+					calculateDerivativesOfEMFieldForAnisotropicConductivityAux(numInterpolatorVectors, numOfEquationFinallySolved, iblk, ResistivityBlockAnisotropic::RHO_XX,
+						ResistivityBlockAnisotropic::TRANSVERSE_ISOTROPY, solutionAfterDegenerated, solutionForInterpolatorVectors, nonZeroComps[iThread], nonZeroValues[iThread], derivatives);
+				}
+				if (!ptrResistivityBlock->isFixedAnisotropicResistivityParameters(iblk, ResistivityBlockAnisotropic::RHO_YY)) {
+					calculateDerivativesOfEMFieldForAnisotropicConductivityAux(numInterpolatorVectors, numOfEquationFinallySolved, iblk, ResistivityBlockAnisotropic::RHO_YY,
+						ResistivityBlockAnisotropic::TRANSVERSE_ISOTROPY, solutionAfterDegenerated, solutionForInterpolatorVectors, nonZeroComps[iThread], nonZeroValues[iThread], derivatives);
+				}
+				if (!ptrResistivityBlock->isFixedAnisotropicResistivityParameters(iblk, ResistivityBlockAnisotropic::STRIKE)) {
+					calculateDerivativesOfEMFieldForAnisotropicConductivityAux(numInterpolatorVectors, numOfEquationFinallySolved, iblk, ResistivityBlockAnisotropic::STRIKE,
+						ResistivityBlockAnisotropic::TRANSVERSE_ISOTROPY, solutionAfterDegenerated, solutionForInterpolatorVectors, nonZeroComps[iThread], nonZeroValues[iThread], derivatives);
+				}
+				if (!ptrResistivityBlock->isFixedAnisotropicResistivityParameters(iblk, ResistivityBlockAnisotropic::DIP)) {
+					calculateDerivativesOfEMFieldForAnisotropicConductivityAux(numInterpolatorVectors, numOfEquationFinallySolved, iblk, ResistivityBlockAnisotropic::DIP,
+						ResistivityBlockAnisotropic::TRANSVERSE_ISOTROPY, solutionAfterDegenerated, solutionForInterpolatorVectors, nonZeroComps[iThread], nonZeroValues[iThread], derivatives);
+				}
+				break;
+			case ResistivityBlockAnisotropic::GENERAL_ANISOTROPY:
+				if (!ptrResistivityBlock->isFixedAnisotropicResistivityParameters(iblk, ResistivityBlockAnisotropic::RHO_XX)) {
+					calculateDerivativesOfEMFieldForAnisotropicConductivityAux(numInterpolatorVectors, numOfEquationFinallySolved, iblk, ResistivityBlockAnisotropic::RHO_XX,
+						ResistivityBlockAnisotropic::GENERAL_ANISOTROPY, solutionAfterDegenerated, solutionForInterpolatorVectors, nonZeroComps[iThread], nonZeroValues[iThread], derivatives);
+				}
+				if (!ptrResistivityBlock->isFixedAnisotropicResistivityParameters(iblk, ResistivityBlockAnisotropic::RHO_YY)) {
+					calculateDerivativesOfEMFieldForAnisotropicConductivityAux(numInterpolatorVectors, numOfEquationFinallySolved, iblk, ResistivityBlockAnisotropic::RHO_YY,
+						ResistivityBlockAnisotropic::GENERAL_ANISOTROPY, solutionAfterDegenerated, solutionForInterpolatorVectors, nonZeroComps[iThread], nonZeroValues[iThread], derivatives);
+				}
+				if (!ptrResistivityBlock->isFixedAnisotropicResistivityParameters(iblk, ResistivityBlockAnisotropic::RHO_ZZ)) {
+					calculateDerivativesOfEMFieldForAnisotropicConductivityAux(numInterpolatorVectors, numOfEquationFinallySolved, iblk, ResistivityBlockAnisotropic::RHO_ZZ,
+						ResistivityBlockAnisotropic::GENERAL_ANISOTROPY, solutionAfterDegenerated, solutionForInterpolatorVectors, nonZeroComps[iThread], nonZeroValues[iThread], derivatives);
+				}
+				if (!ptrResistivityBlock->isFixedAnisotropicResistivityParameters(iblk, ResistivityBlockAnisotropic::STRIKE)) {
+					calculateDerivativesOfEMFieldForAnisotropicConductivityAux(numInterpolatorVectors, numOfEquationFinallySolved, iblk, ResistivityBlockAnisotropic::STRIKE,
+						ResistivityBlockAnisotropic::GENERAL_ANISOTROPY, solutionAfterDegenerated, solutionForInterpolatorVectors, nonZeroComps[iThread], nonZeroValues[iThread], derivatives);
+				}
+				if (!ptrResistivityBlock->isFixedAnisotropicResistivityParameters(iblk, ResistivityBlockAnisotropic::DIP)) {
+					calculateDerivativesOfEMFieldForAnisotropicConductivityAux(numInterpolatorVectors, numOfEquationFinallySolved, iblk, ResistivityBlockAnisotropic::DIP,
+						ResistivityBlockAnisotropic::GENERAL_ANISOTROPY, solutionAfterDegenerated, solutionForInterpolatorVectors, nonZeroComps[iThread], nonZeroValues[iThread], derivatives);
+				}
+				if (!ptrResistivityBlock->isFixedAnisotropicResistivityParameters(iblk, ResistivityBlockAnisotropic::SLANT)) {
+					calculateDerivativesOfEMFieldForAnisotropicConductivityAux(numInterpolatorVectors, numOfEquationFinallySolved, iblk, ResistivityBlockAnisotropic::SLANT,
+						ResistivityBlockAnisotropic::GENERAL_ANISOTROPY, solutionAfterDegenerated, solutionForInterpolatorVectors, nonZeroComps[iThread], nonZeroValues[iThread], derivatives);
+				}
+				break;
+			default:
+				OutputFiles::m_logFile << "Error : Unsupported type of anisotropy." << std::endl;
+				exit(1);
+				break;
+			}
+		}
+		//--------------------- End of omp for >>>>>
+	}
+	//--------------------- End of omp parallel >>>>>
+	delete[] solutionAfterDegenerated;
+	for (int iThread = 0; iThread < numThreads; ++iThread) {
+		delete[] nonZeroValues[iThread];
+	}
+	delete[] nonZeroValues;
+	delete[] nonZeroComps;
+
+}
+
+// Auxiliary function for calculating derivative of EM field for anisotropic conductivity
+void Forward3D::calculateDerivativesOfEMFieldForAnisotropicConductivityAux(const int numInterpolatorVectors, const int numOfEquationFinallySolved, const int iBlk, const int iParam, 
+	const int typeOfAnisotrooy, const std::complex<double>* const solutionAfterDegenerated, const std::complex<double>* const solutionForInterpolatorVectors,
+	std::vector<int>& nonZeroComps, std::complex<double>* nonZeroValues, std::complex<double>* const derivatives) {
+
+	assert(numOfEquationFinallySolved > 0);
+
+	// Zero clear
+	nonZeroComps.clear();
+	for (int i = 0; i < numOfEquationFinallySolved; ++i) {
+		nonZeroValues[i] = std::complex<double>(0.0, 0.0);
+	}
+
+	calVectorXOfReciprocityAlgorithmForAnisotropicConductivity(solutionAfterDegenerated, iBlk, iParam, nonZeroValues, nonZeroComps);
+
+	const ResistivityBlockAnisotropic* const ptrResistivityBlock = (AnalysisControl::getInstance())->getPointerOfResistivityBlockAnisotropic();
+	const int numAnisotropicConductivityParametersNotFixed = ptrResistivityBlock->getNumberOfUnfixedResistivityParameters();
+	const int imdl = ptrResistivityBlock->getModelIDFromBlockIDAndAnisotropicParameter(iBlk, iParam);
+	for (int ivec = 0; ivec < numInterpolatorVectors; ++ivec) {
+		std::complex<double> work(0.0, 0.0);
+		for (std::vector<int>::iterator itr = nonZeroComps.begin(); itr != nonZeroComps.end(); ++itr) {// Inner product
+			const long long index = static_cast<long long>(ivec) * static_cast<long long>(numOfEquationFinallySolved) + static_cast<long long>(*itr);
+			work += solutionForInterpolatorVectors[index] * nonZeroValues[*itr];
+		}
+		const long long index = static_cast<long long>(imdl) + static_cast<long long>(ivec) * static_cast<long long>(numAnisotropicConductivityParametersNotFixed);
+		derivatives[index] = work;
+	}
+
+}
 
 // Copy solution vector degenerated
 void Forward3D::copySolutionVectorDegenerated( const int iPol, std::complex<double>* solutionVector ) const{

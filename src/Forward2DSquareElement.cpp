@@ -91,7 +91,7 @@ double Forward2DSquareElement::calcHeight( const int iElem, const MeshDataBrickE
 int Forward2DSquareElement::calcNumElemHorizontal( const MeshDataBrickElement* const pMeshDataBrickElement ) const{
 
 	//const MeshDataBrickElement* const pMeshDataBrickElement = MeshDataBrickElement::getInstance();
-	int numElemW = NULL;
+	int numElemW = -1;
 	switch( m_planeID ){
 		case MeshData::YZMinus:
 			// Go through
@@ -470,10 +470,10 @@ void Forward2DSquareElement::output2DResult( const int type, const double freq, 
 			}
 		}
 
-		if( nCalcPointH != NULL ){
+		if (CalcPointH != NULL) {
 			delete[] CalcPointH;
 		}
-		if( nCalcPointW != NULL ){
+		if (CalcPointW != NULL) {
 			delete[] CalcPointW;
 		}
 	}

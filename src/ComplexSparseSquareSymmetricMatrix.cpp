@@ -110,8 +110,8 @@ void ComplexSparseSquareSymmetricMatrix::postmultiplyByVectorAndSubtractResult( 
 	//}
 
 	int i(0);
-	int irow(0);
-	int j(0);
+	long long irow(0);
+	long long j(0);
 	//for( i = 0; i < m_numRows; ++i ){// Upper triangle part with diagonal components
 	for( i = 0; i < numCompsCopied; ++i ){// Upper triangle part with diagonal components
 		irow = compsCopied2Full[i];
@@ -126,7 +126,7 @@ void ComplexSparseSquareSymmetricMatrix::postmultiplyByVectorAndSubtractResult( 
 		irow = compsCopied2Full[i];
 		//const std::complex<double> val = vecIn[ convertArray[ i ] ];
 		const std::complex<double> val = vecIn[ irow ];
-		for( int j = m_rowIndex[irow] + 1; j < m_rowIndex[irow+1]; ++j ){	// Without diagonal components
+		for(long long j = m_rowIndex[irow] + 1; j < m_rowIndex[irow+1]; ++j ){	// Without diagonal components
 			vecOut[ full2CompsCopied[ m_columns[j] ] ] -= m_values[j] * val;
 		}
 	}
