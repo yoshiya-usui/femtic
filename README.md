@@ -15,6 +15,8 @@ FEMTIC is a 3-D magnetotelluric inversion code based on the following studies. F
 
 *Y. Usui, M. Uyeshima. Three-dimensional combined inversion method of the MT and Network-MT response functions. Earth Planets Space 77, 135. https://doi.org/10.1186/s40623-025-02266-x, 2025.*
 
+*Y. Usui, M. Uyeshima, S. Sakanaka, and Y. Yamaya. Three-dimensional magnetotelluric inversion code for transverse isotropic electrical resistivity structure. Computers and Geosciences. Submitted, 2026.*
+
 **The website of FEMTIC:**
 https://sites.google.com/view/yoshiyausui/femtic
 
@@ -29,12 +31,12 @@ FEMTIC gives a three-dimensional electrical resistivity structure from the respo
 
 **Parallel computation**: Multiple processes parallel computation with MPI / Multiple threads parallel computation with OpenMP / MPI & OpenMP hybrid parallel computation
 
-**Model parameter**: Subsurface electrical resistivity / Distortion matrix of galvanic distortion
-
-**Regularization**: L2 regularization with Laplacian filter / L2 regularization with difference filter /  L1 regularization with difference filter
+**Model parameter**: Subsurface electrical resistivity, including anisotropic resistivity / Distortion matrix of galvanic distortion
 
 
 ## Release note
+***v5.0*** Jun. 19, 2026: Added anisotropic resistivity inversion mode.
+
 ***v4.3*** Feb. 6, 2025: The directory for the out-of-core files of the sensitivity matrix becomes changeable.
 
 ***v4.2*** Mar. 25, 2024: I modified some parts to allow the use of large-scale models and large datasets.
