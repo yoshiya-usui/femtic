@@ -23,7 +23,7 @@ https://sites.google.com/view/yoshiyausui/femtic
 ## Functional overview
 FEMTIC gives a three-dimensional electrical resistivity structure from the response functions at observation points on the Earth's surface.
 
-**Mesh type**: Tetrahedral mesh / Hexahedral brick mesh / Non-conforming deformed hexahedral mesh
+**Mesh type**: Tetrahedral mesh / Non-conforming deformed hexahedral mesh / Hexahedral brick mesh
 
 **Data type**: Impedance tensor / Vertical magnetic transfer function / Inter-station horizontal magnetic transfer function / Phase tensor / Apparent resistivity & Phase / Network-MT response function / Impedance tensor obtained from the Network-MT response functions / Apparent resistivity & Phase obtained from the Network-MT response functions.
 
