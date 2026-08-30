@@ -27,7 +27,7 @@ FEMTIC gives a three-dimensional electrical resistivity structure from the respo
 
 **Model parameter**: Subsurface electrical resistivity, including anisotropic resistivity / Galvanic distortion parameters
 
-**Data type**: Impedance tensor / Vertical magnetic transfer function / Inter-station horizontal magnetic transfer function / Phase tensor / Apparent resistivity & Phase / Network-MT response function / Impedance tensor obtained from the Network-MT response functions / Apparent resistivity & Phase obtained from the Network-MT response functions.
+**Data type**: Impedance tensor / Vertical magnetic transfer function / Inter-station horizontal magnetic transfer function / Phase tensor / Apparent resistivity & Phase / Network-MT response function / Impedance tensor obtained from the Network-MT response functions / Apparent resistivity & Phase obtained from the Network-MT response functions
 
 **Inversion algorithm**: Model-space Gauss-Newton method / Data-space Gauss-Newton method
 
