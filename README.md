@@ -15,7 +15,7 @@ FEMTIC is a 3-D magnetotelluric inversion code based on the following studies. F
 
 *Y. Usui, M. Uyeshima. Three-dimensional combined inversion method of the MT and Network-MT response functions. Earth Planets Space 77, 135. https://doi.org/10.1186/s40623-025-02266-x, 2025.*
 
-*Y. Usui, M. Uyeshima, S. Sakanaka, and Y. Yamaya. Three-dimensional magnetotelluric inversion code for transverse isotropic electrical resistivity structure. Computers and Geosciences. Submitted, 2026.*
+*Y. Usui, M. Uyeshima, S. Sakanaka, Y. Yamaya, Three-dimensional magnetotelluric inversion code for transverse isotropic electrical resistivity structure. http://dx.doi.org/10.2139/ssrn.7218262.*
 
 **The website of FEMTIC:**
 https://sites.google.com/view/yoshiyausui/femtic
