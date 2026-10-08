@@ -20,6 +20,10 @@ FEMTIC is a 3-D magnetotelluric inversion code based on the following studies. F
 **The website of FEMTIC:**
 https://sites.google.com/view/yoshiyausui/femtic
 
+**EMinar talk about FEMTIC:**
+FEMTIC - A user's guide
+https://youtu.be/KqfP3av5MtM
+
 ## Functional overview
 FEMTIC gives a three-dimensional electrical resistivity structure from the response functions at observation points on the Earth's surface.
 
